@@ -10,9 +10,9 @@ import java.util.ArrayList;
 import java.util.Random;
 import java.util.Scanner;
 
-public class demo {
+public class demo01 {
     static void main(String[] args) {
-        TreeMazeGenerator generator = new TreeMazeGenerator(3, 3, EnvType.LAVA_WATERFALL);
+        TreeMazeGenerator generator = new TreeMazeGenerator(11, 13, EnvType.LAVA_WATERFALL);
         generator.generate();
         Room[][] map = generator.getGrid();
         generator.DebugMap(); // 打印地图（可选）

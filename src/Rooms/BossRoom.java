@@ -21,8 +21,11 @@ public class BossRoom extends Room {
             monsters.add(d);
             Tools.Fight(p,monsters,this.EnvType);
             this.cleaned = true;
+            System.out.println("感谢游玩!");
+            System.out.println("现在执行退出方法!");
+            System.exit(114514);
         }else {
-            System.out.println("你回到了起始房间");
+            System.out.println("你回到了boss房间");
         }
     }
 

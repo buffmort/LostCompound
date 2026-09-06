@@ -41,6 +41,10 @@ public class TwistedPairP2 extends Monster {
 
     @Override
     public void onMonsterTrun(Player p) {
+        if(this.DOTdur> 0 ){
+            this.DOTdur -= 1;
+            this.hp -= DOTdmg;
+        }
         System.out.println("====="+this.name+"回合=====");
         state.checkAndResetIfBothTrue();
         state.p2AttackedThisTurn = true;  // 标记p2已行动

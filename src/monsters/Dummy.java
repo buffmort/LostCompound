@@ -6,7 +6,7 @@ import tools.Player;
 public class Dummy extends Monster{
     public Dummy(){
         this.name = "测试假人";
-        this.hp = 10;
+        this.hp = 1000;
         this.block = 0;
     }
     @Override

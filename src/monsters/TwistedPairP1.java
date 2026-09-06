@@ -42,6 +42,10 @@ public class TwistedPairP1 extends Monster {
     @Override
     public void onMonsterTrun(Player p) {
         System.out.println("====="+this.name+"回合=====");
+        if(this.DOTdur> 0 ){
+            this.DOTdur -= 1;
+            this.hp -= DOTdmg;
+        }
         state.checkAndResetIfBothTrue();  // 新回合检测
 
 

@@ -23,13 +23,13 @@ public class demo02 {
         ArrayList<Monster> monsters = new ArrayList<>();
         monsters.add(p1);
         monsters.add(p2);
-        player.addItem(new Wood(10));
-        player.addItem(new Charcoal(10));
-        player.addItem(new WhitePhosphorus(10));
-        player.addItem(new Sulphur(10));
-        player.addItem(new Sand(10));
+        player.addItem(new Wood(5));
+        player.addItem(new Charcoal(5));
+        player.addItem(new WhitePhosphorus(5));
+        player.addItem(new Sulphur(5));
+        player.addItem(new Sand(5));
         player.addRecipe0();
-        Tools.Fight(player,monsters, EnvType.NONE);
+        Tools.Fight(player,monsters, EnvType.LAVA_WATERFALL);
     }
 
 }

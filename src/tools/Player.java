@@ -494,6 +494,7 @@ public void enterMap(Room[][] map, int startRow, int startCol) {
         while (this.isAlive()) {
             // 清屏（可选）
             System.out.print("\033[H\033[2J");
+            System.out.println(tmg.printMapToString());
             System.out.println("\n当前位置: (" + playerRow + ", " + playerCol + ")");
             System.out.println("当前房间:" + map[playerRow][playerCol].getRoomType());
             checkDirections();
@@ -511,7 +512,6 @@ public void enterMap(Room[][] map, int startRow, int startCol) {
                 break;
             }
             System.out.print("\033[H\033[2J");
-            System.out.println(tmg.printMapToString());
             move(direction);
             System.out.println("\n当前位置: (" + playerRow + ", " + playerCol + ")");
             System.out.println("当前房间:" + map[playerRow][playerCol].getRoomType());
