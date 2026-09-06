@@ -30,7 +30,7 @@ LostCompound 是一个基于 Java 控制台的 Rogue-like 游戏。
 2. 用 IntelliJ IDEA 打开项目
 3. 等待 Gradle 或依赖加载完成
 4. 运行主类 demo
-5. 若要体验boss 运行demo02
+5. 若要体验boss及合成系统 可以运行demo02
 
 ## 项目完成度
 
