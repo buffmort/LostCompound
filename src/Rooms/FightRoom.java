@@ -20,7 +20,7 @@ public class FightRoom extends Room {
     public void onEnter(Player p) {
         if (!cleaned) {
             System.out.println("敌人出现了!");
-            Tools.Fight(p, MobSpawner.spawn(envType));
+            Tools.Fight(p, MobSpawner.spawn(envType),this.envType);
             this.cleaned = true;
         } else {
             System.out.println("这是一个战斗过后的遗迹");

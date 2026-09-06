@@ -25,8 +25,7 @@ public class WhitePhosphorus extends Item implements Useable,Changeable {
 
     @Override
     public void use(Player p, ArrayList<Monster> m) {
-        double dotDmg = 30;
-        double AOEdmg = 10;
+        double dotDmg = 20;
         int DUR = 3;
         System.out.println("====你使用了白磷!====");
         Calculator.delay(250);

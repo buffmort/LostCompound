@@ -1,5 +1,6 @@
 package items;
 
+import MapEnvironment.EnvType;
 import monsters.Monster;
 import tools.Calculator;
 import tools.Player;
@@ -39,7 +40,6 @@ public class FushionSluphur extends Item implements Changeable , Useable, TurnCo
 
     @Override
     public void use(Player p, ArrayList<Monster> m) {
-    double AOEdmg = 20;
         System.out.println("====你使用了热硫!====");
         Calculator.delay(250);
         int choice = p.selectTarget(m);
@@ -51,7 +51,7 @@ public class FushionSluphur extends Item implements Changeable , Useable, TurnCo
         target.addSkipTurn(1);
         System.out.println("你给"+target+"造成了眩晕 他跳过了一回合!");
         for(Monster monster : m){
-            monster.takeDmg(20);
+            monster.takeDmg(10);
         }
         count -=1;
         }
@@ -63,12 +63,12 @@ public class FushionSluphur extends Item implements Changeable , Useable, TurnCo
     }
 
     @Override
-    public void onBattleStart(Player p) {
+    public void onBattleStart(Player p, EnvType envType) {
         Timer -=1;
     }
 
     @Override
-    public void onBattleEnd(Player p) {
+    public void onBattleEnd(Player p,EnvType envType) {
 
     }
 }

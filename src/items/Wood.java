@@ -1,5 +1,6 @@
 package items;
 
+import MapEnvironment.EnvType;
 import tools.Player;
 
 public class Wood extends Item implements TurnCount , Changeable{
@@ -19,13 +20,15 @@ public class Wood extends Item implements TurnCount , Changeable{
 
 
     @Override
-    public void onBattleStart(Player p) {
-        change -=1;
-        System.out.println("木头:"+change+"回合之后...");
+    public void onBattleStart(Player p, EnvType envType) {
+        if (envType == EnvType.LAVA_WATERFALL) {
+            change -= 1;
+            System.out.println("木头:" + change + "回合之后...");
+        }
     }
 
     @Override
-    public void onBattleEnd(Player p) {
+    public void onBattleEnd(Player p,EnvType envType) {
 
     }
     @Override
@@ -36,6 +39,7 @@ public class Wood extends Item implements TurnCount , Changeable{
 
     @Override
     public Item Become() {
+        System.out.printf("木头变成了碳!");
         return new Charcoal(count);
     }
 }

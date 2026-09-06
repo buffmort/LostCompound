@@ -34,15 +34,14 @@ public class Recipe implements Craftable {
 
     @Override
     public boolean canCraft(Player player) {
+        System.out.println("检查配方: " + name);
         for (int[] mat : materials) {
             int id = mat[0];
             int required = mat[1];
             int owned = player.countItemById(id);
-            if (owned < required) {
-                return false;
-            }
+            System.out.println("需要 ID=" + id + " 数量=" + required + "，拥有=" + owned);
+            if (owned < required) return false;
         }
-
         return true;
     }
 
@@ -50,6 +49,7 @@ public class Recipe implements Craftable {
     public void craft(Player player) {
         if(!canCraft(player)){
             System.out.println("材料不足 无法合成"+name+"!");
+            return;
         }
         for(int[] mat : materials){
             int id=mat[0];

@@ -39,7 +39,6 @@ public class TreeMazeGenerator {
         this.random = random;
         initializeRooms(envType);
     }
-
     /**
      * 初始化所有房间并分配类型（START、BOSS、其他随机）。
      * 这里默认左上角为 START，右下角为 BOSS，其余随机 FIGHT/EMPTY/CRAFT。

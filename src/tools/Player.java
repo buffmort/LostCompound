@@ -1,4 +1,5 @@
 package tools;
+import MapEnvironment.EnvType;
 import Rooms.*;
 import items.*;
 import monsters.*;
@@ -73,8 +74,7 @@ public class Player {
     public ArrayList<Item> Items  = new ArrayList<>();
     public ArrayList<Item> WillAdd  = new ArrayList<>();
     public ArrayList<Craftable> AllRecipe = new ArrayList<>();
-    //
-    public void onPlayerTurn(ArrayList<Monster> monsters) {
+    public void onPlayerTurn(ArrayList<Monster> monsters,EnvType envType) {
         if (!isAlive()) {//判定死没死
             System.out.println("你死了！");
             isDeath = true;
@@ -85,7 +85,7 @@ public class Player {
             this.hp -= DOTdmg;
         }
         System.out.println("=====你的回合=====");
-        handleChangeableItems(this);
+        handleChangeableItems(this,envType);
         Items.addAll(WillAdd);
         WillAdd.clear();
         if (skipTurn > 0) {
@@ -121,8 +121,9 @@ public class Player {
         System.out.println();
         System.out.println("请选择操作");
         Calculator.delay(250);
-        System.out.println("1,攻击    2,防御    3,使用背包道具    4,徒手合成");
+        System.out.println("1.攻击   2.防御   3.使用背包道具  4.徒手合成");
         if (this.debug) {
+            System.out.println("debug模式操作:");
             System.out.println("127, 获得全部合成");
         }
         int option = sc.nextInt();
@@ -140,7 +141,14 @@ public class Player {
                 handCraft();
                 break;
             case 127:
-                addRecipe0();
+                System.out.println("此部分尚未开发!");
+                break;
+            case 128:
+                AllRecipe();
+                break;
+            case 255:
+                this.debug = true;
+                System.out.println("你已进入debug模式!");
                 break;
             default:
                 System.out.println("你输入的类型不正确！ 已自动跳过回合");
@@ -229,13 +237,15 @@ public class Player {
         }
     }
 
-    private void handleChangeableItems(Player owner) {
+    // 修改后的 handleChangeableItems 方法（所在类根据实际情况调整）
+    private void handleChangeableItems(Player owner, EnvType envType) {
         ArrayList<Item> toAdd = new ArrayList<>();
         Iterator<Item> iter = owner.Items.iterator();
         while (iter.hasNext()) {
             Item item = iter.next();
             if(item instanceof TurnCount){
-                ((TurnCount) item).onBattleStart(this);
+                // 关键修改：使用 owner 而非 this
+                ((TurnCount) item).onBattleStart(owner, envType);
             }
             if (item instanceof Changeable) {
                 Changeable c = (Changeable) item;
@@ -248,11 +258,11 @@ public class Player {
                 }
             }
         }
-        // 关键：逐个调 addItem，里面自动处理堆叠
         for (Item newItem : toAdd) {
             owner.addItem(newItem);
         }
     }
+
     public int countItemById(int id){
         int total = 0;
         for(Item item:Items){
@@ -264,15 +274,24 @@ public class Player {
 
     }
 
-    public void consumeItem(int id, int amount){
-        for(int i=0;i<Items.size();i++){
-            Item item = Items.get(i);
-            if(item.getId() == id){
-                item.count -= amount;
-                if(item.count <=0){
-                    Items.remove(i);
+    // 修改后的 consumeItem 方法（在 Player 类中）
+    public void consumeItem(int id, int amount) {
+        // 先检查总数量是否足够
+        if (countItemById(id) < amount) {
+            System.out.println("道具数量不足！");
+            return;
+        }
+        int remaining = amount;
+        Iterator<Item> iter = Items.iterator();
+        while (iter.hasNext() && remaining > 0) {
+            Item item = iter.next();
+            if (item.getId() == id) {
+                int deduct = Math.min(item.count, remaining);
+                item.count -= deduct;
+                remaining -= deduct;
+                if (item.count <= 0) {
+                    iter.remove();
                 }
-                return;
             }
         }
     }
@@ -286,6 +305,10 @@ public class Player {
         return "null";
     }
     public void AllRecipe() {
+        if(!debug){
+            System.out.println("你不能使用这个命令!");
+            return;
+        }
         AllRecipe.add(new Recipe("热硫", new int[][]{
                 {5, 1},
                 {3, 1},

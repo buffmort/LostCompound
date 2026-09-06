@@ -19,7 +19,7 @@ public class BossRoom extends Room {
             ArrayList<Monster> monsters = new ArrayList<Monster>();
             Dragon d = new Dragon();
             monsters.add(d);
-            Tools.Fight(p,monsters);
+            Tools.Fight(p,monsters,this.EnvType);
             this.cleaned = true;
         }else {
             System.out.println("你回到了起始房间");

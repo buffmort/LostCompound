@@ -1,4 +1,5 @@
 package tools;
+import MapEnvironment.EnvType;
 import Maps.*;
 import Rooms.Room;
 import items.*;
@@ -22,7 +23,13 @@ public class demo02 {
         ArrayList<Monster> monsters = new ArrayList<>();
         monsters.add(p1);
         monsters.add(p2);
-        Tools.Fight(player,monsters);
+        player.addItem(new Wood(10));
+        player.addItem(new Charcoal(10));
+        player.addItem(new WhitePhosphorus(10));
+        player.addItem(new Sulphur(10));
+        player.addItem(new Sand(10));
+        player.addRecipe0();
+        Tools.Fight(player,monsters, EnvType.NONE);
     }
 
 }

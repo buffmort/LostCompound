@@ -11,7 +11,7 @@ public class BlankRoom extends Room {
     @Override
     public void onEnter(Player p) {
         // 待定房间，默认什么都不做
-        System.out.println("这是一个白板房间");
+        System.out.println("这是一个空房间");
     }
     @Override
     public void onLeave(Player p) {
