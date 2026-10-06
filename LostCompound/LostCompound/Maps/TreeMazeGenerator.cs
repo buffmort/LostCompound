@@ -205,19 +205,17 @@ namespace LostCompound.Maps
             {
                 for (int c = 0; c < _cols; c++)
                 {
-                    if (_grid[r][c] != null && _grid[r][c].IsVisited)
-                    {
-                        // 标记自身
-                        MarkVisible(visible, r, c);
-                        // 标记周围 8 个邻居（3x3 范围）
-                        for (int dr = -1; dr <= 1; dr++)
-                        {
-                            for (int dc = -1; dc <= 1; dc++)
-                            {
-                                MarkVisible(visible, r + dr, c + dc);
-                            }
-                        }
-                    }
+                    if (_grid[r][c] == null || !_grid[r][c].IsVisited) continue;
+
+                    // 标记自身
+                    MarkVisible(visible, r, c);
+                    // 只沿「有门」的正交方向可见：不隔墙看、也不穿对角看。
+                    // 原实现标记整个 3x3 区域，导致实体墙另一侧和对角房间都会显示为 ?。
+                    Room room = _grid[r][c];
+                    if (room.HasDoor(Direction.Up)) MarkVisible(visible, r - 1, c);
+                    if (room.HasDoor(Direction.Down)) MarkVisible(visible, r + 1, c);
+                    if (room.HasDoor(Direction.Left)) MarkVisible(visible, r, c - 1);
+                    if (room.HasDoor(Direction.Right)) MarkVisible(visible, r, c + 1);
                 }
             }
 
