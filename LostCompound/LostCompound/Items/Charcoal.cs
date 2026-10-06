@@ -5,9 +5,10 @@ namespace LostCompound.Items
 {
     public sealed class Charcoal(int count) : Item(3, "木炭", 99, true, count), TurnCount
     {
-        // 保留 Java 原本的「无类型」语义：返回 null。
+        // Java 原版这里返回 null，与构造函数里设的 type = ItemType.CHARCOAL 自相矛盾，属笔误。
+        // 已修正为返回自身类型，与其它道具一致。
         // 注意：不能写成 default，那会等于 ItemType.Sulphur，导致木炭被当成硫磺错误堆叠。
-        public override ItemType? Type => null;
+        public override ItemType? Type => ItemType.Charcoal;
 
         public void OnBattleStart(Player p, EnvType envType)
         {
