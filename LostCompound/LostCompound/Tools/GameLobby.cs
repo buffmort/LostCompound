@@ -95,7 +95,7 @@ namespace LostCompound.Tools
                 {
                     return int.Parse(line);
                 }
-                catch (FormatException e)
+                catch (FormatException)
                 {
                     Console.WriteLine("请输入数字。");
                 }

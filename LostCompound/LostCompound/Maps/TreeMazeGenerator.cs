@@ -184,6 +184,7 @@ namespace LostCompound.Maps
                         RoomType.EMPTY => " E ",
                         RoomType.CRAFT => " C ",
                         RoomType.BLANK => " . ",
+                        _ => " ? ",   // 兜底：未定义枚举值时不再抛 SwitchExpressionException
                     };
                     Console.Write(label);
                 }
@@ -225,6 +226,7 @@ namespace LostCompound.Maps
                 RoomType.CRAFT => " C ",
                 RoomType.BLANK => " . ",
                 // 如果有其他类型请补充
+                _ => " ? ",
             };
         }
         public string printMapToString()
@@ -392,6 +394,7 @@ namespace LostCompound.Maps
                 RoomType.EMPTY => " E ",
                 RoomType.CRAFT => " C ",
                 RoomType.BLANK => " . ",
+                _ => " ? ",
             };
         }
         // 辅助方法：设置交叉点为 '+'（如果当前位置是空格）

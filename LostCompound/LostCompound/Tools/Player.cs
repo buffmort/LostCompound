@@ -640,7 +640,7 @@ namespace LostCompound.Tools
                 {
                     direction = int.Parse(Console.ReadLine());
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     Console.ReadLine();
                     Console.WriteLine("输入无效，请输入数字。");
