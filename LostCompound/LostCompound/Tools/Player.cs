@@ -547,6 +547,15 @@ namespace LostCompound.Tools
             throw new InvalidOperationException("地图中没有起始房间！");
         }
 
+        /// <summary>清屏并画出「地图 → 当前位置 → 当前房间」这一段状态。</summary>
+        private void DrawStatus(Room[][] map, TreeMazeGenerator tmg)
+        {
+            Console.Write("\u001b[H\u001b[2J");
+            Console.WriteLine(tmg.ToDisplayString());
+            Console.WriteLine("\n当前位置: (" + PlayerRow + ", " + PlayerCol + ")");
+            Console.WriteLine("当前房间:" + map[PlayerRow][PlayerCol].Type);
+        }
+
         public void StartGame(Room[][] map, TreeMazeGenerator tmg)
         {
             JoinMap(map);
@@ -559,24 +568,26 @@ namespace LostCompound.Tools
 
             while (IsAlive)
             {
-                // ---- 1. 先发送地图 ----
-                Console.Write("\u001b[H\u001b[2J");
-                Console.WriteLine(tmg.ToDisplayString());
-
-                // ---- 2. 再播报位置与房间类型 ----
-                Console.WriteLine("\n当前位置: (" + PlayerRow + ", " + PlayerCol + ")");
-                Console.WriteLine("当前房间:" + map[PlayerRow][PlayerCol].Type);
+                // ---- 1. 先发送地图与位置/房间类型 ----
+                DrawStatus(map, tmg);
                 if (justMoved)
                 {
                     Console.WriteLine("你移动到了新房间。");
                     justMoved = false;
                 }
 
-                // ---- 3. 最后触发房间事件（宝箱、战斗等）----
-                if (pendingEnter)
+                // ---- 2. 再触发房间事件（宝箱、战斗等）----
+                bool entered = pendingEnter;
+                if (entered)
                 {
                     pendingEnter = false;
                     map[PlayerRow][PlayerCol].OnEnter(this);
+                }
+
+                // ---- 3. 事件（尤其战斗日志）会输出大量内容把地图顶出屏幕，重画一次 ----
+                if (entered)
+                {
+                    DrawStatus(map, tmg);
                 }
 
                 ShowAvailableDirections();
