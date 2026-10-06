@@ -74,6 +74,14 @@ namespace LostCompound.Maps
                 int[] pos = normalPositions[index];
                 _grid[pos[0]][pos[1]] = new CraftRoom(EnvType.LavaWaterfall);
             }
+
+            // 5. 50% 概率生成一个 TreasureRoom，随机替换掉一个普通房间（全图最多一个）
+            if (Random.Shared.Next(2) == 0)
+            {
+                int index = Random.Shared.Next(normalPositions.Count);
+                int[] pos = normalPositions[index];
+                _grid[pos[0]][pos[1]] = new TreasureRoom(envType);
+            }
         }
 
         /**
@@ -343,6 +351,7 @@ namespace LostCompound.Maps
                 RoomType.Empty => " E ",
                 RoomType.Craft => " C ",
                 RoomType.Blank => " . ",
+                RoomType.Treasure => " T ",
                 _ => " ? ",
             };
         }
