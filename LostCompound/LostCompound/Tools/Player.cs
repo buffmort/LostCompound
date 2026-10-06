@@ -565,29 +565,39 @@ namespace LostCompound.Tools
             // 这样玩家先看到自己身处何地，再看到房间里发生了什么。
             bool pendingEnter = true;    // 起始房间的事件也要等第一张地图
             bool justMoved = false;
+            bool keepScreen = false;     // 上次操作失败（无门/撞墙/输入非法）时不清屏，让提示留在屏幕上
 
             while (IsAlive)
             {
-                // ---- 1. 先发送地图与位置/房间类型 ----
-                DrawStatus(map, tmg);
-                if (justMoved)
+                if (keepScreen)
                 {
-                    Console.WriteLine("你移动到了新房间。");
-                    justMoved = false;
+                    // 关键：不清屏。否则「这个方向没有门！」这类提示会被立刻抹掉，玩家根本看不到。
+                    keepScreen = false;
+                    Console.WriteLine();
                 }
-
-                // ---- 2. 再触发房间事件（宝箱、战斗等）----
-                bool entered = pendingEnter;
-                if (entered)
+                else
                 {
-                    pendingEnter = false;
-                    map[PlayerRow][PlayerCol].OnEnter(this);
-                }
-
-                // ---- 3. 事件（尤其战斗日志）会输出大量内容把地图顶出屏幕，重画一次 ----
-                if (entered)
-                {
+                    // ---- 1. 先发送地图与位置/房间类型 ----
                     DrawStatus(map, tmg);
+                    if (justMoved)
+                    {
+                        Console.WriteLine("你移动到了新房间。");
+                        justMoved = false;
+                    }
+
+                    // ---- 2. 再触发房间事件（宝箱、战斗等）----
+                    bool entered = pendingEnter;
+                    if (entered)
+                    {
+                        pendingEnter = false;
+                        map[PlayerRow][PlayerCol].OnEnter(this);
+                    }
+
+                    // ---- 3. 事件（尤其战斗日志）会输出大量内容把地图顶出屏幕，重画一次 ----
+                    if (entered)
+                    {
+                        DrawStatus(map, tmg);
+                    }
                 }
 
                 ShowAvailableDirections();
@@ -599,8 +609,10 @@ namespace LostCompound.Tools
                 }
                 catch (Exception)
                 {
-                    Console.ReadLine();
+                    // Java 原版这里是 scanner.nextLine()，用于丢弃 nextInt() 失败后残留的输入。
+                    // C# 的 Console.ReadLine() 已经把整行读走了，再读一次会吞掉玩家的下一次输入，故删除。
                     Console.WriteLine("输入无效，请输入数字。");
+                    keepScreen = true;
                     continue;
                 }
                 if (direction == 4)
@@ -614,6 +626,10 @@ namespace LostCompound.Tools
                 {
                     pendingEnter = true;
                     justMoved = true;
+                }
+                else
+                {
+                    keepScreen = true;   // 移动失败：保留错误提示，下一轮不清屏
                 }
             }
         }
