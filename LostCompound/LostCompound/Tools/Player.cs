@@ -421,13 +421,13 @@ namespace LostCompound.Tools
         * 后面是地图逻辑
         * */
         // 手动指定起始坐标进入地图
+        // 注意：这里只定位并标记到达，不触发 OnEnter；房间事件由调用方（StartGame）在展示地图后触发。
         public void EnterMap(Room[][] map, int startRow, int startCol)
         {
             _map = map;
             PlayerRow = startRow;
             PlayerCol = startCol;
-            // 进入初始房间：先 EnterSetup 再 OnEnter
-            map[PlayerRow][PlayerCol].EnterSetup(this);
+            map[PlayerRow][PlayerCol].MarkArrived();
         }
 
         // 自动寻找 StartRoom 进入地图
@@ -442,7 +442,7 @@ namespace LostCompound.Tools
                     {
                         PlayerRow = y;
                         PlayerCol = x;
-                        map[y][x].EnterSetup(this);
+                        map[y][x].MarkArrived();
                         return;
                     }
                 }
@@ -520,13 +520,9 @@ namespace LostCompound.Tools
             PlayerRow = newRow;
             PlayerCol = newCol;
 
-            // 进入新房间（设置玩家标记，触发 OnEnter）
-            Room newRoom = _map[PlayerRow][PlayerCol];
-            newRoom.EnterSetup(this);
-            Console.WriteLine("你移动到了新房间。");
-
-            // 如果 Player 持有 maze 引用，移动后打印地图
-            // maze.printMap();
+            // 只标记「玩家已到达」，不在这里触发 OnEnter。
+            // 事件改由 StartGame 在打印地图之后调用，输出顺序变为：地图 → 房间类型 → 房间事件。
+            _map[PlayerRow][PlayerCol].MarkArrived();
 
             return true;
         }
@@ -542,7 +538,8 @@ namespace LostCompound.Tools
                     {
                         PlayerRow = y;
                         PlayerCol = x;
-                        map[y][x].EnterSetup(this);
+                        // 只标记到达；起始房间的事件由 StartGame 在打印第一张地图后触发
+                        map[y][x].MarkArrived();
                         return;
                     }
                 }
@@ -555,13 +552,33 @@ namespace LostCompound.Tools
             JoinMap(map);
             Console.WriteLine("游戏开始！输入方向探索地图。");
 
+            // 房间事件不立即触发，而是等地图打印之后再触发，
+            // 这样玩家先看到自己身处何地，再看到房间里发生了什么。
+            bool pendingEnter = true;    // 起始房间的事件也要等第一张地图
+            bool justMoved = false;
+
             while (IsAlive)
             {
-                // 清屏（可选）
+                // ---- 1. 先发送地图 ----
                 Console.Write("\u001b[H\u001b[2J");
                 Console.WriteLine(tmg.ToDisplayString());
+
+                // ---- 2. 再播报位置与房间类型 ----
                 Console.WriteLine("\n当前位置: (" + PlayerRow + ", " + PlayerCol + ")");
                 Console.WriteLine("当前房间:" + map[PlayerRow][PlayerCol].Type);
+                if (justMoved)
+                {
+                    Console.WriteLine("你移动到了新房间。");
+                    justMoved = false;
+                }
+
+                // ---- 3. 最后触发房间事件（宝箱、战斗等）----
+                if (pendingEnter)
+                {
+                    pendingEnter = false;
+                    map[PlayerRow][PlayerCol].OnEnter(this);
+                }
+
                 ShowAvailableDirections();
 
                 int direction;
@@ -580,13 +597,13 @@ namespace LostCompound.Tools
                     Console.WriteLine("游戏结束，感谢游玩！");
                     break;
                 }
-                Console.Write("\u001b[H\u001b[2J");
-                Move((Direction)direction);
-                Console.WriteLine("\n当前位置: (" + PlayerRow + ", " + PlayerCol + ")");
-                Console.WriteLine("当前房间:" + map[PlayerRow][PlayerCol].Type);
 
-                // 3. 执行进入房间的逻辑（战斗、事件等）
-
+                // 移动成功后，下一轮循环会先打印地图，再触发新房间的事件
+                if (Move((Direction)direction))
+                {
+                    pendingEnter = true;
+                    justMoved = true;
+                }
             }
         }
     }

@@ -30,9 +30,18 @@ namespace LostCompound.Rooms
         // 统一进入流程：先标记已访问，再触发事件
         public void EnterSetup(Player p)
         {
+            MarkArrived();
+            OnEnter(p);
+        }
+
+        /// <summary>
+        /// 只做「玩家已到达」的标记（地图据此渲染 * 与已访问状态），<b>不</b>触发 OnEnter。
+        /// 把「显示地图」与「房间事件」拆开，使输出顺序可以变成：地图 → 房间类型 → 事件。
+        /// </summary>
+        public void MarkArrived()
+        {
             IsVisited = true;
             IsPlayerHere = true;
-            OnEnter(p);
         }
 
         public void LeaveSetup(Player p)
