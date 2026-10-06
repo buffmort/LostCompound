@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>HelloWorld01</RootNamespace>
+    <AssemblyName>HelloWorld01</AssemblyName>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <!--
+    AssemblyInfo.cs 是旧式项目模板留下的，里面手写了 AssemblyTitle/AssemblyVersion 等特性。
+    SDK 风格的项目会在编译时自动生成同样的特性，两者同时存在会报 CS0579（特性重复），
+    所以这里把它排除在编译之外。文件本身保留，没有删除。
+  -->
+  <ItemGroup>
+    <Compile Remove="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+
+</Project>

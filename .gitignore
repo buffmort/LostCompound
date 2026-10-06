@@ -1,0 +1,9 @@
+﻿# 构建输出
+bin/
+obj/
+
+# IDE
+.idea/
+.vs/
+*.user
+*.suo
