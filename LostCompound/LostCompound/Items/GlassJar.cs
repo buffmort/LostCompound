@@ -1,19 +1,7 @@
 namespace LostCompound.Items
 {
-    public class GlassJar : Item
+    public sealed class GlassJar(int count) : Item(7, "玻璃罐", 99, true, count)
     {
-        public GlassJar(int count)
-        {
-            this.name = "玻璃罐";
-            this.id = 7;
-            this.count = count;
-            this.maxStack = 99;
-            this.Stackable = true;
-        }
-
-        public override ItemType? getType()
-        {
-            return ItemType.GLASS_JAR;
-        }
+        public override ItemType? Type => ItemType.GlassJar;
     }
 }

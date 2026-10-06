@@ -2,83 +2,76 @@ using LostCompound.Tools;
 
 namespace LostCompound.Monsters
 {
-    public class Zombie : Monster
+    public sealed class Zombie : Monster
     {
         public Zombie()
         {
-            this.atk = 20;
-            this.str = 0.5;
-            this.def = 0;
-            this.hp = 30;
-            this.name = "僵尸";
+            Atk = 20;
+            Str = 0.5;
+            Def = 0;
+            Hp = 30;
+            Name = "僵尸";
         }
         public Zombie(double atk, double str, double def, double hp, string name)
         {
-            this.atk = atk;
-            this.def = def;
-            this.str = str;
-            this.hp = hp;
-            this.name = name;
+            Atk = atk;
+            Def = def;
+            Str = str;
+            Hp = hp;
+            Name = name;
         }
-        public Random rd = new Random();
+
         public override void Attack(Player p)
         {
             Console.WriteLine("僵尸咬了你一口!");
-            Calculator.delay(500);
-            double dmg = Calculator.Attack(this.str, this.atk);
-            p.takeDmg(dmg);
+            Calculator.Delay(500);
+            double dmg = Calculator.CalculateAttack(Str, Atk);
+            p.TakeDamage(dmg);
 
         }
 
-        public override void takeDmg(double dmg)
+        public override void TakeDamage(double dmg)
         {
-            if (this.block > 0)
+            if (Block > 0)
             {
-                block -= 1;
+                Block -= 1;
                 Console.WriteLine("僵尸格挡了伤害!");
                 return;
             }
-            double realDmg = Calculator.Define(this.def, dmg);
-            hp -= realDmg;
-            Console.WriteLine(this.name + "受到{0:F1}点伤害!", realDmg);
-            Calculator.delay(250);
+            double realDmg = Calculator.ApplyDefense(Def, dmg);
+            Hp -= realDmg;
+            Console.WriteLine(Name + "受到{0:F1}点伤害!", realDmg);
+            Calculator.Delay(250);
         }
 
-        public override void onMonsterTurn(Player p)
+        public override void OnMonsterTurn(Player p)
         {
-            if (this.DOTdur > 0)
+            if (DotDuration > 0)
             {
-                this.DOTdur -= 1;
-                this.hp -= DOTdmg;
+                DotDuration -= 1;
+                Hp -= DotDamage;
             }
-            Console.WriteLine("=====怪物" + this.name + "回合=====");
-            if (skipTurn > 0)
+            Console.WriteLine("=====怪物" + Name + "回合=====");
+            if (SkipTurn > 0)
             {
-                skipTurn -= 1;
+                SkipTurn -= 1;
                 Console.WriteLine("跳过回合!");
                 return;
             }
-            Calculator.delay(250);
-            int option = rdChoice(2);
+            Calculator.Delay(250);
+            int option = RollIndex(2);
             switch (option)
             {
                 case 0:
                     Attack(p);
                     break;
                 case 1:
-                    block += 1;
-                    Console.WriteLine(this.name + "格挡了!");
+                    Block += 1;
+                    Console.WriteLine(Name + "格挡了!");
                     break;
             }
         }
 
-        protected override int rdChoice(int i)
-        {
-            return rd.Next(i);
-        }
-        public override bool isAlive()
-        {
-            return this.hp > 0;
-        }
+        protected override int RollIndex(int count) => Random.Shared.Next(count);
     }
 }

@@ -5,7 +5,7 @@ namespace LostCompound.Items
 {
     public interface Useable
     {
-        void use(Player p, List<Monster> m);
-        void ExpBattle(Player p);
+        void Use(Player p, List<Monster> m);
+        void ExplainBattleOnly(Player p);
     }
 }

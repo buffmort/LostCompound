@@ -4,7 +4,7 @@ namespace LostCompound.Tools
      * Author:  Hyberty
      * OOP牛逼
      */
-    public class GameLauncher
+    public static class GameLauncher
     {
 
         /**
@@ -13,23 +13,23 @@ namespace LostCompound.Tools
          * 字母之间空 5 格，斜体用逐行缩进 4/3/2/1/0 实现。
          * 整幅约 131 列，终端建议 >=140 列。
          */
-        private static readonly string[] BANNER = {
+        private static readonly string[] BANNER = [
                 "    ||         /====\\     /====\\     ======     /====\\     /====\\     ||  ||     |====\\     /====\\     ||  ||     ||  ||     |====\\",
                 "   ||         ||  ||     ||           ||       ||          ||  ||     ||\\/||     ||  ||     ||  ||     ||  ||     ||\\ ||     ||  ||",
                 "  ||         ||  ||     \\====|       ||       ||         ||  ||     ||  ||     |====/     ||  ||     ||  ||     || \\||     ||  ||",
                 " ||         ||  ||          ||       ||       ||         ||  ||     ||  ||     ||         ||  ||     ||  ||     ||  ||     ||  ||",
                 "||====     \\====/     \\====/       ||       \\====/     \\====/     ||  ||     ||         \\====/     \\====/     ||  ||     |====/"
-        };
+        ];
 
         public static void Main(string[] args)
         {
-            printBanner();
+            PrintBanner();
             GameLobby lobby = new GameLobby();
-            lobby.start();
+            lobby.Run();
             Console.WriteLine("游戏已退出。");
         }
 
-        private static void printBanner()
+        private static void PrintBanner()
         {
             Console.WriteLine();
             foreach (string line in BANNER)

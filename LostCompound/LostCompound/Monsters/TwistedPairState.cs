@@ -10,19 +10,19 @@ namespace LostCompound.Monsters
      */
     public class TwistedPairState
     {
-        public bool p1AttackedThisTurn = false;
-        public bool p2AttackedThisTurn = false;
+        public bool P1AttackedThisTurn { get; set; }
+        public bool P2AttackedThisTurn { get; set; }
 
         /**
          * 如果两个怪物都已行动（即上一回合结束），则重置标志。
-         * 此方法应在每个怪物的 onMonsterTurn 开始时调用。
+         * 此方法应在每个怪物的 OnMonsterTurn 开始时调用。
          */
-        public void checkAndResetIfBothTrue()
+        public void ResetIfBothActed()
         {
-            if (p1AttackedThisTurn && p2AttackedThisTurn)
+            if (P1AttackedThisTurn && P2AttackedThisTurn)
             {
-                p1AttackedThisTurn = false;
-                p2AttackedThisTurn = false;
+                P1AttackedThisTurn = false;
+                P2AttackedThisTurn = false;
             }
         }
     }

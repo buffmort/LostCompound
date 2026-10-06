@@ -5,65 +5,57 @@ namespace LostCompound.Rooms
 {
     public abstract class Room
     {
-        public RoomType type;
-        public bool[] doors = new bool[4]; // 0上 1下 2左 3右
-        public bool visited = false;
-        public bool cleaned = false;
-        private bool playerOnHere = false;
-        public const int UP = 0;
-        public const int DOWN = 1;
-        public const int LEFT = 2;
-        public const int RIGHT = 3;
-        public EnvType EnvType;
+        public RoomType Type { get; }
+        private readonly bool[] _doors = new bool[4]; // 0上 1下 2左 3右
+        public bool IsVisited { get; set; }
+        public bool IsCleaned { get; set; }
+        public bool IsPlayerHere { get; set; }
+        public EnvType Environment { get; }
 
-        public Room(RoomType type, EnvType type1)
+        public Room(RoomType type, EnvType environment)
         {
-            this.type = type;
-            this.EnvType = type1;
+            Type = type;
+            Environment = environment;
         }
 
         // 子类实现具体的进入事件
-        public abstract void onEnter(Player p);
-        public virtual void onLeave(Player p)
+        public abstract void OnEnter(Player p);
+
+        public virtual void OnLeave(Player p)
         {
-            playerOnHere = false;
+            IsPlayerHere = false;
             // 可以在这里清理或触发离开事件
         }
-        public bool isPlayerOnHere()
-        {
-            return playerOnHere;
-        }
-        public void setPlayerOnHere(bool b)
-        {
-            this.playerOnHere = b;
-        }
+
         // 统一进入流程：先标记已访问，再触发事件
-        public void enterSetup(Player p)
+        public void EnterSetup(Player p)
         {
-            visited = true;
-            playerOnHere = true;
-            onEnter(p);
+            IsVisited = true;
+            IsPlayerHere = true;
+            OnEnter(p);
         }
-        public void leaveSetup(Player p)
+
+        public void LeaveSetup(Player p)
         {
-            playerOnHere = false;
-            onLeave(p);
+            IsPlayerHere = false;
+            OnLeave(p);
         }
 
         // 检查某个方向是否有门
-        public bool isDoor(int direction)
+        public bool HasDoor(Direction direction)
         {
-            if (direction >= 0 && direction < doors.Length)
+            int index = (int)direction;
+            if (index >= 0 && index < _doors.Length)
             {
-                return doors[direction];
+                return _doors[index];
             }
             return false;
         }
 
         // 检查是否还有空闲门（供生成器使用，保留）
-        public bool hasFreeDoor()
+        public bool HasFreeDoor()
         {
-            foreach (bool d in doors)
+            foreach (bool d in _doors)
             {
                 if (!d) return true;
             }
@@ -71,25 +63,13 @@ namespace LostCompound.Rooms
         }
 
         // 设置门状态
-        public void setDoor(int direction, bool hasDoor)
+        public void SetDoor(Direction direction, bool hasDoor)
         {
-            if (direction >= 0 && direction < doors.Length)
+            int index = (int)direction;
+            if (index >= 0 && index < _doors.Length)
             {
-                doors[direction] = hasDoor;
+                _doors[index] = hasDoor;
             }
-        }
-
-        public RoomType getRoomType()
-        {
-            return type;
-        }
-        public bool isVisited()
-        {
-            return visited;
-        }
-        public void setVisited(bool visited)
-        {
-            this.visited = visited;
         }
     }
 }

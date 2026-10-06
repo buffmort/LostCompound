@@ -13,23 +13,23 @@ namespace LostCompound.Tools
     public class GameLobby
     {
 
-        private bool running = true;
+        private bool _running = true;
 
         public GameLobby()
         {
         }
 
-        public void start()
+        public void Run()
         {
-            while (running)
+            while (_running)
             {
-                printMenu();
-                int choice = readChoice();
-                handleChoice(choice);
+                PrintMenu();
+                int choice = ReadChoice();
+                HandleChoice(choice);
             }
         }
 
-        private void printMenu()
+        private void PrintMenu()
         {
             Console.WriteLine("------------ 主菜单 ------------");
             Console.WriteLine("  1. 开始游戏");
@@ -37,15 +37,15 @@ namespace LostCompound.Tools
             Console.WriteLine("--------------------------------");
         }
 
-        private void handleChoice(int choice)
+        private void HandleChoice(int choice)
         {
             switch (choice)
             {
                 case 1:
-                    startRun();
+                    StartNewRun();
                     break;
                 case 2:
-                    exit();
+                    ConfirmExit();
                     break;
                 default:
                     Console.WriteLine("没有这个选项。\n");
@@ -53,26 +53,26 @@ namespace LostCompound.Tools
             }
         }
 
-        private void startRun()
+        private void StartNewRun()
         {
             Console.WriteLine();
             Console.WriteLine(">>> 开始游戏");
             Console.WriteLine();
             Console.WriteLine();
-            TreeMazeGenerator tmg = new TreeMazeGenerator(10, 10, LAVA_WATERFALL);
-            tmg.generate();
-            Room[][] map = tmg.getGrid();
+            TreeMazeGenerator tmg = new TreeMazeGenerator(10, 10, LavaWaterfall);
+            tmg.Generate();
+            Room[][] map = tmg.Grid;
             Player p = new Player();
-            p.startGame(map, tmg);
+            p.StartGame(map, tmg);
         }
 
-        private void exit()
+        private void ConfirmExit()
         {
             Console.Write("确定退出？(y/n): ");
             string line = Console.ReadLine().Trim();
             if (string.Equals(line, "y", StringComparison.OrdinalIgnoreCase))
             {
-                running = false;
+                _running = false;
             }
             else
             {
@@ -81,7 +81,7 @@ namespace LostCompound.Tools
         }
 
         /** 读一个菜单选项，输入非数字不会崩，会一直重问 */
-        private int readChoice()
+        private int ReadChoice()
         {
             while (true)
             {

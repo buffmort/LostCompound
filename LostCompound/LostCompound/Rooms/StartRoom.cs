@@ -4,21 +4,21 @@ using LostCompound.Tools;
 
 namespace LostCompound.Rooms
 {
-    public class StartRoom : Room
+    public sealed class StartRoom : Room
     {
-        private bool startItemsGiven = false;   // 防止重复发放起始道具
+        private bool _startItemsGiven;   // 防止重复发放起始道具
 
-        public StartRoom(EnvType envType) : base(RoomType.START, envType)
+        public StartRoom(EnvType envType) : base(RoomType.Start, envType)
         {
-            this.visited = true;
+            IsVisited = true;
         }
 
-        public override void onEnter(Player p)
+        public override void OnEnter(Player p)
         {
-            if (!cleaned)
+            if (!IsCleaned)
             {
                 Console.WriteLine("这里是起始房间");
-                this.cleaned = true;
+                IsCleaned = true;
             }
             else
             {
@@ -26,21 +26,21 @@ namespace LostCompound.Rooms
             }
 
             // 只在第一次进入时发放起始道具
-            if (!startItemsGiven)
+            if (!_startItemsGiven)
             {
-                giveStartItems(p);
-                startItemsGiven = true;
+                GiveStartItems(p);
+                _startItemsGiven = true;
             }
         }
 
-        public override void onLeave(Player p)
+        public override void OnLeave(Player p)
         {
             // 空实现
         }
 
         // ==================== 起始道具选择逻辑 ====================
 
-        private void giveStartItems(Player p)
+        private void GiveStartItems(Player p)
         {
 
             // 1. 预置的 Item 对象池（直接使用已有的 Item 实例，不现场构造）
@@ -65,19 +65,17 @@ namespace LostCompound.Rooms
             //    };
             //
             //    请自行替换为你的实际对象。以下为占位示例（需要你替换）：
-            Item[] START_ITEMS = getStartItemArray();
+            Item[] startItems = CreateStartItems();
 
-            // 对应权重（与 START_ITEMS 顺序一致）
-            int[] WEIGHTS = { 10, 10, 8, 8, 5, 5, 5, 5 };
+            // 对应权重（与 startItems 顺序一致）
+            int[] weights = [10, 10, 8, 8, 5, 5, 5, 5];
 
             // 可用索引列表（初始包含所有道具索引）
-            List<int> available = new List<int>();
-            for (int i = 0; i < START_ITEMS.Length; i++)
+            List<int> available = [];
+            for (int i = 0; i < startItems.Length; i++)
             {
                 available.Add(i);
             }
-
-            Random random = new Random();
 
             Console.WriteLine("===== 初始物品选择 =====");
 
@@ -87,24 +85,24 @@ namespace LostCompound.Rooms
                 Console.WriteLine("第 " + round + " 轮，请选择一种道具（输入 1、2 或 3）：");
 
                 // 从当前可用索引中随机抽取 3 个不重复的索引
-                List<int> roundIndices = new List<int>();
-                List<int> tempPool = new List<int>(available);
+                List<int> roundIndices = [];
+                List<int> tempPool = [.. available];
                 for (int i = 0; i < 3; i++)
                 {
                     // 加权随机抽取一个索引
                     int totalWeight = 0;
                     foreach (int idx in tempPool)
                     {
-                        totalWeight += WEIGHTS[idx];
+                        totalWeight += weights[idx];
                     }
-                    int rand = random.Next(totalWeight);
+                    int rand = Random.Shared.Next(totalWeight);
                     // 注意：此局部变量在 Java 里也叫 selectedIdx，但 C# 不允许嵌套块与
                     // 外层块重名（CS0136），故内层临时变量改名为 pickedIdx，语义不变。
                     int pickedIdx = -1;
                     int cumulative = 0;
                     foreach (int idx in tempPool)
                     {
-                        cumulative += WEIGHTS[idx];
+                        cumulative += weights[idx];
                         if (rand < cumulative)
                         {
                             pickedIdx = idx;
@@ -118,8 +116,8 @@ namespace LostCompound.Rooms
                 // 展示本轮三个道具
                 for (int i = 0; i < roundIndices.Count; i++)
                 {
-                    Item item = START_ITEMS[roundIndices[i]];
-                    Console.WriteLine((i + 1) + ". " + item.getName() + " x" + item.count);
+                    Item item = startItems[roundIndices[i]];
+                    Console.WriteLine((i + 1) + ". " + item.Name + " x" + item.Count);
                 }
 
                 // 读取玩家选择（1~3）
@@ -152,9 +150,9 @@ namespace LostCompound.Rooms
 
                 // 获取玩家选中的道具
                 int selectedIdx = roundIndices[choice - 1];
-                Item selectedItem = START_ITEMS[selectedIdx];
-                p.addItem(selectedItem);
-                Console.WriteLine("你获得了: " + selectedItem.getName());
+                Item selectedItem = startItems[selectedIdx];
+                p.AddItem(selectedItem);
+                Console.WriteLine("你获得了: " + selectedItem.Name);
 
                 // 从总可用池中移除该索引，防止后续轮次再次获得相同道具
                 available.Remove(selectedIdx);
@@ -166,10 +164,10 @@ namespace LostCompound.Rooms
         }
 
         // 占位方法：你需要根据实际 Item 类的设计返回预置的 Item 对象数组
-        private Item[] getStartItemArray()
+        private Item[] CreateStartItems()
         {
-            return new Item[]
-            {
+            return
+            [
                 new Wood(1),
                 new Wood(2),
                 new Sulphur(2),
@@ -178,8 +176,7 @@ namespace LostCompound.Rooms
                 new WhitePhosphorus(2),
                 new RedPhosphorus(1),
                 new Sand(5),
-
-            };
+            ];
         }
     }
 }

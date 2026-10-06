@@ -12,12 +12,12 @@ using LostCompound.Items;
  */
 namespace LostCompound.Monsters
 {
-    public class MonsterLootTable
+    public static class MonsterLootTable
     {
 
-        public static List<Item> drop(MonsterType? type)
+        public static List<Item> Drop(MonsterType? type)
         {
-            List<Item> loots = new List<Item>();
+            List<Item> loots = [];
             if (type == null)
             {
                 return loots;
@@ -25,7 +25,7 @@ namespace LostCompound.Monsters
             double r = Random.Shared.NextDouble();
             switch (type)
             {
-                case MonsterType.LAVA_SLIME:
+                case MonsterType.LavaSlime:
                     if (r < 0.70)
                     {
                         loots.Add(new Sulphur(2));
@@ -35,10 +35,10 @@ namespace LostCompound.Monsters
                         loots.Add(new Wood(3));
                     }
                     break;
-                case MonsterType.DUMMY:
+                case MonsterType.Dummy:
                     Console.WriteLine("哇,你杀了一个假人! 你好棒!");
                     break;
-                case MonsterType.ZOMBIE:
+                case MonsterType.Zombie:
                     if (r < 0.70)
                     {
                         loots.Add(new Sulphur(1));
@@ -48,7 +48,7 @@ namespace LostCompound.Monsters
                         loots.Add(new Sulphur(1));
                     }
                     break;
-                case MonsterType.DRAGON:
+                case MonsterType.Dragon:
                     loots.Add(new WhitePhosphorus(2));
                     if (Random.Shared.NextDouble() < 0.6)
                     {
@@ -60,14 +60,14 @@ namespace LostCompound.Monsters
                     }
                     break;
 
-                case MonsterType.TWISTEDPAIR1:
+                case MonsterType.TwistedPair1:
                     loots.Add(new GlassJar(1));
                     if (Random.Shared.NextDouble() < 0.50)
                     {
                         loots.Add(new Sulphur(5));
                     }
                     break;
-                case MonsterType.TWISTEDPAIR2:
+                case MonsterType.TwistedPair2:
                     loots.Add(new FushionSluphur(3));
                     if (Random.Shared.NextDouble() < 0.60)
                     {

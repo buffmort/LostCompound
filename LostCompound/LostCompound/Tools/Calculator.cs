@@ -1,24 +1,16 @@
 namespace LostCompound.Tools
 {
-    public class Calculator
+    public static class Calculator
     {
-        public static double Attack(double str, double atk)
-        {
-            double OutPutDmg = 2 + str * (Math.Sqrt(atk));
-            return OutPutDmg;
-        }
+        public static double CalculateAttack(double str, double atk) => 2 + str * Math.Sqrt(atk);
 
-        public static double Define(double def, double dmg)
-        {
-            double outPutDmg = Math.Max(dmg - def, 1);
-            return outPutDmg;
-        }
+        public static double ApplyDefense(double def, double dmg) => Math.Max(dmg - def, 1);
 
-        public static void delay(int time)
+        public static void Delay(int milliseconds)
         {
             try
             {
-                Thread.Sleep(time);
+                Thread.Sleep(milliseconds);
             }
             catch (ThreadInterruptedException e)
             {

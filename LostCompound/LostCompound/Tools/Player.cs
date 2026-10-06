@@ -9,150 +9,102 @@ namespace LostCompound.Tools
     public class Player
     {
 
-        private double hp = 200;
-        private double MaxHp = 100;
-        private double atk = 15;
-        private double str = 2;
-        public string name;
-        private double def = 5;
-        public int block = 0;
-        private double DOTdmg;
-        private int DOTdur;
-        private int skipTurn;
-        private Room[][] map;      // 当前地图
-        private int playerRow;     // 玩家所在行
-        private int playerCol;     // 玩家所在列
-        private bool debug = false;
+        public double Hp { get; set; } = 200;
+        public double Atk { get; set; } = 15;
+        public double Str { get; set; } = 2;
+        public string Name { get; set; }
+        public double Def { get; set; } = 5;
+        public int Block { get; set; }
+        public double DotDamage { get; set; }
+        public int DotDuration { get; set; }
+        public int SkipTurn { get; set; }
+        public bool IsDead { get; set; }
+        private Room[][] _map;      // 当前地图
+        public int PlayerRow { get; private set; }     // 玩家所在行
+        public int PlayerCol { get; private set; }     // 玩家所在列
+        private bool _debug;
 
-        public int getSkipTurn()
-        {
-            return skipTurn;
-        }
+        // 玩家背包 / 待入包 / 已解锁配方
+        public List<Item> Inventory { get; } = [];
+        public List<Item> PendingItems { get; } = [];
+        public List<Craftable> Recipes { get; } = [];
 
-        public void addItem(Item newItem)
+        // 存活判定：派生值用计算属性（原 isAlive() 方法）
+        public bool IsAlive => Hp > 0;
+
+        // 注意：原 addDOTdur 做的是 DOTdur += v（累加），不能写成属性，否则会变成覆盖。
+        public void AddDotDuration(int duration) => DotDuration += duration;
+
+        // 注意：原 addDOTdmg 做的是 DOTdmg += v（累加），同样不能写成属性。
+        public void AddDotDamage(double damage) => DotDamage += damage;
+
+        public void AddItem(Item newItem)
         {
             if (newItem == null) return;
 
-            if (!newItem.isStackable())
+            if (!newItem.IsStackable)
             {
-                Items.Add(newItem);
+                Inventory.Add(newItem);
                 return;
             }
 
             // 超过单格上限的，直接删
-            if (newItem.count > newItem.getMaxStack())
+            if (newItem.Count > newItem.MaxStack)
             {
-                newItem.count = newItem.getMaxStack();
+                newItem.Count = newItem.MaxStack;
             }
 
-            int remaining = newItem.count;
+            int remaining = newItem.Count;
 
-            foreach (Item existItem in Items)
+            foreach (Item existItem in Inventory)
             {
                 if (remaining <= 0) break;
-                if (existItem.getType() != newItem.getType()) continue;
-                if (!existItem.isStackable()) continue;
+                if (existItem.Type != newItem.Type) continue;
+                if (!existItem.IsStackable) continue;
 
-                int space = existItem.getMaxStack() - existItem.count;
+                int space = existItem.MaxStack - existItem.Count;
                 if (space <= 0) continue;
 
                 int move = Math.Min(space, remaining);
-                existItem.count += move;
+                existItem.Count += move;
                 remaining -= move;
             }
 
             if (remaining > 0)
             {
-                newItem.count = remaining;
-                Items.Add(newItem);
+                newItem.Count = remaining;
+                Inventory.Add(newItem);
             }
         }
-        public void setDOTdmg(int DOTdmg)
+
+        public void DecreaseDotDuration() { DotDuration--; }
+
+        public void ClearDot()
         {
-            this.DOTdmg = DOTdmg;
-        }
-        public void addDOTdmg(double DOTdmg)
-        {
-            this.DOTdmg += DOTdmg;
+            DotDuration = 0;
+            DotDamage = 0;
         }
 
-        public void addDOTdur(int DOTdur)
+        public void OnPlayerTurn(List<Monster> monsters, EnvType envType)
         {
-            this.DOTdur += DOTdur;
-        }
-
-        public void setSkipTurn(int skipTurn)
-        {
-            this.skipTurn = skipTurn;
-        }
-
-        public void setDeath(bool death)
-        {
-            isDeath = death;
-        }
-
-        public double getStr()
-        {
-            return str;
-        }
-
-        public void setStr(double str)
-        {
-            this.str = str;
-        }
-
-        public int getDOTdur()
-        {
-            return DOTdur;
-        }
-
-        public void setDOTdur(int DOTdur)
-        {
-            this.DOTdur = DOTdur;
-        }
-
-        public double getDOTdmg()
-        {
-            return DOTdmg;
-        }
-
-        public void setDOTdmg(double DOTdmg)
-        {
-            this.DOTdmg = DOTdmg;
-        }
-        public void decreaseDOTdur() { DOTdur--; }
-
-        public void clearDOT()
-        {
-            DOTdur = 0;
-            DOTdmg = 0;
-        }
-
-        private bool isDeath = false;
-        //玩家数组初始化
-        public List<Item> Items = new List<Item>();
-        public List<Item> WillAdd = new List<Item>();
-        public List<Craftable> AllRecipe = new List<Craftable>();
-        public void onPlayerTurn(List<Monster> monsters, EnvType envType)
-        {
-            if (!isAlive())
+            if (!IsAlive)
             {//判定死没死
                 Console.WriteLine("你死了！");
-                isDeath = true;
+                IsDead = true;
                 return;
             }
-            if (this.DOTdur > 0)
+            if (DotDuration > 0)
             {
-                this.DOTdur -= 1;
-                this.hp -= DOTdmg;
+                DotDuration -= 1;
+                Hp -= DotDamage;
             }
             Console.WriteLine("=====你的回合=====");
-            handleChangeableItems(this, envType);
-            Items.AddRange(WillAdd);
-            WillAdd.Clear();
-            if (skipTurn > 0)
+            HandleChangeableItems(this, envType);
+            Inventory.AddRange(PendingItems);
+            PendingItems.Clear();
+            if (SkipTurn > 0)
             {
-                skipTurn -= 1;
+                SkipTurn -= 1;
                 Console.WriteLine("跳过回合!");
                 return;
             }
@@ -168,26 +120,26 @@ namespace LostCompound.Tools
             * */
 
 
-            Calculator.delay(250);
-            Console.WriteLine("你的血量:{0:F1}", this.hp);
-            Console.WriteLine("你的防御:{0:F1}", this.def);
-            Console.WriteLine("你的格挡剩余:" + this.block);
-            if (DOTdur > 0)
+            Calculator.Delay(250);
+            Console.WriteLine("你的血量:{0:F1}", Hp);
+            Console.WriteLine("你的防御:{0:F1}", Def);
+            Console.WriteLine("你的格挡剩余:" + Block);
+            if (DotDuration > 0)
             {
-                Console.WriteLine("你剩余的dot时长:" + DOTdur);
-                Console.WriteLine("你的dot伤害:" + DOTdmg);
+                Console.WriteLine("你剩余的dot时长:" + DotDuration);
+                Console.WriteLine("你的dot伤害:" + DotDamage);
             }
-            Calculator.delay(250);
+            Calculator.Delay(250);
             foreach (Monster m in monsters)
             {
                 Console.Write(m);
             }
-            Calculator.delay(250);
+            Calculator.Delay(250);
             Console.WriteLine();
             Console.WriteLine("请选择操作");
-            Calculator.delay(250);
+            Calculator.Delay(250);
             Console.WriteLine("1.攻击   2.防御   3.使用背包道具  4.徒手合成");
-            if (this.debug)
+            if (_debug)
             {
                 Console.WriteLine("debug模式操作:");
                 Console.WriteLine("127, 获得全部合成");
@@ -199,22 +151,22 @@ namespace LostCompound.Tools
                     Attack(monsters);
                     break;
                 case 2:
-                    block += 1;
+                    Block += 1;
                     break;
                 case 3:
-                    openItems(monsters);
+                    OpenItems(monsters);
                     break;
                 case 4:
-                    handCraft();
+                    HandCraft();
                     break;
                 case 127:
                     Console.WriteLine("此部分尚未开发!");
                     break;
                 case 128:
-                    AllRecipeUnlock(); // Java 原名: AllRecipe()（C# 不允许字段与方法同名）
+                    UnlockAllRecipes();
                     break;
                 case 255:
-                    this.debug = true;
+                    _debug = true;
                     Console.WriteLine("你已进入debug模式!");
                     break;
                 default:
@@ -223,77 +175,70 @@ namespace LostCompound.Tools
             }
         }
 
-        public bool isAlive()
+        public void TakeDamage(double dmg)
         {
-            return hp > 0;
-        }
-
-        public List<Item> getItems()
-        {
-            return Items;
-        }
-
-        public void takeDmg(double dmg)
-        {
-            double realDmg = Calculator.Define(this.def, dmg);
-            if (block > 0)
+            double realDmg = Calculator.ApplyDefense(Def, dmg);
+            if (Block > 0)
             {
                 Console.WriteLine("你格挡了伤害!");
-                block -= 1;
+                Block -= 1;
                 return;
             }
-            hp -= realDmg;
+            Hp -= realDmg;
             Console.WriteLine("你受到{0:F1}点伤害!", realDmg);
             Console.WriteLine();
 
         }
-        public void Attack(List<Monster> m)
+
+        public void Attack(List<Monster> monsters)
         {
-            double dmg = Calculator.Attack(this.str, this.atk);
+            double dmg = Calculator.CalculateAttack(Str, Atk);
             Console.WriteLine("=====攻击界面=====");
-            Calculator.delay(250);
+            Calculator.Delay(250);
             int count = 0;
-            foreach (Monster i in m)
+            foreach (Monster i in monsters)
             {
                 Console.Write(count + "." + " " + i + "   ");
                 count++;
             }
             Console.WriteLine("请选择怪物攻击:");
             int choice = int.Parse(Console.ReadLine());
-            if (choice < 0 || choice > m.Count - 1)
+            if (choice < 0 || choice > monsters.Count - 1)
             {
                 Console.WriteLine("您的攻击无效！");
             }
             else
             {
-                Monster target = m[choice];
-                target.takeDmg(dmg);
+                Monster target = monsters[choice];
+                target.TakeDamage(dmg);
                 Console.WriteLine("你攻击了" + target + "!");
             }
 
 
         }
-        public int selectTarget(List<Monster> m)
+
+        public int SelectTarget(List<Monster> monsters)
         {
             Console.WriteLine("请选择对象:");
             int count = 0;
-            foreach (Monster i in m)
+            foreach (Monster i in monsters)
             {
                 Console.Write(count + "." + " " + i + "   ");
                 count++;
             }
             int choice = int.Parse(Console.ReadLine());
-            if (choice < 0 || choice > m.Count - 1)
+            if (choice < 0 || choice > monsters.Count - 1)
             {
                 Console.WriteLine("您的投掷无效！");
                 return -1;
             }
             return choice;
         }
-        private void openItems(List<Monster> m)
+
+        private void OpenItems(List<Monster> monsters)
         {
             int count = 0;
-            foreach (Item i in Items)
+            foreach (Item i in Inventory)
             {
                 if (i is Useable)
                 {
@@ -308,16 +253,16 @@ namespace LostCompound.Tools
             }
             Console.WriteLine("请选择道具使用");
             int choice = int.Parse(Console.ReadLine());
-            if (choice < 0 || choice > Items.Count - 1)
+            if (choice < 0 || choice > Inventory.Count - 1)
             {
                 Console.WriteLine("您的使用无效！");
             }
             else
             {
-                Item item = Items[choice];
-                if (item is Useable)
+                Item item = Inventory[choice];
+                if (item is Useable useable)
                 {
-                    ((Useable)item).use(this, m);
+                    useable.Use(this, monsters);
                 }
                 else
                 {
@@ -327,21 +272,20 @@ namespace LostCompound.Tools
             }
         }
 
-        // 修改后的 handleChangeableItems 方法（所在类根据实际情况调整）
-        private void handleChangeableItems(Player owner, EnvType envType)
+        // 修改后的 HandleChangeableItems 方法（所在类根据实际情况调整）
+        private void HandleChangeableItems(Player owner, EnvType envType)
         {
-            List<Item> toAdd = new List<Item>();
-            for (int i = 0; i < owner.Items.Count; i++)
+            List<Item> toAdd = [];
+            for (int i = 0; i < owner.Inventory.Count; i++)
             {
-                Item item = owner.Items[i];
-                if (item is TurnCount)
+                Item item = owner.Inventory[i];
+                if (item is TurnCount turnCount)
                 {
                     // 关键修改：使用 owner 而非 this
-                    ((TurnCount)item).onBattleStart(owner, envType);
+                    turnCount.OnBattleStart(owner, envType);
                 }
-                if (item is Changeable)
+                if (item is Changeable c)
                 {
-                    Changeable c = (Changeable)item;
                     if (c.ShouldRemove())
                     {
                         Item replacement = c.Become();
@@ -349,111 +293,98 @@ namespace LostCompound.Tools
                         {
                             toAdd.Add(replacement);
                         }
-                        owner.Items.RemoveAt(i);
+                        owner.Inventory.RemoveAt(i);
                         i--;
                     }
                 }
             }
             foreach (Item newItem in toAdd)
             {
-                owner.addItem(newItem);
+                owner.AddItem(newItem);
             }
         }
 
-        public int countItemById(int id)
+        public int CountItemById(int id)
         {
             int total = 0;
-            foreach (Item item in Items)
+            foreach (Item item in Inventory)
             {
-                if (item.getId() == id)
+                if (item.Id == id)
                 {
-                    total += item.getCount();
+                    total += item.Count;
                 }
             }
             return total;
 
         }
 
-        // 修改后的 consumeItem 方法（在 Player 类中）
-        public void consumeItem(int id, int amount)
+        // 修改后的 ConsumeItem 方法（在 Player 类中）
+        public void ConsumeItem(int id, int amount)
         {
             // 先检查总数量是否足够
-            if (countItemById(id) < amount)
+            if (CountItemById(id) < amount)
             {
                 Console.WriteLine("道具数量不足！");
                 return;
             }
             int remaining = amount;
-            for (int i = 0; i < Items.Count && remaining > 0; i++)
+            for (int i = 0; i < Inventory.Count && remaining > 0; i++)
             {
-                Item item = Items[i];
-                if (item.getId() == id)
+                Item item = Inventory[i];
+                if (item.Id == id)
                 {
-                    int deduct = Math.Min(item.count, remaining);
-                    item.count -= deduct;
+                    int deduct = Math.Min(item.Count, remaining);
+                    item.Count -= deduct;
                     remaining -= deduct;
-                    if (item.count <= 0)
+                    if (item.Count <= 0)
                     {
-                        Items.RemoveAt(i);
+                        Inventory.RemoveAt(i);
                         i--;
                     }
                 }
             }
         }
 
-        public string getItemNameById(int id)
+        public string GetItemNameById(int id)
         {
-            foreach (Item item in Items)
+            foreach (Item item in Inventory)
             {
-                if (item.getId() == id)
+                if (item.Id == id)
                 {
-                    return item.getName();
+                    return item.Name;
                 }
             }
             return "null";
         }
-        public void AllRecipeUnlock() // Java 原名: AllRecipe()（C# 不允许字段与方法同名）
+
+        public void UnlockAllRecipes()
         {
-            if (!debug)
+            if (!_debug)
             {
                 Console.WriteLine("你不能使用这个命令!");
                 return;
             }
-            AllRecipe.Add(new Recipe("热硫", new int[][]{
-                    new int[] {5, 1},
-                    new int[] {3, 1},
-                    new int[] {1, 1}
-            }, new FushionSluphur(1)));
-            AllRecipe.Add(new Recipe("玻璃罐", new int[][]{
-                    new int[] {5, 1},
-                    new int[] {6, 1}
-            }, new GlassJar(1)));
+            Recipes.Add(new Recipe("热硫", [[5, 1], [3, 1], [1, 1]], new FushionSluphur(1)));
+            Recipes.Add(new Recipe("玻璃罐", [[5, 1], [6, 1]], new GlassJar(1)));
         }
 
-        public void addRecipe0()
+        public void AddDefaultRecipes()
         {
             Console.WriteLine("你成功添加了合成表0!");
-            AllRecipe.Add(new Recipe("热硫", new int[][]{
-                    new int[] {5,1},
-                    new int[] {3,1},
-                    new int[] {1,1}
-            }, new FushionSluphur(1)));
-            AllRecipe.Add(new Recipe("玻璃罐", new int[][]{
-                    new int[] {5,1},
-                    new int[] {6,1}
-            }, new GlassJar(1)));
+            Recipes.Add(new Recipe("热硫", [[5, 1], [3, 1], [1, 1]], new FushionSluphur(1)));
+            Recipes.Add(new Recipe("玻璃罐", [[5, 1], [6, 1]], new GlassJar(1)));
         }
 
-        public void handCraft()
+        public void HandCraft()
         {
             Console.WriteLine("====徒手合成====");
-            Calculator.delay(250);
-            List<Craftable> available = new List<Craftable>();
+            Calculator.Delay(250);
+            List<Craftable> available = [];
 
             // 第一步：遍历所有配方，筛选可合成的
-            foreach (Craftable recipe in AllRecipe)
+            foreach (Craftable recipe in Recipes)
             {
-                if (recipe.canCraft(this))
+                if (recipe.CanCraft(this))
                 {
                     available.Add(recipe);
                 }
@@ -470,7 +401,7 @@ namespace LostCompound.Tools
             for (int i = 0; i < available.Count; i++)
             {
                 Craftable r = available[i];
-                Console.WriteLine(i + ". " + r.getName() + " " + r.getMaterialsStr(this));
+                Console.WriteLine(i + ". " + r.Name + " " + r.DescribeMaterials(this));
             }
 
             // 第四步：获取选择并执行
@@ -483,35 +414,35 @@ namespace LostCompound.Tools
                 Console.WriteLine("选择无效!");
                 return;
             }
-            available[choice].craft(this);
-            handCraft();
+            available[choice].Craft(this);
+            HandCraft();
         }
         /*
         * 后面是地图逻辑
         * */
         // 手动指定起始坐标进入地图
-        public void enterMap(Room[][] map, int startRow, int startCol)
+        public void EnterMap(Room[][] map, int startRow, int startCol)
         {
-            this.map = map;
-            this.playerRow = startRow;
-            this.playerCol = startCol;
-            // 进入初始房间：先 enterSetup 再 onEnter
-            map[playerRow][playerCol].enterSetup(this);
+            _map = map;
+            PlayerRow = startRow;
+            PlayerCol = startCol;
+            // 进入初始房间：先 EnterSetup 再 OnEnter
+            map[PlayerRow][PlayerCol].EnterSetup(this);
         }
 
         // 自动寻找 StartRoom 进入地图
-        public void enterMap(Room[][] map)
+        public void EnterMap(Room[][] map)
         {
-            this.map = map;
+            _map = map;
             for (int y = 0; y < map.Length; y++)
             {
                 for (int x = 0; x < map[0].Length; x++)
                 {
                     if (map[y][x] is StartRoom)
                     {
-                        playerRow = y;
-                        playerCol = x;
-                        map[y][x].enterSetup(this);
+                        PlayerRow = y;
+                        PlayerCol = x;
+                        map[y][x].EnterSetup(this);
                         return;
                     }
                 }
@@ -519,82 +450,79 @@ namespace LostCompound.Tools
             throw new InvalidOperationException("地图中没有起始房间！");
         }
 
-        public int getPlayerRow() { return playerRow; }
-        public int getPlayerCol() { return playerCol; }
-
-        public void checkDirections()
+        public void ShowAvailableDirections()
         { //检查可以走的方向
             Console.WriteLine("可行动方向：");
             // 上
-            if (playerRow - 1 >= 0 &&
-                    map[playerRow][playerCol].isDoor(0) &&
-                    map[playerRow - 1][playerCol] != null)
+            if (PlayerRow - 1 >= 0 &&
+                    _map[PlayerRow][PlayerCol].HasDoor(Direction.Up) &&
+                    _map[PlayerRow - 1][PlayerCol] != null)
             {
                 Console.WriteLine("0.上");
             }
             // 下
-            if (playerRow + 1 < map.Length &&
-                    map[playerRow][playerCol].isDoor(1) &&
-                    map[playerRow + 1][playerCol] != null)
+            if (PlayerRow + 1 < _map.Length &&
+                    _map[PlayerRow][PlayerCol].HasDoor(Direction.Down) &&
+                    _map[PlayerRow + 1][PlayerCol] != null)
             {
                 Console.WriteLine("1.下");
             }
             // 左
-            if (playerCol - 1 >= 0 &&
-                    map[playerRow][playerCol].isDoor(2) &&
-                    map[playerRow][playerCol - 1] != null)
+            if (PlayerCol - 1 >= 0 &&
+                    _map[PlayerRow][PlayerCol].HasDoor(Direction.Left) &&
+                    _map[PlayerRow][PlayerCol - 1] != null)
             {
                 Console.WriteLine("2.左");
             }
             // 右
-            if (playerCol + 1 < map[0].Length &&
-                    map[playerRow][playerCol].isDoor(3) &&
-                    map[playerRow][playerCol + 1] != null)
+            if (PlayerCol + 1 < _map[0].Length &&
+                    _map[PlayerRow][PlayerCol].HasDoor(Direction.Right) &&
+                    _map[PlayerRow][PlayerCol + 1] != null)
             {
                 Console.WriteLine("3.右");
             }
         }
 
-        public bool move(int direction)
+        public bool Move(Direction direction)
         {
-            if (direction < 0 || direction > 3)
+            if (!Enum.IsDefined(direction))
             {
                 Console.WriteLine("无效方向！");
                 return false;
             }
-            Room current = map[playerRow][playerCol];
-            if (!current.isDoor(direction))
+            Room current = _map[PlayerRow][PlayerCol];
+            if (!current.HasDoor(direction))
             {
                 Console.WriteLine("这个方向没有门！");
                 return false;
             }
 
-            int newRow = playerRow, newCol = playerCol;
+            int newRow = PlayerRow, newCol = PlayerCol;
             switch (direction)
             {
-                case 0: newRow--; break; // 上
-                case 1: newRow++; break; // 下
-                case 2: newCol--; break; // 左
-                case 3: newCol++; break; // 右
+                case Direction.Up: newRow--; break; // 上
+                case Direction.Down: newRow++; break; // 下
+                case Direction.Left: newCol--; break; // 左
+                case Direction.Right: newCol++; break; // 右
             }
 
             // 边界检查
-            if (newRow < 0 || newRow >= map.Length || newCol < 0 || newCol >= map[0].Length)
+            if (newRow < 0 || newRow >= _map.Length || newCol < 0 || newCol >= _map[0].Length)
             {
                 Console.WriteLine("撞墙了！");
                 return false;
             }
 
-            // 离开旧房间（清除玩家标记，触发 onLeave）
-            current.leaveSetup(this);
+            // 离开旧房间（清除玩家标记，触发 OnLeave）
+            current.LeaveSetup(this);
 
             // 更新坐标
-            playerRow = newRow;
-            playerCol = newCol;
+            PlayerRow = newRow;
+            PlayerCol = newCol;
 
-            // 进入新房间（设置玩家标记，触发 onEnter）
-            Room newRoom = map[playerRow][playerCol];
-            newRoom.enterSetup(this);
+            // 进入新房间（设置玩家标记，触发 OnEnter）
+            Room newRoom = _map[PlayerRow][PlayerCol];
+            newRoom.EnterSetup(this);
             Console.WriteLine("你移动到了新房间。");
 
             // 如果 Player 持有 maze 引用，移动后打印地图
@@ -605,35 +533,36 @@ namespace LostCompound.Tools
         // ========== 加入地图（自动寻找 StartRoom） ==========
         public void JoinMap(Room[][] map)
         {
-            this.map = map;
+            _map = map;
             for (int y = 0; y < map.Length; y++)
             {
                 for (int x = 0; x < map[0].Length; x++)
                 {
                     if (map[y][x] is StartRoom)
                     {
-                        playerRow = y;
-                        playerCol = x;
-                        map[y][x].enterSetup(this);
+                        PlayerRow = y;
+                        PlayerCol = x;
+                        map[y][x].EnterSetup(this);
                         return;
                     }
                 }
             }
             throw new InvalidOperationException("地图中没有起始房间！");
         }
-        public void startGame(Room[][] map, TreeMazeGenerator tmg)
+
+        public void StartGame(Room[][] map, TreeMazeGenerator tmg)
         {
             JoinMap(map);
             Console.WriteLine("游戏开始！输入方向探索地图。");
 
-            while (this.isAlive())
+            while (IsAlive)
             {
                 // 清屏（可选）
                 Console.Write("\u001b[H\u001b[2J");
-                Console.WriteLine(tmg.printMapToString());
-                Console.WriteLine("\n当前位置: (" + playerRow + ", " + playerCol + ")");
-                Console.WriteLine("当前房间:" + map[playerRow][playerCol].getRoomType());
-                checkDirections();
+                Console.WriteLine(tmg.ToDisplayString());
+                Console.WriteLine("\n当前位置: (" + PlayerRow + ", " + PlayerCol + ")");
+                Console.WriteLine("当前房间:" + map[PlayerRow][PlayerCol].Type);
+                ShowAvailableDirections();
 
                 int direction;
                 try
@@ -652,9 +581,9 @@ namespace LostCompound.Tools
                     break;
                 }
                 Console.Write("\u001b[H\u001b[2J");
-                move(direction);
-                Console.WriteLine("\n当前位置: (" + playerRow + ", " + playerCol + ")");
-                Console.WriteLine("当前房间:" + map[playerRow][playerCol].getRoomType());
+                Move((Direction)direction);
+                Console.WriteLine("\n当前位置: (" + PlayerRow + ", " + PlayerCol + ")");
+                Console.WriteLine("当前房间:" + map[PlayerRow][PlayerCol].Type);
 
                 // 3. 执行进入房间的逻辑（战斗、事件等）
 

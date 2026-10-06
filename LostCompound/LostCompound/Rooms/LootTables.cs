@@ -1,5 +1,5 @@
-using LostCompound.MapEnvironment;
 using LostCompound.Items;
+using LostCompound.MapEnvironment;
 
 namespace LostCompound.Rooms
 {
@@ -7,21 +7,22 @@ namespace LostCompound.Rooms
      * Author:  Hyberty
      * OOP牛逼
      */
-    public class LootTables
+    public static class LootTables
     {
         /**
          * 根据环境类型返回该环境下可能掉落的道具列表。
          * 返回的是一个新创建的 ArrayList，避免外部修改影响内部数据。
          */
-        public static List<Item> getLootTable(EnvType envType)
+        public static List<Item> GetLootTable(EnvType envType)
         {
-            List<Item> items = new List<Item>();
+            List<Item> items = [];
+
             switch (envType)
             {
-                case EnvType.NONE:
+                case EnvType.None:
                     Console.WriteLine("请调试！ 这是一个空环境!");
                     break;
-                case EnvType.LAVA_WATERFALL:
+                case EnvType.LavaWaterfall:
                     // 熔岩瀑布环境：掉落的特殊道具
                     items.Add(new Sulphur(1));
                     items.Add(new Sulphur(2));

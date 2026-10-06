@@ -3,45 +3,24 @@ using LostCompound.Monsters;
 
 namespace LostCompound.Rooms
 {
-    public class MobSpawner
+    public static class MobSpawner
     {
-        private static readonly Random random = new Random();
         /**
          * 随机返回 3 种不同的起始道具，供玩家选择 1 种。
          * 根据权重分配概率，药和咖啡不参与。
          *
          * @return 包含 3 种道具名称的 ArrayList
          */
-        public static Random rd = new Random();
-        public static List<Monster> spawn(EnvType envType)
+        public static List<Monster> Spawn(EnvType envType)
         {
-            switch (envType)
+            return envType switch
             {
-                case EnvType.LAVA_WATERFALL:
-                {
-                    double num = rd.NextDouble();
-                    if (num < 0.5)
-                    {
-                        List<Monster> m = new List<Monster>();
-                        m.Add(new Zombie());
-                        return m;
-                    }
-                    else
-                    {
-                        List<Monster> m = new List<Monster>();
-                        m.Add(new LavaSlime());
-                        return m;
-                    }
-                }
-                default:
-                {
-                    // 默认返回空数组或普通怪物
-                    List<Monster> m = new List<Monster>();
-                    m.Add(new Dummy());
-                    return m;
-                }
-            }
+                EnvType.LavaWaterfall => Random.Shared.NextDouble() < 0.5
+                    ? new List<Monster> { new Zombie() }
+                    : new List<Monster> { new LavaSlime() },
+                // 默认返回普通怪物
+                _ => new List<Monster> { new Dummy() },
+            };
         }
-
     }
 }

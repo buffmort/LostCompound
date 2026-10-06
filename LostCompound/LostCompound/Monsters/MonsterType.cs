@@ -2,11 +2,11 @@ namespace LostCompound.Monsters
 {
     public enum MonsterType
     {
-        DRAGON,
-        DUMMY,
-        LAVA_SLIME,
-        TWISTEDPAIR1,
-        TWISTEDPAIR2,
-        ZOMBIE,
+        Dragon,
+        Dummy,
+        LavaSlime,
+        TwistedPair1,
+        TwistedPair2,
+        Zombie,
     }
 }

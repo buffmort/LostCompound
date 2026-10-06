@@ -10,49 +10,48 @@ using LostCompound.Tools;
  */
 namespace LostCompound.Monsters
 {
-    public class TwistedPairP2 : Monster
+    public sealed class TwistedPairP2 : Monster
     {
-        private readonly TwistedPairState state;
-        private readonly TwistedPairP1 brother;
-        public Random rd = new Random();
+        private readonly TwistedPairState _state;
+        private readonly TwistedPairP1 _brother;
 
         public TwistedPairP2(TwistedPairState state, TwistedPairP1 brother)
         {
-            this.name = "Twisted Pair P2";
-            this.monsterType = MonsterType.TWISTEDPAIR2;
-            this.hp = 30;
-            this.def = 5;
-            this.state = state;
-            this.brother = brother;
+            Name = "Twisted Pair P2";
+            Type = MonsterType.TwistedPair2;
+            Hp = 30;
+            Def = 5;
+            _state = state;
+            _brother = brother;
         }
 
         public override void Attack(Player p)
         {
-            p.takeDmg(5);
+            p.TakeDamage(5);
         }
 
-        public override void takeDmg(double dmg)
+        public override void TakeDamage(double dmg)
         {
-            if (block > 0)
+            if (Block > 0)
             {
-                block--;
+                Block--;
                 return;
             }
-            hp -= dmg;
+            Hp -= dmg;
         }
 
-        public override void onMonsterTurn(Player p)
+        public override void OnMonsterTurn(Player p)
         {
-            Console.WriteLine("=====" + this.name + "回合=====");
-            state.checkAndResetIfBothTrue();
-            state.p2AttackedThisTurn = true;  // 标记p2已行动
+            Console.WriteLine("=====" + Name + "回合=====");
+            _state.ResetIfBothActed();
+            _state.P2AttackedThisTurn = true;  // 标记p2已行动
 
             // 第一次行动（允许触发额外行动）
-            bool extraNeeded = performAction(p, true);
+            bool extraNeeded = PerformAction(p, true);
             // 如果技能④触发额外行动，则再执行一次（不允许再次额外）
             if (extraNeeded)
             {
-                performAction(p, false);
+                PerformAction(p, false);
             }
         }
 
@@ -61,38 +60,38 @@ namespace LostCompound.Monsters
          * @param allowExtra 是否允许技能④触发额外行动
          * @return 是否触发了额外行动（用于外层判断）
          */
-        private bool performAction(Player p, bool allowExtra)
+        private bool PerformAction(Player p, bool allowExtra)
         {
-            int choice = rdChoice(4); // 4个技能
+            int choice = RollIndex(4); // 4个技能
             switch (choice)
             {
                 case 1:
-                    Console.WriteLine(this.name + "攻击了你!");
-                    p.takeDmg(5);
+                    Console.WriteLine(Name + "攻击了你!");
+                    p.TakeDamage(5);
                     break;
                 case 2:
                     // 技能2：造成1点伤害5次
-                    Console.WriteLine(this.name + "攻击了你5次!");
+                    Console.WriteLine(Name + "攻击了你5次!");
                     for (int i = 0; i < 5; i++)
                     {
-                        p.takeDmg(1);
+                        p.TakeDamage(1);
                     }
                     break;
                 case 3:
                     // 技能3：给所有怪物加1格挡，若任意怪物已有格挡则跳过本回合
-                    if (this.block > 0 || brother.block > 0)
+                    if (Block > 0 || _brother.Block > 0)
                     {
                         return false; // 直接不行动
                     }
-                    this.block++; // 给自己加格挡
-                    brother.block++; // 给 p1 加格挡
+                    Block++; // 给自己加格挡
+                    _brother.Block++; // 给 p1 加格挡
                     break;
                 case 4:
                     // 技能4：造成5伤害，若p1未攻击则额外行动一次
-                    p.takeDmg(5);
-                    if (allowExtra && !state.p1AttackedThisTurn)
+                    p.TakeDamage(5);
+                    if (allowExtra && !_state.P1AttackedThisTurn)
                     {
-                        Console.WriteLine("因为p1未行动,所以" + this.name + "再行动一次!");
+                        Console.WriteLine("因为p1未行动,所以" + Name + "再行动一次!");
                         return true; // 触发额外行动
                     }
                     break;
@@ -100,14 +99,6 @@ namespace LostCompound.Monsters
             return false;
         }
 
-        protected override int rdChoice(int i)
-        {
-            return rd.Next(i) + 1; // 返回 1 ~ i
-        }
-
-        public override bool isAlive()
-        {
-            return hp > 0;
-        }
+        protected override int RollIndex(int count) => Random.Shared.Next(count) + 1; // 返回 1 ~ i
     }
 }

@@ -1,20 +1,7 @@
 namespace LostCompound.Items
 {
-    public class Sand : Item
+    public sealed class Sand(int count) : Item(6, "沙子", 99, true, count)
     {
-        public Sand(int count)
-        {
-            this.name = "沙子";
-            this.id = 6;
-            this.count = count;
-            this.Stackable = true;
-            this.maxStack = 99;
-            this.type = ItemType.SAND;
-        }
-
-        public override ItemType? getType()
-        {
-            return this.type;
-        }
+        public override ItemType? Type => ItemType.Sand;
     }
 }

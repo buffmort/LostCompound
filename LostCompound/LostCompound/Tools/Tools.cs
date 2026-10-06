@@ -3,7 +3,7 @@ using LostCompound.Monsters;
 
 namespace LostCompound.Tools
 {
-    public class Tools
+    public static class Tools
     {
 
         /**
@@ -11,37 +11,37 @@ namespace LostCompound.Tools
          * 大回合 = roundSetup + 玩家小回合 + 怪物小回合
          * 跳过回合逻辑封装在 Monster.onMonsterTurn 内部
          */
-        public static void Fight(Player p, List<Monster> monsters, EnvType envType)
+        public static void RunBattle(Player p, List<Monster> monsters, EnvType envType)
         {
             Console.WriteLine("=======战斗开始=======");
             int round = 1;
 
-            while (p.isAlive() && monsters.Count > 0)
+            while (p.IsAlive && monsters.Count > 0)
             {
 
                 // ── 大回合开场：DOT 结算一次 ──
-                roundSetup(p, monsters, round);
-                cleanupDead(p, monsters);
-                if (!p.isAlive() || monsters.Count == 0) break;
+                ApplyDotEffects(p, monsters, round);
+                RemoveDeadMonsters(p, monsters);
+                if (!p.IsAlive || monsters.Count == 0) break;
 
                 // ── 小回合 A：玩家行动 ──
-                p.onPlayerTurn(monsters, envType);
-                cleanupDead(p, monsters);
-                if (!p.isAlive() || monsters.Count == 0) break;
+                p.OnPlayerTurn(monsters, envType);
+                RemoveDeadMonsters(p, monsters);
+                if (!p.IsAlive || monsters.Count == 0) break;
 
                 // ── 小回合 B：怪物行动（skipTurn 内部自理）──
                 foreach (Monster m in monsters)
                 {
-                    if (!p.isAlive()) break;
-                    if (!m.isAlive()) continue;
-                    m.onMonsterTurn(p);
+                    if (!p.IsAlive) break;
+                    if (!m.IsAlive) continue;
+                    m.OnMonsterTurn(p);
                 }
-                cleanupDead(p, monsters);
+                RemoveDeadMonsters(p, monsters);
 
                 round++;
             }
 
-            Console.WriteLine(p.isAlive() ? "战斗结束 你赢了!" : "你死了!");
+            Console.WriteLine(p.IsAlive ? "战斗结束 你赢了!" : "你死了!");
         }
 
         /**
@@ -49,29 +49,29 @@ namespace LostCompound.Tools
          * DOT 走 takeDmg → 会消耗格挡(block) 一次
          * 纪律：只扣血，不调 die()，收尸统一交给 cleanupDead
          */
-        private static void roundSetup(Player p, List<Monster> monsters, int round)
+        private static void ApplyDotEffects(Player p, List<Monster> monsters, int round)
         {
             Console.WriteLine("=====第" + round + "回合=====");
-            Calculator.delay(250);
+            Calculator.Delay(250);
 
             // 怪物 DOT
             foreach (Monster m in monsters)
             {
-                if (!m.isAlive() || m.getDOTdur() <= 0) continue;
+                if (!m.IsAlive || m.DotDuration <= 0) continue;
 
-                Console.WriteLine(m.getName() + " 受到 " + m.getDOTdmg() + " 点持续伤害");
-                m.takeDmg(m.getDOTdmg());
-                m.decreaseDOTdur();
-                if (m.getDOTdur() <= 0) m.clearDOT();
+                Console.WriteLine(m.Name + " 受到 " + m.DotDamage + " 点持续伤害");
+                m.TakeDamage(m.DotDamage);
+                m.DecreaseDotDuration();
+                if (m.DotDuration <= 0) m.ClearDot();
             }
 
             // 玩家 DOT
-            if (p.isAlive() && p.getDOTdur() > 0)
+            if (p.IsAlive && p.DotDuration > 0)
             {
-                Console.WriteLine(" 你受到 " + p.getDOTdmg() + " 点持续伤害");
-                p.takeDmg(p.getDOTdmg());
-                p.decreaseDOTdur();
-                if (p.getDOTdur() <= 0) p.clearDOT();
+                Console.WriteLine(" 你受到 " + p.DotDamage + " 点持续伤害");
+                p.TakeDamage(p.DotDamage);
+                p.DecreaseDotDuration();
+                if (p.DotDuration <= 0) p.ClearDot();
             }
         }
 
@@ -80,14 +80,14 @@ namespace LostCompound.Tools
          * 依赖 Monster.die(Player) 幂等（内部 lootDropped 标志），
          * 否则 DOT 击杀 + 技能补刀会双发掉落
          */
-        private static void cleanupDead(Player p, List<Monster> monsters)
+        private static void RemoveDeadMonsters(Player p, List<Monster> monsters)
         {
             for (int i = 0; i < monsters.Count; i++)
             {
                 Monster m = monsters[i];
-                if (!m.isAlive())
+                if (!m.IsAlive)
                 {
-                    m.die(p);
+                    m.Die(p);
                     monsters.RemoveAt(i);
                     i--;
                 }

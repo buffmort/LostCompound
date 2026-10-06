@@ -5,74 +5,63 @@ namespace LostCompound.Tools
 {
     public class Recipe : Craftable
     {
-        private string name;
-        private int[][] materials;
-        private Item product;
+        private readonly int[][] _materials;
 
         public Recipe(string name, int[][] materials, Item product)
         {
-            this.name = name;
-            this.materials = materials;
-            this.product = product;
+            Name = name;
+            _materials = materials;
+            Product = product;
         }
 
-        public string getName()
-        {
-            return name;
-        }
+        public string Name { get; }
 
-        public int[][] getMaterials()
-        {
-            return materials;
-        }
+        public int[][] Materials => _materials;
 
-        public Item getProduct()
-        {
-            return product;
-        }
+        public Item Product { get; }
 
-        public bool canCraft(Player player)
+        public bool CanCraft(Player player)
         {
-            Console.WriteLine("检查配方: " + name);
-            foreach (int[] mat in materials)
+            Console.WriteLine("检查配方: " + Name);
+            foreach (int[] mat in _materials)
             {
                 int id = mat[0];
                 int required = mat[1];
-                int owned = player.countItemById(id);
+                int owned = player.CountItemById(id);
                 Console.WriteLine("需要 ID=" + id + " 数量=" + required + "，拥有=" + owned);
                 if (owned < required) return false;
             }
             return true;
         }
 
-        public void craft(Player player)
+        public void Craft(Player player)
         {
-            if (!canCraft(player))
+            if (!CanCraft(player))
             {
-                Console.WriteLine("材料不足 无法合成" + name + "!");
+                Console.WriteLine("材料不足 无法合成" + Name + "!");
                 return;
             }
-            foreach (int[] mat in materials)
+            foreach (int[] mat in _materials)
             {
                 int id = mat[0];
                 int amount = mat[1];
-                player.consumeItem(id, amount);
+                player.ConsumeItem(id, amount);
             }
-            player.addItem(product);
-            Console.WriteLine("合成" + product.getName() + "成功!");
+            player.AddItem(Product);
+            Console.WriteLine("合成" + Product.Name + "成功!");
 
         }
 
-        public string getMaterialsStr(Player player)
+        public string DescribeMaterials(Player player)
         {
             StringBuilder sb = new StringBuilder("(");
-            for (int i = 0; i < materials.Length; i++)
+            for (int i = 0; i < _materials.Length; i++)
             {
-                int id = materials[i][0];
-                int count = materials[i][1];
-                string itemName = player.getItemNameById(id);
+                int id = _materials[i][0];
+                int count = _materials[i][1];
+                string itemName = player.GetItemNameById(id);
                 sb.Append(itemName).Append("x").Append(count);
-                if (i < materials.Length - 1)
+                if (i < _materials.Length - 1)
                 {
                     sb.Append(" + ");
                 }
