@@ -17,6 +17,7 @@ namespace LostCompound.Items
             if (choice == -1)
             {
                 Console.WriteLine("你输入了错误的序号 跳过");
+                return;   // 修复：原先缺少 return，会继续执行下面的 m[-1] 导致越界崩溃
             }
             Monster target = m[choice];
             target.AddDotDamage(dotDmg);
