@@ -42,14 +42,20 @@ namespace LostCompound.UI
         // ---- 尺寸 ----
         /// <summary>地图区内容行数。</summary>
         public int MapRows { get; }
-        /// <summary>状态区内容行数。</summary>
-        public int StatusRows { get; }
-        /// <summary>日志区内容行数。</summary>
-        public int LogRows { get; }
+        /// <summary>状态区内容行数。会按内容自适应，所以可写。</summary>
+        public int StatusRows { get; private set; }
+        /// <summary>日志区内容行数。状态框变高时日志让出对应行数，所以可写。</summary>
+        public int LogRows { get; private set; }
         /// <summary>地图框外框宽度（含左右竖线）。</summary>
         private int MapWidth { get; }
         /// <summary>左列各框外框宽度（含左右竖线）。</summary>
         private int LeftWidth { get; }
+
+        /// <summary>日志区最少保留的行数（状态框最多涨到把日志压到这里为止）。</summary>
+        private const int MinimumLogRows = 3;
+
+        /// <summary>终端高度，用于保证重排后总高依然放得下。</summary>
+        private readonly int _terminalHeight;
 
         // ---- 位置（1-based）----
         private const int LeftBoxLeft = 1;
@@ -103,7 +109,7 @@ namespace LostCompound.UI
             // 左列总高 = 状态框(StatusRows+2) + 日志框(LogRows+2) + 输入框(3)
             // 右列总高 = 地图框(MapRows+2)
             // 整体不能超过终端高度，否则会触发终端滚动、绝对定位全废。
-            const int MinimumLogRows = 3;
+            _terminalHeight = terminalHeight;
 
             int leftOverhead = StatusRows + 7;                     // 状态框 + 输入框的固定部分
             int logRows = Math.Max(MinimumLogRows, terminalHeight - leftOverhead);
@@ -150,13 +156,67 @@ namespace LostCompound.UI
             DrawBox(MapBoxTop, MapBoxLeft, MapWidth, "地图", MapRows, SplitLines(mapText));
         }
 
-        /// <summary>重画状态区（左列顶部）。statusText 里用 \n 分行。内容未变时跳过。</summary>
+        /// <summary>
+        /// 重画状态区（左列顶部）。statusText 里用 \n 分行。
+        /// 行数变化时状态框会自动增高/变矮，多占的行由日志区让出，左列总高保持不变。
+        /// </summary>
         public void DrawStatus(string statusText)
         {
             if (statusText == _lastStatus) return;
             _lastStatus = statusText;
 
-            DrawBox(StatusBoxTop, LeftBoxLeft, LeftWidth, "状态", StatusRows, SplitLines(statusText));
+            string[] lines = SplitLines(statusText);
+
+            // 状态框按内容自适应：内容多就长高，少就变矮（至少 1 行）
+            int wantedRows = Math.Max(1, lines.Length);
+            if (wantedRows != StatusRows)
+            {
+                ResizeStatus(wantedRows);
+            }
+
+            DrawBox(StatusBoxTop, LeftBoxLeft, LeftWidth, "状态", StatusRows, lines);
+        }
+
+        /// <summary>
+        /// 改变状态框高度：左列总高不变，多占的行由日志区让出。
+        /// 各框位置都是计算属性（依赖 StatusRows），所以日志框/输入框会自己跟着挪，
+        /// 这里只需要把它们的边框和内容重画一遍。
+        /// </summary>
+        private void ResizeStatus(int newRows)
+        {
+            int delta = newRows - StatusRows;
+            int targetLog = LogRows - delta;
+
+            if (targetLog < MinimumLogRows)
+            {
+                // 日志已压到下限，状态框不能再涨
+                newRows -= MinimumLogRows - targetLog;
+                if (newRows == StatusRows) return;
+                delta = newRows - StatusRows;
+            }
+
+            StatusRows = newRows;
+            LogRows -= delta;
+
+            // 框的位置变了，边框与内容都要重画
+            RedrawLogFrame();
+            RedrawInputFrame();
+            RedrawLog();
+            RedrawInputBox();
+        }
+
+        /// <summary>单独重画日志框的上下边框（位置变化时用）。</summary>
+        private void RedrawLogFrame()
+        {
+            DrawBoxTop(LogBoxTop, LeftBoxLeft, LeftWidth, "日志");
+            DrawBoxBottom(LogBoxTop + LogRows + 1, LeftBoxLeft, LeftWidth);
+        }
+
+        /// <summary>单独重画输入框的边框（位置变化时用）。</summary>
+        private void RedrawInputFrame()
+        {
+            DrawBoxTop(InputBoxTop, LeftBoxLeft, LeftWidth, "输入");
+            DrawBoxBottom(InputBoxTop + 2, LeftBoxLeft, LeftWidth);
         }
 
         /// <summary>提交一条日志（由 <see cref="LogRegionWriter"/> 在遇到换行时调用）。</summary>
