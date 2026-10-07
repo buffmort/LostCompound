@@ -89,7 +89,7 @@ namespace LostCompound.UI
             // 地图框要放得下地图（内容宽 + 左右边距 + 两条竖线）
             int wantedMapWidth = mapColumns + 2 * ContentOffset + 2;
             // 左列给个合适的固定宽度：要装得下「熔岩瀑布水量：191/200」这类状态行
-            int wantedLeftWidth = 38;
+            int wantedLeftWidth = 60;
 
             int budget = terminalWidth - 1;                       // 留最右一列不写，避免自动换行
             if (wantedMapWidth + 1 + wantedLeftWidth > budget)

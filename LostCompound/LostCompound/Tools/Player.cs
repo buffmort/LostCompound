@@ -638,8 +638,10 @@ namespace LostCompound.Tools
         {
             JoinMap(map);
 
-            // 地图文本的行数就是地图区需要的高度（rows*2+1）
-            ConsoleScreen screen = new ConsoleScreen(tmg.ToDisplayString().Replace("\r", "").Split('\n').Length);
+            // 地图文本的行数/列数决定地图区的大小（行数 = rows*2+1，列数算最长一行）
+            string[] mapLines = tmg.ToDisplayString().Replace("\r", "").Split('\n');
+            int mapColumns = mapLines.Max(line => line.Length);
+            ConsoleScreen screen = new ConsoleScreen(mapLines.Length, mapColumns);
             screen.Install();
             Console.WriteLine("游戏开始！输入方向探索地图。");
 
