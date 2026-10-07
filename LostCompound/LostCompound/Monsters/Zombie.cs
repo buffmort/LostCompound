@@ -46,8 +46,8 @@ namespace LostCompound.Monsters
 
         public override void OnMonsterTurn(Player p)
         {
-            // 回合头、DOT 结算与跳过检查都由 Tools.RunBattle 统一处理：
-            // 这里如果自己再减一次 DOT，就会和 ApplyDotEffects 重复结算（原 bug）。
+            // 回合头、流血结算与跳过检查都由 Tools.RunBattle 统一处理：
+            // 这里如果自己再结算一次流血，就会和 Tools.ApplyBuffs 重复结算（原 bug）。
             Calculator.Delay(250);
             int option = RollIndex(2);
             switch (option)

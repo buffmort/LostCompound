@@ -39,8 +39,8 @@ namespace LostCompound.Items
 
             Timer = DamageInterval;
 
-            // 用了和放射性矿物相同的取舍：走 p.TakeDamage（计入格挡/防御，与 Tools.ApplyDotEffects
-            // 里的玩家 DOT 一致），并且逐点结算（1 点一次，保证 DEF 最低取 1 时每点都真的扣到）。
+            // 用了和放射性矿物相同的取舍：走 p.TakeDamage（计入格挡/防御，与 Tools.ApplyBuffs
+            // 里的玩家流血一致），并且逐点结算（1 点一次，保证 DEF 最低取 1 时每点都真的扣到）。
             Console.WriteLine($"放射金属罐的辐射在发作！（每 {DamageInterval} 回合 {DamagePerTick} 点）");
             int hits = Count * DamagePerTick;   // 可叠加：同一格里 Count 份，每份扣 DamagePerTick 点
             for (int i = 0; i < hits; i++)

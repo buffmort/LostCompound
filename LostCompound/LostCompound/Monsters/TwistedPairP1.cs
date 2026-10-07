@@ -1,4 +1,5 @@
 using LostCompound.Tools;
+using LostCompound.Buffs;
 
 /**
  * Author:  Hyberty
@@ -56,9 +57,9 @@ namespace LostCompound.Monsters
                     break;
                 case 2:
                     Console.WriteLine(Name + "向你喷了火!");
-                    Console.WriteLine("你受到持续5回合的3点DOT伤害!");
-                    p.AddDotDamage(3);
-                    p.AddDotDuration(5);
+                    // 原先是 DOT 3 / 5 回合；DOT 机制已删除，改为等值的流血（唯一输出变化是这句文案）
+                    Console.WriteLine("你受到持续5回合的3点流血伤害!");
+                    p.AddBuff(new BleedBuff(3, 5));
                     break;
                 case 3:
                     Console.WriteLine(Name + "困住了你！");

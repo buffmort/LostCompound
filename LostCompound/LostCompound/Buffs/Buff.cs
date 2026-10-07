@@ -8,44 +8,88 @@ namespace LostCompound.Buffs
     /// 由战斗回合管线统一处理（见 Tools.RunBattle）。
     ///
     /// 为什么用对象而不是散落的字段？
-    ///   现在 DOT 是 Player 上的两个字段（DotDamage/DotDuration），只能存在一种，
+    ///   以前持续伤害是 Player/Monster 上的两个字段（DotDamage/DotDuration），只能存在一种，
     ///   想加第二种持续伤害就要再加两个字段。对象化之后，挂几个就是几个，
     ///   而且每个 buff 的结算规则互不干扰。
+    ///   DOT 字段与结算已按你的要求整体删除 —— 周期性伤害现在只有 buff 这一条出口。
     ///
     /// 注意：本类只负责「结算自己」，不负责「什么时候结算」——
-    /// 时机统一由 Tools.ApplyBuffs 决定，和 DOT 同一时机（大回合开场，收尸之前）。
+    /// 时机统一由 Tools.ApplyBuffs 决定（大回合开场，收尸之前）。
     /// </summary>
     public abstract class Buff
     {
         /// <summary>
-        /// 初始层数。子类构造函数传进来，避免每个子类自己写一遍字段初始化。
+        /// 初始效果量与初始剩余回合。子类构造函数传进来，避免每个子类自己写一遍字段初始化。
         /// 这里不能直接给 Stacks 赋值：MaxStacks 是虚属性，赋值必须走 AddStacks 才能保证不超过上限。
         /// </summary>
-        protected Buff(int stacks)
+        protected Buff(int stacks, int turns)
         {
             AddStacks(stacks);
+            RemainingTurns = Math.Max(turns, 0);
         }
 
         /// <summary>显示名（如「流血」）。</summary>
         public abstract string Name { get; }
 
-        /// <summary>剩余层数/时长，归零后移除。</summary>
+        /// <summary>
+        /// 效果量。流血里它的语义是 **每回合扣血数**（不是「层数」）。
+        /// 为什么改成伤害而不是层数：你的口径是「上限 10 管的是每回合伤害」——
+        /// 现有 7 点再加 5 点应该变成 10 点，而不是 12 层。
+        /// </summary>
         public int Stacks { get; protected set; }
 
-        /// <summary>层数上限。默认不限。</summary>
+        /// <summary>效果量上限。默认不限。</summary>
         public virtual int MaxStacks => int.MaxValue;
 
-        /// <summary>是否已失效（该移除了）。</summary>
-        public bool IsExpired => Stacks <= 0;
+        /// <summary>
+        /// 剩余回合：每结算一次 -1（由各 buff 在自己的 OnTurnTick 里走 ConsumeTurn，
+        /// 见 BleedBuff），归零则该效果失效。
+        /// 为什么单独存一个字段而不是把剩余回合并进 Stacks：
+        ///   上限 10 只约束「每回合伤害」，而持续时间可以是任意长（同类叠加时相加），
+        ///   两者混在一个数里就无法既夹取伤害又保留时长。
+        /// </summary>
+        public int RemainingTurns { get; private set; }
 
-        /// <summary>叠加层数（不超过 MaxStacks）。</summary>
+        /// <summary>
+        /// 是否已失效（该移除了）：剩余回合归零，或效果量为 0。
+        /// 伤害为 0 也算失效 —— 留着它每回合什么都不做，只会在状态栏里显示一条假状态。
+        /// </summary>
+        public bool IsExpired => RemainingTurns <= 0 || Stacks <= 0;
+
+        /// <summary>叠加效果量（不超过 MaxStacks）。</summary>
         public void AddStacks(int n)
         {
             Stacks = Math.Min(Stacks + n, MaxStacks);
         }
 
         /// <summary>
-        /// 减少层数（如设计文档里的「万能药减 4 层流血」）。
+        /// 累加剩余回合。同类叠加时用「两者之和」——
+        /// 与旧 DOT 的 AddDotDuration 就是 += 累加的语义保持一致。
+        /// </summary>
+        public void AddTurns(int n)
+        {
+            RemainingTurns = Math.Max(RemainingTurns + n, 0);
+        }
+
+        /// <summary>结算一次剩余回合（每回合调用一次）。归零后 IsExpired 为真，由回合管线移除。</summary>
+        public void ConsumeTurn()
+        {
+            RemainingTurns = Math.Max(RemainingTurns - 1, 0);
+        }
+
+        /// <summary>
+        /// 同类叠加：效果量取 min(现有 + 新增, 上限)，剩余回合取两者之和。
+        /// 为什么放在基类：Player.AddBuff 和 Monster.AddBuff 都要做这件事
+        /// （CONVENTIONS 2.5：同一段逻辑出现两遍就提到基类），否则以后加第三种持有者又要再抄一遍。
+        /// </summary>
+        public void MergeFrom(Buff other)
+        {
+            AddStacks(other.Stacks);
+            AddTurns(other.RemainingTurns);
+        }
+
+        /// <summary>
+        /// 减少效果量（如设计文档里的「万能药减 4 层流血」）。
         /// 减到 0 即 IsExpired，由回合管线负责移除。万能药本身尚未实现，这里先把口子留好。
         /// </summary>
         public void RemoveStacks(int n)
@@ -55,8 +99,8 @@ namespace LostCompound.Buffs
 
         /// <summary>
         /// 每回合结算一次。由战斗回合管线（Tools.ApplyBuffs）调用。
-        /// 只扣血，不负责收尸 —— 与 ApplyDotEffects 的纪律一致：
-        /// 死亡统一交给 Tools.RemoveDeadMonsters，否则 DOT 击杀 + buff 击杀会双发掉落。
+        /// 只扣血，不负责收尸 —— 与原 DOT 结算的纪律一致：
+        /// 死亡统一交给 Tools.RemoveDeadMonsters，否则 buff 击杀 + 技能补刀会双发掉落。
         /// </summary>
         public abstract void OnTurnTick(Player owner);
 

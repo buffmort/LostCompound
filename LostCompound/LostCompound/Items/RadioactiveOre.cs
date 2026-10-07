@@ -41,8 +41,8 @@ namespace LostCompound.Items
             Timer = DamageInterval;   // 满 5 回合结算一次，然后重新计时
 
             // 为什么用 p.TakeDamage 而不是直接 p.Hp -= 1：
-            //   与项目现有的「每回合固定扣血」写法保持一致 —— Tools.ApplyDotEffects
-            //   结算玩家 DOT 时用的就是 p.TakeDamage（Tools.cs:106），它会走格挡/防御结算。
+            //   与项目现有的「每回合固定扣血」写法保持一致 —— Tools.ApplyBuffs
+            //   结算玩家流血时用的就是 p.TakeDamage，它会走格挡/防御结算。
             //   若直接改 Hp 就会绕开格挡，出现「同是定期扣血、行为却不一致」的静默偏差。
             // 为什么扣 Count 次 1 点，而不是一次扣 Count 点：
             //   设计 7.1 是「每层格挡免疫一次伤害」，1 点就是「一层辐射」的粒度；

@@ -14,7 +14,7 @@ namespace LostCompound.Rooms
         // 环境对象引用（可为 null：该环境尚未实现或本层没有环境）
         public Environment Environment { get; }
 
-        // 便捷属性：原来需要枚举的地方（掉落表、怪物生成、DOT 等）用它取环境类型
+        // 便捷属性：原来需要枚举的地方（掉落表、怪物生成、环境相关结算等）用它取环境类型
         public EnvType EnvKind => Environment?.Type ?? EnvType.None;
 
         public Room(RoomType type, Environment environment)

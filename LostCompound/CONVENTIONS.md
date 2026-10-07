@@ -80,10 +80,10 @@
 
 | 语义 | 写法 | 例子 |
 |---|---|---|
-| **累加** | **方法** `AddXxx(int v) => Xxx += v;` | `AddDotDuration` / `AddDotDamage` / `AddSkipTurn` |
+| **累加** | **方法** `AddXxx(int v) => Xxx += v;` | `AddSkipTurn` / `Buff.AddTurns`（流血叠加：伤害 min 夹取到 10，剩余回合相加） |
 | **重算** | 先重置再应用 | `ApplyEquipmentPassives()` 每次都从 `BaseAtk` 重新算 |
 
-**同一个概念在不同类里语义可能相反**：`setDOTdmg` 在 `Monster` 上是**累加**，在 `Player` 上是**赋值**。改之前必须查原版。
+**同一个概念在不同类里语义可能相反**：历史上 `setDOTdmg` 在 `Monster` 上是**累加**，在 `Player` 上是**赋值**（该 DOT 机制已按用户要求整体删除，周期性伤害全部改用 `Buffs` 包的流血）。改之前必须查原版。
 
 **绝不能**把累加语义的方法改成属性 —— 编译会通过、运行不报错、**数值静默全错**。
 
@@ -125,7 +125,7 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 - **跳过回合检查**散在 4 处（`Dragon`/`Zombie`/`Dummy`/`Player`），**第 5 处 `LavaSlime` 漏了** → 热硫对它无效
 - 项目里其实**提供了公共方法** `Monster.TryConsumeSkipTurn()`，但**零调用**（大家都内联重写了一遍）
 
-**结论**：每回合的通用结算（**DOT / 跳过 / 回合头 / 收尸**）**全部集中在 `Tools.RunBattle`**，
+**结论**：每回合的通用结算（**流血 buff / 跳过 / 回合头 / 收尸**）**全部集中在 `Tools.RunBattle`**，
 子类只实现 `OnMonsterTurn`（自己的行为）。
 
 ## 2.6 TUI 相关（`UI\ConsoleScreen.cs`）

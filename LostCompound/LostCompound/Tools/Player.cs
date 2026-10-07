@@ -20,8 +20,6 @@ namespace LostCompound.Tools
         public string Name { get; set; }
         public double Def { get; set; } = BaseDef;
         public int Block { get; set; }
-        public double DotDamage { get; set; }
-        public int DotDuration { get; set; }
         public int SkipTurn { get; set; }
         public bool IsDead { get; set; }
         private Room[][] _map;      // 当前地图
@@ -94,25 +92,20 @@ namespace LostCompound.Tools
         // 存活判定：派生值用计算属性（原 isAlive() 方法）
         public bool IsAlive => Hp > 0;
 
-        // 注意：原 addDOTdur 做的是 DOTdur += v（累加），不能写成属性，否则会变成覆盖。
-        public void AddDotDuration(int duration) => DotDuration += duration;
-
-        // 注意：原 addDOTdmg 做的是 DOTdmg += v（累加），同样不能写成属性。
-        public void AddDotDamage(double damage) => DotDamage += damage;
-
         // ==================== 状态效果（buff，如流血） ====================
-        // 注意：这里**没有**动 DotDamage / DotDuration —— 旧的 DOT 字段与结算
-        // （ApplyDotEffects）保持原样，buff 是另一条并行的机制，两者互不干扰。
-        /// <summary>挂在玩家身上的状态效果。结算时机见 Tools.ApplyBuffs（大回合开场，与 DOT 同一时机）。</summary>
+        // 原先这里的 DotDamage / DotDuration 字段与 AddDotDamage / AddDotDuration
+        // 已按你的要求整体删除（DOT 机制改为流血 buff），周期性伤害只走下面这条出口。
+        /// <summary>挂在玩家身上的状态效果。结算时机见 Tools.ApplyBuffs（大回合开场）。</summary>
         public List<Buff> Buffs { get; } = [];
 
         /// <summary>
         /// 给玩家挂一个状态效果。
         /// 同类 buff **叠加到已有对象上**，而不是挂两个同名对象：理由
-        ///   1. 「流血 x3」是一个状态，不是三个状态；分开放会让上限 10 层的判断散成多处；
-        ///   2. 显示层（OnPlayerTurn 里的层数列表）不需要再去重；
+        ///   1. 「流血 10 点」是一个状态，不是两个状态；分开放会让上限 10 的判断散成多处；
+        ///   2. 显示层（OnPlayerTurn 里的状态列表）不需要再去重；
         ///   3. 判断「同类」用运行时类型（GetType()）而不是 Name：Name 是给人看的文本，
         ///      将来完全可能出现两个同名但结算不同的 buff，用类型判断更严格。
+        /// 叠加规则（伤害取 min、剩余回合相加）写在 Buff.MergeFrom 里，玩家/怪物共用一份。
         /// </summary>
         public void AddBuff(Buff b)
         {
@@ -121,7 +114,7 @@ namespace LostCompound.Tools
             {
                 if (exist.GetType() == b.GetType())
                 {
-                    exist.AddStacks(b.Stacks);
+                    exist.MergeFrom(b);
                     return;
                 }
             }
@@ -201,14 +194,6 @@ namespace LostCompound.Tools
             }
         }
 
-        public void DecreaseDotDuration() { DotDuration--; }
-
-        public void ClearDot()
-        {
-            DotDuration = 0;
-            DotDamage = 0;
-        }
-
         /// <summary>
         /// 回合开始的处理。战斗循环每回合先调用它，再做跳过检查 ——
         /// 被跳过的回合里，道具计时、待入包合并、状态栏刷新仍然要照常执行。
@@ -244,17 +229,13 @@ namespace LostCompound.Tools
                 IsDead = true;
                 return;
             }
-            // 注意：DOT 不在这里结算。大回合开场的 Tools.ApplyDotEffects 已经统一
-            // 结算过一次，原先在此再扣一次会让玩家每回合吃两次 DOT、时长掉两倍快。
+            // 注意：流血不在这里结算。大回合开场的 Tools.ApplyBuffs 已经统一
+            // 结算过一次，原先在此再扣一次会让玩家每回合吃两次持续伤害、时长掉两倍快。
+            // （DOT 机制删除前同样的坑就在这里，口径没变。）
             // 背包中的「可转变道具」（白磷 / 热硫 / 木头等）与耐久结算已经在
             // OnTurnStart → HandleChangeableItems 里处理完了；这里只做回合内的展示。
 
-            if (DotDuration > 0)
-            {
-                Console.WriteLine("你剩余的dot时长:" + DotDuration);
-                Console.WriteLine("你的dot伤害:" + DotDamage);
-            }
-            // 状态效果层数（如流血）：没有 buff 时一行都不打印，保证原有输出逐字不变
+            // 状态效果（如流血）：没有 buff 时一行都不打印，保证原有输出逐字不变
             foreach (Buff b in Buffs)
             {
                 Console.WriteLine("你身上的" + b.Name + "层数:" + b.Stacks);
@@ -394,7 +375,7 @@ namespace LostCompound.Tools
             // 目标已被这一击打死就不用挂了（挂上去也没人结算）。
             if (target.IsAlive && HasPhosphorusSword())
             {
-                target.AddBuff(new BleedBuff(PhosphorusSword.BleedStacksPerHit));
+                target.AddBuff(new BleedBuff(PhosphorusSword.BleedDamagePerHit, PhosphorusSword.BleedTurnsPerHit));
                 Console.WriteLine("磷化剑的磷毒让" + target + "开始流血！");
             }
         }

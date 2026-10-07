@@ -14,15 +14,7 @@ namespace LostCompound.Monsters
         // Java 的 protected 同时允许同包访问；C# 的 protected 不允许通过其它子类实例访问，
         // 故此处用 protected internal（= 派生类 or 同一程序集），等价于 Java 语义。
         public int Block { get; protected internal set; }
-        public double DotDamage { get; set; }
-        public double DotDuration { get; set; }
         public int SkipTurn { get; set; }
-
-        // 注意：原 setDOTdur 做的是 DOTdur += v（累加），绝不能写成属性，否则会变成覆盖。
-        public void AddDotDuration(double duration) => DotDuration += duration;
-
-        // 注意：原 setDOTdmg 做的是 DOTdmg += v（累加），同样不能写成属性。
-        public void AddDotDamage(double damage) => DotDamage += damage;
 
         public void AddSkipTurn(int count) => SkipTurn += count;
 
@@ -62,27 +54,18 @@ namespace LostCompound.Monsters
             return loots;
         }
 
-        // DOT 递减（你现有的 setDOTdur 是 += 累加，不能当递减用）
-        public void DecreaseDotDuration()
-        {
-            if (DotDuration > 0) DotDuration--;
-        }
-
-        public void ClearDot()
-        {
-            DotDuration = 0;
-            DotDamage = 0;
-        }
+        // DOT 递减（原 setDOTdur 是 += 累加，不能当递减用）与 ClearDot 已随 DOT 机制整体删除。
+        // 周期性伤害与「剩余回合 -1」现在都由 buff（BleedBuff）自己负责。
 
         // ==================== 状态效果（buff，如流血） ====================
-        // 注意：与 Player 一样，DotDamage / DotDuration 保持原样不动，
-        // 旧的 DOT 结算（Tools.ApplyDotEffects）行为完全不变；buff 是并行机制。
-        /// <summary>挂在怪物身上的状态效果。结算时机见 Tools.ApplyBuffs（大回合开场，与 DOT 同一时机）。</summary>
+        // 注意：DotDamage / DotDuration 字段已按你的要求删除（DOT 改为流血 buff）。
+        /// <summary>挂在怪物身上的状态效果。结算时机见 Tools.ApplyBuffs（大回合开场）。</summary>
         public List<Buff> Buffs { get; } = [];
 
         /// <summary>
         /// 给怪物挂一个状态效果。同类 buff 叠加到已有对象上（与 Player.AddBuff 同一口径），
-        /// 避免同一只怪身上出现两个「流血 x1」互相独立结算。
+        /// 避免同一只怪身上出现两个「流血」互相独立结算。
+        /// 叠加规则（伤害取 min、剩余回合相加）写在 Buff.MergeFrom 里，玩家/怪物共用一份。
         /// </summary>
         public void AddBuff(Buff b)
         {
@@ -91,7 +74,7 @@ namespace LostCompound.Monsters
             {
                 if (exist.GetType() == b.GetType())
                 {
-                    exist.AddStacks(b.Stacks);
+                    exist.MergeFrom(b);
                     return;
                 }
             }

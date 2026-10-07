@@ -1,4 +1,5 @@
 using LostCompound.Tools;
+using LostCompound.Buffs;
 
 /**
  * Author:  Hyberty
@@ -21,13 +22,11 @@ namespace LostCompound.Monsters
             Str = 1;      // 力量（影响伤害）
             Def = 5;       // 防御（用于玩家攻击岩浆怪时的减伤）
             Block = 0;     // 格挡值
-            DotDamage = 0;    // 怪物自身的 DOT 伤害（未使用）
-            DotDuration = 0;    // 怪物自身的 DOT 持续（未使用）
             SkipTurn = 0;  // 跳过回合数
         }
 
         /**
-         * 岩浆怪的普通攻击，有概率附加灼烧 DOT
+         * 岩浆怪的普通攻击，有概率附加灼烧（走流血 buff）
          * @param p 玩家对象
          */
 
@@ -36,11 +35,13 @@ namespace LostCompound.Monsters
         {
             p.TakeDamage(Atk);
 
-            // 4. 50% 概率附加灼烧 DOT（持续 2 回合，每回合 3 点伤害）
+            // 4. 50% 概率附加灼烧（持续 2 回合，每回合 3 点伤害）
+            // 原先写法是「p.DotDamage = 3（直接赋值，再次点燃覆盖伤害）+ AddDotDuration(2)（累加）」；
+            // DOT 机制已删除，改为挂等值的流血。注意叠加口径随之统一为流血的
+            // 「伤害 min(现有+3, 10)、剩余回合相加」—— 多次点燃现在会比原来更疼（原来伤害恒定 3）。
             if (Random.Shared.NextDouble() < 0.5)
             {
-                p.DotDamage = 3;      // 注意这里是直接赋值：再次点燃会覆盖伤害而不是叠加
-                p.AddDotDuration(2);      // 持续回合则是累加
+                p.AddBuff(new BleedBuff(3, 2));
                 Console.WriteLine(Name + " 点燃了你，造成灼烧效果！");
             }
         }

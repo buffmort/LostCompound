@@ -10,10 +10,11 @@ namespace LostCompound.Tools
 
         /**
          * 战斗主循环
-         * 大回合 = 回合头/DOT + buff + 环境推进 + 玩家小回合 + 怪物小回合
+         * 大回合 = 回合头 + buff（流血）+ 环境推进 + 玩家小回合 + 怪物小回合
          *
          * 通用逻辑一律集中在这里，子类和 Player 只保留各自特有的行为：
-         *   - 回合头、DOT 结算、收尸（RemoveDeadMonsters）全部由本循环负责；
+         *   - 回合头、buff 结算（流血，含旧 DOT 的全部职责）、收尸（RemoveDeadMonsters）
+         *     全部由本循环负责；
          *   - 跳过检查统一走 TryConsumeSkipTurn()，避免各子类自己内联一份而漏写
          *     （LavaSlime 原先就漏了，导致热硫的 AddSkipTurn 对它无效）。
          */
@@ -29,10 +30,13 @@ namespace LostCompound.Tools
                 while (p.IsAlive && monsters.Count > 0)
                 {
 
-                    // ── 1. 大回合开场：回合头 + 所有 DOT 结算一次 ──
-                    ApplyDotEffects(p, monsters, round);
+                    // ── 1. 大回合开场：回合头 ──
+                    // 这行原先由 ApplyDotEffects 打印。DOT 机制已删除、那个方法整体删掉了，
+                    // 所以必须把它搬到这里，否则战斗日志里再也没有「第N回合」的分隔。
+                    Console.WriteLine("=====第" + round + "回合=====");
+                    Calculator.Delay(250);   // 与原先 DOT 结算前的停顿一致，节奏不变
 
-                    // ── buff 结算（流血等）：统一在这里，和 DOT 同一时机 ──
+                    // ── buff 结算（流血）：唯一的周期性伤害出口 ──
                     // 必须在 RemoveDeadMonsters 之前：buff 打死怪也要走统一收尸，否则漏掉落。
                     ApplyBuffs(p, monsters);
 
@@ -78,9 +82,9 @@ namespace LostCompound.Tools
             finally
             {
                 // 战斗结束：清空双方的状态效果。
-                // 为什么必须清：流血是「层数只增不减，直到战斗结束」的机制（见 BleedBuff 注释），
-                // 而 Player 是跨战斗复用的同一个对象 —— 不清的话，玩家在第一场战斗里中的流血
-                // 会跟着他进后面每一场战斗，变成每回合无限掉血。
+                // 为什么必须清：流血只在「剩余回合」走完时才消失，而 Player 是跨战斗复用的
+                // 同一个对象 —— 不清的话，上一场战斗里没走完的流血会跟着他进后面每一场战斗，
+                // 变成「新战斗第 1 回合就白掉一次血」。
                 ClearBuffs(p, monsters);
                 p.SetInBattle(false);
             }
@@ -89,46 +93,16 @@ namespace LostCompound.Tools
         }
 
         /**
-         * 大回合开场：结算所有 DOT
-         * DOT 走 takeDmg → 会消耗格挡(block) 一次
-         * 纪律：只扣血，不调 die()，收尸统一交给 cleanupDead
-         */
-        private static void ApplyDotEffects(Player p, List<Monster> monsters, int round)
-        {
-            Console.WriteLine("=====第" + round + "回合=====");
-            Calculator.Delay(250);
-
-            // 怪物 DOT
-            foreach (Monster m in monsters)
-            {
-                if (!m.IsAlive || m.DotDuration <= 0) continue;
-
-                Console.WriteLine(m.Name + " 受到 " + m.DotDamage + " 点持续伤害");
-                m.TakeDamage(m.DotDamage);
-                m.DecreaseDotDuration();
-                if (m.DotDuration <= 0) m.ClearDot();
-            }
-
-            // 玩家 DOT
-            if (p.IsAlive && p.DotDuration > 0)
-            {
-                Console.WriteLine(" 你受到 " + p.DotDamage + " 点持续伤害");
-                p.TakeDamage(p.DotDamage);
-                p.DecreaseDotDuration();
-                if (p.DotDuration <= 0) p.ClearDot();
-            }
-        }
-
-        /**
          * 大回合开场：结算所有状态效果（buff，如流血）。
          *
-         * 为什么集中在这里：和 DOT 同理（见 CONVENTIONS 2.5）——通用结算只写一份，
+         * 为什么集中在这里（见 CONVENTIONS 2.5）：通用结算只写一份，
          * 各 buff 只实现 OnTurnTick（自己那套规则），时机由本循环统一决定。
-         * 时机紧跟 ApplyDotEffects、在 RemoveDeadMonsters 之前：
-         *   buff 只扣血、不调 die()，所以被流血打死的怪一样会走统一收尸（不漏掉落、不双发）。
+         * 位置上就是大回合的最开头、RemoveDeadMonsters 之前：
+         *   buff 只扣血、不调 die()，所以被打死的怪一样会走统一收尸（不漏掉落、不双发）。
          *
-         * 遍历顺序与 ApplyDotEffects 对齐：先怪物，后玩家。
-         * 倒序遍历是因为结算中要移除失效（层数归零）的 buff，正序删会漏掉紧随其后的一个。
+         * 遍历顺序沿用旧 DOT 结算的顺序：先怪物，后玩家。
+         * 倒序遍历是因为结算中要移除失效（剩余回合归零、或伤害归零）的 buff，
+         * 正序删会漏掉紧随其后的一个。
          */
         private static void ApplyBuffs(Player p, List<Monster> monsters)
         {
@@ -167,9 +141,9 @@ namespace LostCompound.Tools
         /**
          * 战斗结束时的清理：移除双方身上的全部状态效果。
          *
-         * 与 DOT 的区别：DotDamage/DotDuration 是「这次战斗里被打上的临时数值」，
-         * 但没有任何地方在战后清它们（现有行为，我没有改）；buff 有层数上限且不衰减，
-         * 战后不清就会跨战斗一直掉血，所以这里显式清一次。
+         * 为什么必须清：流血是「不自然衰减、只在剩余回合归零时消失」的机制（见 BleedBuff 注释），
+         * 而 Player 是跨战斗复用的同一个对象 —— 不清的话，玩家在第一场战斗里中的流血
+         * 会跟着他进后面每一场战斗，变成每回合无限掉血。
          */
         private static void ClearBuffs(Player p, List<Monster> monsters)
         {
@@ -183,7 +157,7 @@ namespace LostCompound.Tools
         /**
          * 死亡统一出口：发掉落 + 移除
          * 依赖 Monster.die(Player) 幂等（内部 lootDropped 标志），
-         * 否则 DOT 击杀 + 技能补刀会双发掉落
+         * 否则流血击杀 + 技能补刀会双发掉落
          */
         private static void RemoveDeadMonsters(Player p, List<Monster> monsters)
         {
