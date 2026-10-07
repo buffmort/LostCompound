@@ -5,6 +5,7 @@ using LostCompound.Items;
 using LostCompound.Monsters;
 using LostCompound.Maps;
 using LostCompound.UI;
+using LostCompound.Buffs;
 
 namespace LostCompound.Tools
 {
@@ -98,6 +99,34 @@ namespace LostCompound.Tools
 
         // 注意：原 addDOTdmg 做的是 DOTdmg += v（累加），同样不能写成属性。
         public void AddDotDamage(double damage) => DotDamage += damage;
+
+        // ==================== 状态效果（buff，如流血） ====================
+        // 注意：这里**没有**动 DotDamage / DotDuration —— 旧的 DOT 字段与结算
+        // （ApplyDotEffects）保持原样，buff 是另一条并行的机制，两者互不干扰。
+        /// <summary>挂在玩家身上的状态效果。结算时机见 Tools.ApplyBuffs（大回合开场，与 DOT 同一时机）。</summary>
+        public List<Buff> Buffs { get; } = [];
+
+        /// <summary>
+        /// 给玩家挂一个状态效果。
+        /// 同类 buff **叠加到已有对象上**，而不是挂两个同名对象：理由
+        ///   1. 「流血 x3」是一个状态，不是三个状态；分开放会让上限 10 层的判断散成多处；
+        ///   2. 显示层（OnPlayerTurn 里的层数列表）不需要再去重；
+        ///   3. 判断「同类」用运行时类型（GetType()）而不是 Name：Name 是给人看的文本，
+        ///      将来完全可能出现两个同名但结算不同的 buff，用类型判断更严格。
+        /// </summary>
+        public void AddBuff(Buff b)
+        {
+            if (b == null) return;
+            foreach (Buff exist in Buffs)
+            {
+                if (exist.GetType() == b.GetType())
+                {
+                    exist.AddStacks(b.Stacks);
+                    return;
+                }
+            }
+            Buffs.Add(b);
+        }
 
         /// <summary>跳过回合：返回"这次是否被跳过"，顺手扣一次计数。
         /// 与 Monster.TryConsumeSkipTurn 对称 —— 由战斗循环统一调用。</summary>
@@ -224,6 +253,11 @@ namespace LostCompound.Tools
             {
                 Console.WriteLine("你剩余的dot时长:" + DotDuration);
                 Console.WriteLine("你的dot伤害:" + DotDamage);
+            }
+            // 状态效果层数（如流血）：没有 buff 时一行都不打印，保证原有输出逐字不变
+            foreach (Buff b in Buffs)
+            {
+                Console.WriteLine("你身上的" + b.Name + "层数:" + b.Stacks);
             }
             Calculator.Delay(250);
             Console.WriteLine("敌人：");
@@ -352,6 +386,24 @@ namespace LostCompound.Tools
             Monster target = monsters[choice];
             target.TakeDamage(dmg);
             Console.WriteLine("你攻击了" + target + "!");
+
+            // 磷化剑：命中时给目标挂 1 层流血（设计文档第九章配方 1 / 3.2 技能 6）。
+            // 「怎么知道在用这把剑」：本项目没有「装备中的武器」这个概念 ——
+            // IEquippable 的被动在背包或饰品栏里都生效（见 ApplyEquipmentPassives），
+            // 所以这里用同一套判定：身上有磷化剑，攻击就带流血。
+            // 目标已被这一击打死就不用挂了（挂上去也没人结算）。
+            if (target.IsAlive && HasPhosphorusSword())
+            {
+                target.AddBuff(new BleedBuff(PhosphorusSword.BleedStacksPerHit));
+                Console.WriteLine("磷化剑的磷毒让" + target + "开始流血！");
+            }
+        }
+
+        /// <summary>身上（背包或饰品栏）是否有磷化剑 —— 判定口径与 ApplyEquipmentPassives 一致。</summary>
+        private bool HasPhosphorusSword()
+        {
+            return Inventory.Any(item => item is PhosphorusSword)
+                || Accessories.Any(item => item is PhosphorusSword);
         }
 
         /// <summary>

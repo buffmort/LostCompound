@@ -1,5 +1,6 @@
 using LostCompound.Items;
 using LostCompound.Tools;
+using LostCompound.Buffs;
 
 namespace LostCompound.Monsters
 {
@@ -71,6 +72,30 @@ namespace LostCompound.Monsters
         {
             DotDuration = 0;
             DotDamage = 0;
+        }
+
+        // ==================== 状态效果（buff，如流血） ====================
+        // 注意：与 Player 一样，DotDamage / DotDuration 保持原样不动，
+        // 旧的 DOT 结算（Tools.ApplyDotEffects）行为完全不变；buff 是并行机制。
+        /// <summary>挂在怪物身上的状态效果。结算时机见 Tools.ApplyBuffs（大回合开场，与 DOT 同一时机）。</summary>
+        public List<Buff> Buffs { get; } = [];
+
+        /// <summary>
+        /// 给怪物挂一个状态效果。同类 buff 叠加到已有对象上（与 Player.AddBuff 同一口径），
+        /// 避免同一只怪身上出现两个「流血 x1」互相独立结算。
+        /// </summary>
+        public void AddBuff(Buff b)
+        {
+            if (b == null) return;
+            foreach (Buff exist in Buffs)
+            {
+                if (exist.GetType() == b.GetType())
+                {
+                    exist.AddStacks(b.Stacks);
+                    return;
+                }
+            }
+            Buffs.Add(b);
         }
 
         // 跳过回合：返回"这次是否被跳过"，顺手扣一次计数

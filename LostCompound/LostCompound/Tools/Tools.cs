@@ -1,6 +1,7 @@
 using Environment = LostCompound.MapEnvironment.Environment;
 using LostCompound.MapEnvironment;
 using LostCompound.Monsters;
+using LostCompound.Buffs;
 
 namespace LostCompound.Tools
 {
@@ -9,7 +10,7 @@ namespace LostCompound.Tools
 
         /**
          * 战斗主循环
-         * 大回合 = 回合头/DOT + 环境推进 + 玩家小回合 + 怪物小回合
+         * 大回合 = 回合头/DOT + buff + 环境推进 + 玩家小回合 + 怪物小回合
          *
          * 通用逻辑一律集中在这里，子类和 Player 只保留各自特有的行为：
          *   - 回合头、DOT 结算、收尸（RemoveDeadMonsters）全部由本循环负责；
@@ -30,6 +31,10 @@ namespace LostCompound.Tools
 
                     // ── 1. 大回合开场：回合头 + 所有 DOT 结算一次 ──
                     ApplyDotEffects(p, monsters, round);
+
+                    // ── buff 结算（流血等）：统一在这里，和 DOT 同一时机 ──
+                    // 必须在 RemoveDeadMonsters 之前：buff 打死怪也要走统一收尸，否则漏掉落。
+                    ApplyBuffs(p, monsters);
 
                     // ── 2. 环境推进：每个大回合一次（如熔岩瀑布每回合掉水）──
                     env?.OnBattleTurn();
@@ -72,6 +77,11 @@ namespace LostCompound.Tools
             }
             finally
             {
+                // 战斗结束：清空双方的状态效果。
+                // 为什么必须清：流血是「层数只增不减，直到战斗结束」的机制（见 BleedBuff 注释），
+                // 而 Player 是跨战斗复用的同一个对象 —— 不清的话，玩家在第一场战斗里中的流血
+                // 会跟着他进后面每一场战斗，变成每回合无限掉血。
+                ClearBuffs(p, monsters);
                 p.SetInBattle(false);
             }
 
@@ -106,6 +116,67 @@ namespace LostCompound.Tools
                 p.TakeDamage(p.DotDamage);
                 p.DecreaseDotDuration();
                 if (p.DotDuration <= 0) p.ClearDot();
+            }
+        }
+
+        /**
+         * 大回合开场：结算所有状态效果（buff，如流血）。
+         *
+         * 为什么集中在这里：和 DOT 同理（见 CONVENTIONS 2.5）——通用结算只写一份，
+         * 各 buff 只实现 OnTurnTick（自己那套规则），时机由本循环统一决定。
+         * 时机紧跟 ApplyDotEffects、在 RemoveDeadMonsters 之前：
+         *   buff 只扣血、不调 die()，所以被流血打死的怪一样会走统一收尸（不漏掉落、不双发）。
+         *
+         * 遍历顺序与 ApplyDotEffects 对齐：先怪物，后玩家。
+         * 倒序遍历是因为结算中要移除失效（层数归零）的 buff，正序删会漏掉紧随其后的一个。
+         */
+        private static void ApplyBuffs(Player p, List<Monster> monsters)
+        {
+            // 怪物 buff
+            foreach (Monster m in monsters)
+            {
+                if (!m.IsAlive) continue;
+                for (int i = m.Buffs.Count - 1; i >= 0; i--)
+                {
+                    Buff b = m.Buffs[i];
+                    if (b.IsExpired)
+                    {
+                        m.Buffs.RemoveAt(i);
+                        continue;
+                    }
+                    b.OnTurnTick(m);
+                    if (b.IsExpired) m.Buffs.RemoveAt(i);
+                }
+            }
+
+            // 玩家 buff
+            if (!p.IsAlive) return;
+            for (int i = p.Buffs.Count - 1; i >= 0; i--)
+            {
+                Buff b = p.Buffs[i];
+                if (b.IsExpired)
+                {
+                    p.Buffs.RemoveAt(i);
+                    continue;
+                }
+                b.OnTurnTick(p);
+                if (b.IsExpired) p.Buffs.RemoveAt(i);
+            }
+        }
+
+        /**
+         * 战斗结束时的清理：移除双方身上的全部状态效果。
+         *
+         * 与 DOT 的区别：DotDamage/DotDuration 是「这次战斗里被打上的临时数值」，
+         * 但没有任何地方在战后清它们（现有行为，我没有改）；buff 有层数上限且不衰减，
+         * 战后不清就会跨战斗一直掉血，所以这里显式清一次。
+         */
+        private static void ClearBuffs(Player p, List<Monster> monsters)
+        {
+            p.Buffs.Clear();
+            foreach (Monster m in monsters)
+            {
+                m.Buffs.Clear();
             }
         }
 
