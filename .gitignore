@@ -7,3 +7,7 @@ obj/
 .vs/
 *.user
 *.suo
+
+# 发布产物（自包含 exe 体积大，不入库）
+publish/
+
