@@ -23,6 +23,12 @@ namespace LostCompound.Tools
             Console.WriteLine("=======战斗开始=======");
             int round = 1;
 
+            // ── 0. 开战初始化：按环境给怪物写入「环境相关特性」──
+            // 为什么放在这里：Monster.TakeDamage(double) 拿不到环境，改它的签名会牵动基类、
+            // 所有怪物子类和所有调用点（含 BleedBuff），所以由战斗循环在开打前把
+            // 「当前环境 → 怪物抗性」一次性写进怪物自身（见 LavaSlime._highTempImmunity 注释）。
+            ApplyEnvironmentMonsterTraits(env, monsters);
+
             // 战斗期间状态栏会显示血量/防御/格挡/攻击力；用 try/finally 保证异常退出也能恢复
             p.SetInBattle(true);
             try
@@ -90,6 +96,25 @@ namespace LostCompound.Tools
             }
 
             Console.WriteLine(p.IsAlive ? "战斗结束 你赢了!" : "你死了!");
+        }
+
+        /**
+         * 战斗开始前按当前环境初始化怪物特性。
+         *
+         * 目前只有一条规则：熔岩瀑布是高温环境 → 岩浆怪免疫 30% 高温伤害（设计文档六）。
+         * 之所以集中在这一个方法里，是为了以后再有「环境 × 怪物」的规则时只改这一处，
+         * 而不是往每个怪物的 TakeDamage 里塞 if（见 CONVENTIONS 2.5）。
+         */
+        private static void ApplyEnvironmentMonsterTraits(Environment env, List<Monster> monsters)
+        {
+            if (env is not LavaWaterfall) return;
+            foreach (Monster m in monsters)
+            {
+                if (m is LavaSlime slime)
+                {
+                    slime.SetHighTempImmunity(LavaSlime.HighTempImmunityInLavaWaterfall);
+                }
+            }
         }
 
         /**
