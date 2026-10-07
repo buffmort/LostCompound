@@ -235,10 +235,13 @@ namespace LostCompound.Tools
             // 背包中的「可转变道具」（白磷 / 热硫 / 木头等）与耐久结算已经在
             // OnTurnStart → HandleChangeableItems 里处理完了；这里只做回合内的展示。
 
-            // 状态效果（如流血）：没有 buff 时一行都不打印，保证原有输出逐字不变
+            // 状态效果（如流血）：没有 buff 时一行都不打印，保证原有输出逐字不变。
+            // 每个 buff 打两行：每回合伤害 + 剩余回合 —— 这两个数玩家要一起看才有意义，
+            // 只给一个数看不出「还剩多久 / 每秒多疼」。
             foreach (Buff b in Buffs)
             {
-                Console.WriteLine("你身上的" + b.Name + "层数:" + b.Stacks);
+                Console.WriteLine("你身上的" + b.Name + "伤害:" + b.Stacks);
+                Console.WriteLine("你身上的" + b.Name + "剩余回合:" + b.RemainingTurns);
             }
             Calculator.Delay(250);
             Console.WriteLine("敌人：");
