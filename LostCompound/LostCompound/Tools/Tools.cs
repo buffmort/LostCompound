@@ -34,6 +34,14 @@ namespace LostCompound.Tools
                     // ── 2. 环境推进：每个大回合一次（如熔岩瀑布每回合掉水）──
                     env?.OnBattleTurn();
 
+                    // 水淹洞穴：水位涨到极限 → 全部对象死亡，玩家直接算输
+                    if (env is FloodedCavern flooded && flooded.WaterLevel >= FloodedCavern.MaxWaterLevel)
+                    {
+                        Console.WriteLine("水位涨到了极限，整个洞穴被淹没——你失去了意识……");
+                        p.Hp = 0;
+                        break;
+                    }
+
                     RemoveDeadMonsters(p, monsters);
                     if (!p.IsAlive || monsters.Count == 0) break;
 

@@ -5,5 +5,8 @@ namespace LostCompound.MapEnvironment
     {
         None,
         LavaWaterfall,
+        // 新增环境一律追加在末尾：EnvType 的整数值如果被存档/比较依赖，
+        // 插在中间会改变已有成员的值。
+        FloodedCavern,
     }
 }

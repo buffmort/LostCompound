@@ -46,6 +46,12 @@ namespace LostCompound.Items
                 monster.TakeDamage(10);
             }
             Count -= 1;
+
+            // 水淹洞穴的对策：热硫可以堵住出水口（沿用设计文档的说法，作为额外的环境效果叠加）
+            if (p.CurrentEnvironment is FloodedCavern flooded)
+            {
+                flooded.PlugOutlet(3);
+            }
         }
 
         public void ExplainBattleOnly(Player p)
