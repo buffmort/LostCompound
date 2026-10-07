@@ -53,7 +53,7 @@ namespace LostCompound.Monsters
             if (Block > 0)
             {
                 Block -= 1;
-                Console.WriteLine("岩浆史莱姆格挡了!");
+                Console.WriteLine(Name + "格挡了!");
                 return;
             }
             double realDmg = Calculator.ApplyDefense(Def, dmg);
@@ -68,7 +68,9 @@ namespace LostCompound.Monsters
          */
         public override void OnMonsterTurn(Player p)
         {
-            Console.WriteLine("=====" + Name + "回合=====");
+            // 回合头与跳过检查都集中在 Tools.RunBattle：
+            // 原先这里没有跳过检查（漏写），热硫的 AddSkipTurn 对岩浆怪无效 ——
+            // 现在统一走循环里的 m.TryConsumeSkipTurn() 后就自动修好了。
             Attack(p);
         }
 

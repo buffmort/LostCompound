@@ -26,13 +26,7 @@ namespace LostCompound.Monsters
 
         public override void OnMonsterTurn(Player p)
         {
-            Console.WriteLine("=====怪物" + Name + "回合=====");
-            if (SkipTurn > 0)
-            {
-                SkipTurn -= 1;
-                Console.WriteLine("跳过回合!");
-                return;
-            }
+            // 回合头与跳过检查由 Tools.RunBattle 统一处理
             Attack(p);
         }
 

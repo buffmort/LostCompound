@@ -46,18 +46,8 @@ namespace LostCompound.Monsters
 
         public override void OnMonsterTurn(Player p)
         {
-            if (DotDuration > 0)
-            {
-                DotDuration -= 1;
-                Hp -= DotDamage;
-            }
-            Console.WriteLine("=====怪物" + Name + "回合=====");
-            if (SkipTurn > 0)
-            {
-                SkipTurn -= 1;
-                Console.WriteLine("跳过回合!");
-                return;
-            }
+            // 回合头、DOT 结算与跳过检查都由 Tools.RunBattle 统一处理：
+            // 这里如果自己再减一次 DOT，就会和 ApplyDotEffects 重复结算（原 bug）。
             Calculator.Delay(250);
             int option = RollIndex(2);
             switch (option)

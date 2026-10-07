@@ -57,15 +57,8 @@ namespace LostCompound.Monsters
 
         public override void OnMonsterTurn(Player p)
         {
-            Console.WriteLine("=====" + Name + "回合=====");
-            Console.WriteLine("=====怪物 " + Name + " 回合=====");
-            if (SkipTurn > 0)
-            {
-                SkipTurn--;
-                Console.WriteLine(Name + "被眩晕，跳过回合！");
-                return;
-            }
-
+            // 回合头与跳过检查都移到 Tools.RunBattle 里统一处理了
+            // （原先这里把回合头打了两遍，且跳过文案与其它怪物不一致）。
             Calculator.Delay(250);
             int option = RollIndex(3); // 随机 0,1,2
 

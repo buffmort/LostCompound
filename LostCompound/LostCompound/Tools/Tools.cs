@@ -9,8 +9,12 @@ namespace LostCompound.Tools
 
         /**
          * 战斗主循环
-         * 大回合 = roundSetup + 玩家小回合 + 怪物小回合
-         * 跳过回合逻辑封装在 Monster.onMonsterTurn 内部
+         * 大回合 = 回合头/DOT + 环境推进 + 玩家小回合 + 怪物小回合
+         *
+         * 通用逻辑一律集中在这里，子类和 Player 只保留各自特有的行为：
+         *   - 回合头、DOT 结算、收尸（RemoveDeadMonsters）全部由本循环负责；
+         *   - 跳过检查统一走 TryConsumeSkipTurn()，避免各子类自己内联一份而漏写
+         *     （LavaSlime 原先就漏了，导致热硫的 AddSkipTurn 对它无效）。
          */
         public static void RunBattle(Player p, List<Monster> monsters, Environment env)
         {
@@ -24,25 +28,33 @@ namespace LostCompound.Tools
                 while (p.IsAlive && monsters.Count > 0)
                 {
 
-                    // ── 大回合开场：DOT 结算一次 ──
+                    // ── 1. 大回合开场：回合头 + 所有 DOT 结算一次 ──
                     ApplyDotEffects(p, monsters, round);
 
-                    // ── 环境推进：每个大回合一次（如熔岩瀑布每回合掉水）──
+                    // ── 2. 环境推进：每个大回合一次（如熔岩瀑布每回合掉水）──
                     env?.OnBattleTurn();
 
                     RemoveDeadMonsters(p, monsters);
                     if (!p.IsAlive || monsters.Count == 0) break;
 
-                    // ── 小回合 A：玩家行动 ──
-                    p.OnPlayerTurn(monsters, env?.Type ?? EnvType.None);
+                    // ── 3. 玩家回合：先做回合开始的簿记，再判跳过，最后才是行动 ──
+                    // 簿记（道具计时/待入包合并/状态栏）即使本回合被跳过也要执行，
+                    // 所以它必须在跳过检查之前。
+                    p.OnTurnStart(env?.Type ?? EnvType.None);
+                    if (!p.TryConsumeSkipTurn())
+                    {
+                        p.OnPlayerTurn(monsters, env?.Type ?? EnvType.None);
+                    }
                     RemoveDeadMonsters(p, monsters);
                     if (!p.IsAlive || monsters.Count == 0) break;
 
-                    // ── 小回合 B：怪物行动（skipTurn 内部自理）──
+                    // ── 4. 怪物回合：回合头与跳过检查由本循环统一处理 ──
                     foreach (Monster m in monsters)
                     {
                         if (!p.IsAlive) break;
                         if (!m.IsAlive) continue;
+                        Console.WriteLine("=====" + m.Name + "回合=====");
+                        if (m.TryConsumeSkipTurn()) continue;
                         m.OnMonsterTurn(p);
                     }
                     RemoveDeadMonsters(p, monsters);

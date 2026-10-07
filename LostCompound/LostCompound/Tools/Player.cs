@@ -99,6 +99,16 @@ namespace LostCompound.Tools
         // 注意：原 addDOTdmg 做的是 DOTdmg += v（累加），同样不能写成属性。
         public void AddDotDamage(double damage) => DotDamage += damage;
 
+        /// <summary>跳过回合：返回"这次是否被跳过"，顺手扣一次计数。
+        /// 与 Monster.TryConsumeSkipTurn 对称 —— 由战斗循环统一调用。</summary>
+        public bool TryConsumeSkipTurn()
+        {
+            if (SkipTurn <= 0) return false;
+            SkipTurn--;
+            Console.WriteLine("你被跳过回合！");
+            return true;
+        }
+
         public void AddItem(Item newItem)
         {
             if (newItem == null) return;
@@ -170,33 +180,17 @@ namespace LostCompound.Tools
             DotDamage = 0;
         }
 
-        public void OnPlayerTurn(List<Monster> monsters, EnvType envType)
+        /// <summary>
+        /// 回合开始的处理。战斗循环每回合先调用它，再做跳过检查 ——
+        /// 被跳过的回合里，道具计时、待入包合并、状态栏刷新仍然要照常执行。
+        /// </summary>
+        public void OnTurnStart(EnvType envType)
         {
-            if (!IsAlive)
-            {//判定死没死
-                Console.WriteLine("你死了！");
-                IsDead = true;
-                return;
-            }
-            if (DotDuration > 0)
-            {
-                DotDuration -= 1;
-                Hp -= DotDamage;
-            }
             Console.WriteLine("=====你的回合=====");
             RefreshStatus();               // 战斗中让状态栏显示血量/防御/格挡
             HandleChangeableItems(envType);
             Inventory.AddRange(PendingItems);
             PendingItems.Clear();
-            if (SkipTurn > 0)
-            {
-                SkipTurn -= 1;
-                Console.WriteLine("跳过回合!");
-                return;
-            }
-            // 背包中的「可转变道具」（白磷 / 热硫 / 木头等）与耐久结算已经在
-            // HandleChangeableItems 里处理完了；这里只做回合内的展示。
-
             Calculator.Delay(250);
             Console.WriteLine("你的血量:{0:F1}", Hp);
             Console.WriteLine("你的防御:{0:F1}", Def);
@@ -206,6 +200,26 @@ namespace LostCompound.Tools
             {
                 Console.WriteLine(CurrentEnvironment.DescribeStatus());
             }
+        }
+
+        /// <summary>
+        /// 玩家的「行动」部分：展示战场与可选项、读取输入并执行。
+        /// 回合开始的簿记放在 OnTurnStart，跳过检查由战斗循环统一做 ——
+        /// 所以这里只管"没被跳过时该干什么"。
+        /// </summary>
+        public void OnPlayerTurn(List<Monster> monsters, EnvType envType)
+        {
+            if (!IsAlive)
+            {//判定死没死
+                Console.WriteLine("你死了！");
+                IsDead = true;
+                return;
+            }
+            // 注意：DOT 不在这里结算。大回合开场的 Tools.ApplyDotEffects 已经统一
+            // 结算过一次，原先在此再扣一次会让玩家每回合吃两次 DOT、时长掉两倍快。
+            // 背包中的「可转变道具」（白磷 / 热硫 / 木头等）与耐久结算已经在
+            // OnTurnStart → HandleChangeableItems 里处理完了；这里只做回合内的展示。
+
             if (DotDuration > 0)
             {
                 Console.WriteLine("你剩余的dot时长:" + DotDuration);

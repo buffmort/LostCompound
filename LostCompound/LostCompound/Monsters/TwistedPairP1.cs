@@ -42,7 +42,7 @@ namespace LostCompound.Monsters
 
         public override void OnMonsterTurn(Player p)
         {
-            Console.WriteLine("=====" + Name + "回合=====");
+            // 回合头与跳过检查由 Tools.RunBattle 统一处理
             _state.ResetIfBothActed();  // 新回合检测
 
 
