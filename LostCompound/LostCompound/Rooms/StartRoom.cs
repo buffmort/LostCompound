@@ -7,7 +7,12 @@ namespace LostCompound.Rooms
 {
     public sealed class StartRoom : Room
     {
-        private bool _startItemsGiven;   // 防止重复发放起始道具
+        // 本层起始道具是否已发放。
+        // 注意这是「本层已发」而不是「全局已发」：每层地图各有一个 StartRoom 实例，
+        // 玩家走到下一层时是新实例、_startItemsGiven 重新为 false，所以「每层开始都有一次开局选择」
+        // 是靠「每层一个新实例」实现的，而不是靠同一个房间反复发。
+        // 因此这里的判断必须保留 —— 它防的是「玩家回起始房间重复领物资」。
+        private bool _startItemsGiven;
 
         public StartRoom(Environment environment) : base(RoomType.Start, environment)
         {
@@ -26,7 +31,8 @@ namespace LostCompound.Rooms
                 Console.WriteLine("你回到了起始房间");
             }
 
-            // 只在第一次进入时发放起始道具
+            // 只在第一次进入（本层）时发放起始道具。
+            // 下一层的 StartRoom 是新实例，会重新走一遍这里的发放逻辑。
             if (!_startItemsGiven)
             {
                 GiveStartItems(p);
@@ -43,16 +49,25 @@ namespace LostCompound.Rooms
 
         private void GiveStartItems(Player p)
         {
-            // 起始道具池。道具与权重一一对应（顺序必须一致）。
+            // 起始道具池按本层环境决定（用户裁定：StartRoom 每层都有，所以每层都能重新选）。
+            // 池子与权重都来自 LootTables 的两张表，不再在本类里写死。
             // 设计文档 2.2：从池中随机提供 5 种，玩家选 1 种，共执行三次。
-            Item[] startItems = CreateStartItems();
+            List<Item> startItems = LootTables.GetStartPool(EnvKind);
+            List<int> weights = LootTables.GetStartWeights(EnvKind);
 
-            // 对应权重（与 startItems 顺序一致，数字越大越容易抽到）
-            int[] weights = [10, 10, 8, 8, 5, 5, 5, 5];
+            // ⚠️ 权重表与池子必须一一对应，而错位时编译器不会报错（权重会张冠李戴）。
+            // 这里用 Math.Min 兜底：万一某个环境的权重表写短了，
+            // 至少保证后面所有 weights[idx]（idx < startItems.Count）都取得到值、不会越界崩掉。
+            int usableWeights = Math.Min(weights.Count, startItems.Count);
+            if (usableWeights < weights.Count || weights.Count < startItems.Count)
+            {
+                Console.WriteLine("警告：起始道具池与权重表长度不一致（池 " + startItems.Count
+                                  + " 项 / 权重 " + weights.Count + " 项），已按较短的一侧截断。");
+            }
 
-            // 可用索引列表（初始包含所有道具索引）
+            // 可用索引列表（初始包含所有权重有效的道具索引）
             List<int> available = [];
-            for (int i = 0; i < startItems.Length; i++)
+            for (int i = 0; i < usableWeights; i++)
             {
                 available.Add(i);
             }
@@ -141,22 +156,6 @@ namespace LostCompound.Rooms
 
                 Console.WriteLine();
             }
-        }
-
-        // 起始道具池。数量由设计调整为「原值 +1」。
-        private Item[] CreateStartItems()
-        {
-            return
-            [
-                new Wood(2),
-                new Wood(3),
-                new Sulphur(3),
-                new Sulphur(2),
-                new GlassJar(2),
-                new WhitePhosphorus(3),
-                new RedPhosphorus(2),
-                new Sand(6),
-            ];
         }
     }
 }

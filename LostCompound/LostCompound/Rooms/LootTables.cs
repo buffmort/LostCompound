@@ -51,5 +51,161 @@ namespace LostCompound.Rooms
             }
             return items;
         }
+
+        // ==================== 起始道具表 ====================
+        // 与 GetLootTable 分开的两个理由：
+        //   1. 语义不同：GetLootTable 是「宝箱 / 空房间里捡到的东西」，
+        //      这里是「开局让你挑的物资」—— 两者内容可以不同，将来也可以各自演化
+        //      （比如掉落表加了新道具，不应该顺带改变开局手感）。
+        //   2. 结构不同：起始道具是「数量已定的一份道具」，还额外需要一张与之
+        //      一一对应的权重表（GetStartWeights），而掉落表是纯列表、不看权重。
+        // 调用方：StartRoom 每层开局各调用一次。
+
+        /// <summary>
+        /// 起始道具池：本层 StartRoom 发放初始物资时用它。
+        /// 与 GetLootTable 分开 —— 后者是「宝箱/空房捡到的东西」，
+        /// 这里是「开局让你挑的物资」，两者内容可以不同、将来也可以各自演化。
+        ///
+        /// 返回的每一项是「数量已定的一份道具」，由 StartRoom 抽 5 个给玩家选 1，共 3 轮。
+        /// 权重表与它一一对应（见 GetStartWeights）。
+        /// </summary>
+        public static List<Item> GetStartPool(EnvType envType)
+        {
+            List<Item> pool = [];
+
+            switch (envType)
+            {
+                case EnvType.None:
+                    // 空环境同样给出基础池：StartRoom 拿不到东西会卡在 0 个候选项上，
+                    // 所以这里绝不能返回空表。
+                    pool.AddRange(BuildBasicStartPool());
+                    break;
+                case EnvType.LavaWaterfall:
+                    pool.AddRange(BuildLavaWaterfallStartPool());
+                    break;
+                case EnvType.FloodedCavern:
+                    pool.AddRange(BuildFloodedCavernStartPool());
+                    break;
+                default:
+                    // 尚未实现的环境：暂时回退到基础池，等各环境做出来后各自给表。
+                    pool.AddRange(BuildBasicStartPool());
+                    break;
+            }
+
+            return pool;
+        }
+
+        /// <summary>与 GetStartPool 返回的列表一一对应的权重（数字越大越容易抽到）。</summary>
+        public static List<int> GetStartWeights(EnvType envType)
+        {
+            List<int> weights = [];
+
+            switch (envType)
+            {
+                case EnvType.None:
+                    weights.AddRange(BasicStartWeights);
+                    break;
+                case EnvType.LavaWaterfall:
+                    weights.AddRange(LavaWaterfallStartWeights);
+                    break;
+                case EnvType.FloodedCavern:
+                    weights.AddRange(FloodedCavernStartWeights);
+                    break;
+                default:
+                    // 与 GetStartPool 的 default 分支保持一致：同样回退到基础池权重
+                    weights.AddRange(BasicStartWeights);
+                    break;
+            }
+
+            return weights;
+        }
+
+        // ---- 各环境的池子与权重 ----
+        // ⚠️ 维护须知：下面每一对「池子构造方法 / 权重数组」的顺序与长度必须严格一一对应。
+        //    错位（或长度不等）编译器不会报错，只会让权重张冠李戴，是静默错误。
+        //    所以每一项后面都标了它自己的权重数字，改完请逐项核对：
+        //    池子加一项，权重数组就必须在**同一位置**加一个数。
+
+        /// <summary>
+        /// 基础池（熔岩瀑布用，也是尚未实现环境的兜底）—— 按设计文档 2.2 的表。
+        /// </summary>
+        private static List<Item> BuildBasicStartPool() =>
+        [
+            new Wood(2),              // 权重 10
+            new Sulphur(3),           // 权重 10
+            new Wood(3),              // 权重 8
+            new Sulphur(2),           // 权重 8
+            new GlassJar(2),          // 权重 5
+            new WhitePhosphorus(3),   // 权重 5
+            new RedPhosphorus(2),     // 权重 5
+            new Sand(6),              // 权重 5
+
+            // TODO：设计文档 2.2 的池子里还有「2 药（权重 1）」「2 咖啡（权重 1）」，
+            // 但药(20)/咖啡(30) 这两个道具尚未实现 —— 等做出来后在下面补上：
+            // pool.Add(new Medicine(2));   weights.Add(1);
+            // pool.Add(new Coffee(2));     weights.Add(1);
+        ];
+
+        /// <summary>
+        /// 基础池的权重 —— 设计文档 2.2 的表，顺序与 <see cref="BuildBasicStartPool"/> 一一对应。
+        /// 药 / 咖啡两项尚未实现，见 <see cref="BuildBasicStartPool"/> 里的 TODO。
+        /// </summary>
+        private static readonly int[] BasicStartWeights = [10, 10, 8, 8, 5, 5, 5, 5];
+
+        /// <summary>
+        /// 熔岩瀑布的起始池（语义别名，内容与基础池完全相同）：
+        /// 熔岩瀑布是设计文档里固定第一层，2.2 那张表给的就是它这一套，
+        /// 所以这里直接复用基础池 —— 将来若熔岩瀑布要单独调整，只需让本方法返回自己的列表
+        /// （同时必须给它配一张新的 <see cref="LavaWaterfallStartWeights"/>）。
+        /// </summary>
+        private static List<Item> BuildLavaWaterfallStartPool()
+        {
+            return BuildBasicStartPool();
+        }
+
+        /// <summary>熔岩瀑布的起始权重（= 基础权重）。</summary>
+        private static readonly int[] LavaWaterfallStartWeights = [10, 10, 8, 8, 5, 5, 5, 5];
+        // ↑ 熔岩瀑布池的长度检查：BuildLavaWaterfallStartPool 委托给基础池（8 项），
+        //   权重也是 8 项，两边一致。将来若让熔岩瀑布用自己的池子，别忘了同步这一行。
+
+        /// <summary>
+        /// 水淹洞穴的起始池（用户要求自定，数量与权重的设计理由见 <see cref="FloodedCavernStartWeights"/>）。
+        /// </summary>
+        private static List<Item> BuildFloodedCavernStartPool() =>
+        [
+            new WaterBottle(2),   // 权重 12
+            new Metal(2),         // 权重 10
+            new Sand(4),          // 权重 8
+            new GlassJar(2),      // 权重 8
+            new SulfuricAcid(1),  // 权重 6
+            new Charcoal(2),      // 权重 6
+            new Sulphur(2),       // 权重 5
+            new WhitePhosphorus(2), // 权重 4
+            new RedPhosphorus(2),   // 权重 3
+        ];
+
+        /// <summary>
+        /// 水淹洞穴的起始权重，与 <see cref="BuildFloodedCavernStartPool"/> 一一对应。
+        ///
+        /// 设计理由（数量 / 权重都是自定的，用户授权）：
+        ///   · 水瓶 ×2 / 权重 12 —— 本环境的核心。设计文档 5.2 明确「空房间获得水瓶 ×1」，
+        ///     且「热硫 + 水瓶 → 硫酸」是这里唯一写明的对策合成链，所以水瓶必须是最容易抽到的。
+        ///     一次给 2 个：1 个用于堵水／合成，1 个留作消耗缓冲，避免开局就被水位逼死。
+        ///   · 金属 ×2 / 权重 10 —— 金属的正式来源是矿洞开采，但在水淹洞穴里它是「泡在水里的沉料」，
+        ///     主题贴合且能让玩家立刻有可用的合成／装备材料。权重次高，但不抢水瓶的位置。
+        ///   · 沙子 ×4 / 权重 8 —— 洞穴里的淤积物；玻璃罐的原料，保证玩家能自己造容器。
+        ///   · 玻璃罐 ×2 / 权重 8 —— 设计文档 12.1 配方 0 里「水瓶 = 1 玻璃罐」，
+        ///     给玻璃罐等于给了「再造水瓶」的能力，和本环境的主题闭环。
+        ///   · 硫酸 ×1 / 权重 6 —— 硫酸是本环境合成的产物（水瓶 + 热硫），
+        ///     直接给 1 个是「捡到前人遗留的成品」的味道；给多了会架空合成链，所以只给 1、权重中等。
+        ///   · 木炭 ×2 / 权重 6 —— 洞穴里可捡的燃料／还原剂，配合硫磺能走热硫路线。
+        ///   · 硫磺 ×2 / 权重 5 —— 走「热硫 + 水瓶 → 硫酸」链条的必需原料，给一份即可。
+        ///   · 白磷 ×2 / 权重 4 —— 潮湿环境里白磷本就难以保存，给少量、低权重，符合主题。
+        ///   · 红磷 ×2 / 权重 3 —— 同理，且红磷在熔岩瀑布池里价值更高，这里刻意压低，
+        ///     让两个环境的开局手感区分开。
+        ///   刻意不放的东西：放射矿（属矿洞／放射性区域的专属来源）、
+        ///   碘 / 碘片 / 万能药等配方 1-2 的产物（不该开局白送）。
+        /// </summary>
+        private static readonly int[] FloodedCavernStartWeights = [12, 10, 8, 8, 6, 6, 5, 4, 3];
     }
 }
