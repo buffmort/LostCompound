@@ -160,7 +160,7 @@ namespace LostCompound.Tools
                 Console.WriteLine("debug模式操作:");
                 Console.WriteLine("127, 获得全部合成");
             }
-            int option = int.Parse(Console.ReadLine());
+            int option = ReadInt();
             switch (option)
             {
                 case 1:
@@ -244,7 +244,7 @@ namespace LostCompound.Tools
                 count++;
             }
             Console.WriteLine("请选择怪物攻击:");
-            int choice = int.Parse(Console.ReadLine());
+            int choice = ReadInt();
             if (choice < 0 || choice > monsters.Count - 1)
             {
                 Console.WriteLine("您的攻击无效！");
@@ -259,6 +259,22 @@ namespace LostCompound.Tools
 
         }
 
+        /// <summary>
+        /// 读一个整数。输入非法时提示并重新读取，绝不抛异常。
+        /// 替代原先裸用的 int.Parse(Console.ReadLine()) —— 那样在菜单里输入一个字母就会让整个游戏崩溃。
+        /// </summary>
+        private static int ReadInt()
+        {
+            while (true)
+            {
+                if (int.TryParse(Console.ReadLine(), out int value))
+                {
+                    return value;
+                }
+                Console.WriteLine("输入无效，请输入数字。");
+            }
+        }
+
         public int SelectTarget(List<Monster> monsters)
         {
             Console.WriteLine("请选择对象:");
@@ -268,7 +284,7 @@ namespace LostCompound.Tools
                 Console.Write(count + "." + " " + i + "   ");
                 count++;
             }
-            int choice = int.Parse(Console.ReadLine());
+            int choice = ReadInt();
             if (choice < 0 || choice > monsters.Count - 1)
             {
                 Console.WriteLine("您的投掷无效！");
@@ -294,7 +310,7 @@ namespace LostCompound.Tools
                 }
             }
             Console.WriteLine("请选择道具使用");
-            int choice = int.Parse(Console.ReadLine());
+            int choice = ReadInt();
             if (choice < 0 || choice > Inventory.Count - 1)
             {
                 Console.WriteLine("您的使用无效！");
@@ -457,7 +473,7 @@ namespace LostCompound.Tools
             // 第四步：获取选择并执行
             Console.WriteLine("255. 返回");
             Console.WriteLine("请选择..");
-            int choice = int.Parse(Console.ReadLine());
+            int choice = ReadInt();
             if (choice == 255) return;
             if (choice < 0 || choice >= available.Count)
             {
