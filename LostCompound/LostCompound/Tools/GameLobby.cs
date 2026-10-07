@@ -104,7 +104,9 @@ namespace LostCompound.Tools
         private void ConfirmExit()
         {
             Console.Write("确定退出？(y/n): ");
-            string line = Console.ReadLine().Trim();
+            // Console.ReadLine() 在输入流结束（管道关闭 / Ctrl+Z / 重定向）时返回 null，
+            // 直接 .Trim() 会 NullReferenceException 崩掉整个程序。
+            string line = (Console.ReadLine() ?? "").Trim();
             if (string.Equals(line, "y", StringComparison.OrdinalIgnoreCase))
             {
                 _running = false;
@@ -123,7 +125,8 @@ namespace LostCompound.Tools
             while (true)
             {
                 Console.Write("请选择: ");
-                string line = Console.ReadLine().Trim();
+                // 同 ConfirmExit：ReadLine 在输入流结束时会返回 null，要先兜住
+                string line = (Console.ReadLine() ?? "").Trim();
                 if (line.Length == 0)
                 {
                     continue;
