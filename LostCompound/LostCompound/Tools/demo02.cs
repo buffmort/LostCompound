@@ -1,3 +1,4 @@
+using LostCompound.Items;
 using LostCompound.MapEnvironment;
 using LostCompound.Monsters;
 
@@ -13,15 +14,12 @@ namespace LostCompound.Tools
         {
             Player player = new Player();
             // 1. 创建共享状态（记录哥俩本回合是否攻击）
-            TwistedPairState state = new TwistedPairState();
-            // 2. 创建 P1
-            TwistedPairP1 p1 = new TwistedPairP1(state);
-            // 3. 创建 P2
-            TwistedPairP2 p2 = new TwistedPairP2(state, p1);
-            List<Monster> monsters = [p1, p2];
+            Dummy dummy = new Dummy();
+            List<Monster> monsters = [dummy];
             // 需要起始材料时在这里补 AddItem，例如：player.AddItem(new Wood(5));
             player.AddDefaultRecipes();
-            Tools.RunBattle(player, monsters, EnvironmentFactory.Create(EnvType.LavaWaterfall));
+            player.AddItem(new PhosphorusSword(1));
+            Tools.RunBattle(player, monsters,new FloodedCavern());
         }
 
     }

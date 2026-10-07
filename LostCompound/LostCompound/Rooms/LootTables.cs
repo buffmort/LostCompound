@@ -46,7 +46,8 @@ namespace LostCompound.Rooms
                     items.Add(new GlassJar(1));
                     break;
                 // 其余环境（沙漠/矿洞/墓地/放射性区域/雾都城市）尚未实现，
-                // 等做出来后再在这里补各自的掉落表。
+                // 等做出来后再在这里补1
+                // 各自的掉落表。
                 default:
                     // 未知环境默认返回空列表
                     break;

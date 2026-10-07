@@ -36,7 +36,7 @@ namespace LostCompound.Items
             }
             else
             {
-                Console.WriteLine("这里没有可以开采的矿脉。");
+                Console.WriteLine("你不能饮用硫酸。");
                 // 环境不对：不消耗，玩家可以留到水淹洞穴再用（与水瓶「没有水源不消耗」一致）
             }
         }
