@@ -25,8 +25,9 @@ namespace LostCompound.Monsters
 
         public void AddSkipTurn(int count) => SkipTurn += count;
 
-        // Java 枚举是引用类型，未赋值时为 null（Zombie 就从未设置 monsterType）；
-        // C# 枚举是值类型，默认值是 0（= Dragon），会改变掉落行为，故用可空 MonsterType?。
+        // 从 Java 移植时枚举是引用类型，未赋值即为 null；C# 枚举是值类型，默认值是 0
+        // （= Dragon），会改变掉落行为，所以这里用可空 MonsterType?。
+        // 现在所有怪物子类都在构造时显式赋了 Type，实际不会为 null。
         public MonsterType? Type { get; set; }
 
         public abstract void Attack(Player p);

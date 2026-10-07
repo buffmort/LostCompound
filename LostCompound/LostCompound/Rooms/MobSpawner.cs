@@ -6,10 +6,9 @@ namespace LostCompound.Rooms
     public static class MobSpawner
     {
         /**
-         * 随机返回 3 种不同的起始道具，供玩家选择 1 种。
-         * 根据权重分配概率，药和咖啡不参与。
-         *
-         * @return 包含 3 种道具名称的 ArrayList
+         * 按环境类型生成本轮战斗的怪物列表。
+         * 目前实现很简单：熔岩瀑布在僵尸与岩浆怪之间二选一，其余环境出测试假人。
+         * 设计文档里的食人鱼、洞潜僵尸、穿模骆驼、医生等尚未实现。
          */
         public static List<Monster> Spawn(EnvType envType)
         {

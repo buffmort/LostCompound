@@ -39,8 +39,8 @@ namespace LostCompound.Monsters
             // 4. 50% 概率附加灼烧 DOT（持续 2 回合，每回合 3 点伤害）
             if (Random.Shared.NextDouble() < 0.5)
             {
-                p.DotDamage = 3;      // 假设 Player 类有类似 Monster 的 DOT 方法
-                p.AddDotDuration(2);      // 增加 DOT 持续回合
+                p.DotDamage = 3;      // 注意这里是直接赋值：再次点燃会覆盖伤害而不是叠加
+                p.AddDotDuration(2);      // 持续回合则是累加
                 Console.WriteLine(Name + " 点燃了你，造成灼烧效果！");
             }
         }

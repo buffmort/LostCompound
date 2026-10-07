@@ -43,32 +43,11 @@ namespace LostCompound.Rooms
 
         private void GiveStartItems(Player p)
         {
-
-            // 1. 预置的 Item 对象池（直接使用已有的 Item 实例，不现场构造）
-            //    请根据你的 Item 类实际情况替换以下数组初始化方式：
-            //
-            //    方式一：如果 Item 类有静态常量，如 Item.WOOD_1 表示"1木头"
-            //    private static final Item[] START_ITEMS = {
-            //        Item.WOOD_1, Item.SULFUR_1, Item.WOOD_2, Item.SULFUR_2,
-            //        Item.GLASS_JAR_1, Item.PHOSPHORUS_2, Item.PHOSPHORUS_1, Item.SAND_5
-            //    };
-            //
-            //    方式二：如果通过 ItemType 枚举获取，如 ItemType.WOOD.getItem(1) 返回"1木头"
-            //    private static final Item[] START_ITEMS = {
-            //        ItemType.WOOD.getItem(1),      // 1木头
-            //        ItemType.SULFUR.getItem(1),    // 1硫磺
-            //        ItemType.WOOD.getItem(2),      // 2木头
-            //        ItemType.SULFUR.getItem(2),    // 2硫磺
-            //        ItemType.GLASS_JAR.getItem(1), // 1玻璃罐
-            //        ItemType.PHOSPHORUS.getItem(2),// 2白磷（假设）
-            //        ItemType.PHOSPHORUS.getItem(1),// 1红磷（假设）
-            //        ItemType.SAND.getItem(5)       // 5沙子
-            //    };
-            //
-            //    请自行替换为你的实际对象。以下为占位示例（需要你替换）：
+            // 起始道具池。道具与权重一一对应（顺序必须一致）。
+            // 设计文档 2.2：从池中随机提供 5 种，玩家选 1 种，共执行三次。
             Item[] startItems = CreateStartItems();
 
-            // 对应权重（与 startItems 顺序一致）
+            // 对应权重（与 startItems 顺序一致，数字越大越容易抽到）
             int[] weights = [10, 10, 8, 8, 5, 5, 5, 5];
 
             // 可用索引列表（初始包含所有道具索引）
@@ -80,7 +59,7 @@ namespace LostCompound.Rooms
 
             Console.WriteLine("===== 初始物品选择 =====");
 
-            // 每轮从 5 个候选里选 1 个（原来是 3 个）
+            // 每轮从 5 个候选里选 1 个
             const int OptionsPerRound = 5;
 
             // 进行三轮选择
@@ -95,16 +74,15 @@ namespace LostCompound.Rooms
                 int drawCount = Math.Min(OptionsPerRound, tempPool.Count);
                 for (int i = 0; i < drawCount; i++)
                 {
-                    // 加权随机抽取一个索引
+                    // 加权随机抽取一个索引。权重全为正数，所以随机值必定落在某个区间内，
+                    // pickedIdx 一定会被赋到有效值。
                     int totalWeight = 0;
                     foreach (int idx in tempPool)
                     {
                         totalWeight += weights[idx];
                     }
                     int rand = Random.Shared.Next(totalWeight);
-                    // 注意：此局部变量在 Java 里也叫 selectedIdx，但 C# 不允许嵌套块与
-                    // 外层块重名（CS0136），故内层临时变量改名为 pickedIdx，语义不变。
-                    int pickedIdx = -1;
+                    int pickedIdx = tempPool[^1];   // 兜底值：即使权重表写错也不会拿到 -1
                     int cumulative = 0;
                     foreach (int idx in tempPool)
                     {
@@ -119,21 +97,19 @@ namespace LostCompound.Rooms
                     tempPool.Remove(pickedIdx);  // 从临时池移除，防止本轮重复
                 }
 
-                // 展示本轮三个道具
+                // 展示本轮抽到的候选道具
                 for (int i = 0; i < roundIndices.Count; i++)
                 {
                     Item item = startItems[roundIndices[i]];
                     Console.WriteLine((i + 1) + ". " + item.Name + " x" + item.Count);
                 }
 
-                // 读取玩家选择（1~3）
+                // 读取玩家选择（1 到本轮的候选数）
                 int choice = -1;
                 bool valid = false;
                 while (!valid)
                 {
                     Console.Write("输入你的选择: ");
-                    // Java: scanner.hasNextInt() / scanner.nextInt() / scanner.next()
-                    // C#: 一次读一行，用 int.TryParse 做同样的「是不是整数」判断
                     string input = Console.ReadLine();
                     if (int.TryParse(input, out int parsedChoice))
                     {
@@ -150,7 +126,7 @@ namespace LostCompound.Rooms
                     else
                     {
                         Console.WriteLine("无效，请输入数字。");
-                        // 丢弃错误输入：Console.ReadLine 已把整行错误输入读走，无需再丢弃
+                        // 非数字的整行已被 ReadLine 读走，不需要额外丢弃
                     }
                 }
 
@@ -165,8 +141,6 @@ namespace LostCompound.Rooms
 
                 Console.WriteLine();
             }
-
-            // 注意：不要关闭 scanner，否则可能影响后续输入
         }
 
         // 起始道具池。数量由设计调整为「原值 +1」。

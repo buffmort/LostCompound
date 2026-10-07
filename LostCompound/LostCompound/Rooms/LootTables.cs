@@ -11,7 +11,8 @@ namespace LostCompound.Rooms
     {
         /**
          * 根据环境类型返回该环境下可能掉落的道具列表。
-         * 返回的是一个新创建的 ArrayList，避免外部修改影响内部数据。
+         * 每次调用都新建一个 List 并放入新的道具实例，所以调用方（宝箱/空房）
+         * 拿去加进背包后不会影响后续抽取。
          */
         public static List<Item> GetLootTable(EnvType envType)
         {
@@ -42,10 +43,8 @@ namespace LostCompound.Rooms
                     items.Add(new SulfuricAcid(1));
 
                     break;
-                // TODO: 如果以后新增环境，在这里添加 case
-                // case Mine:
-                //     items.add(new WoodenBow());
-                //     break;
+                // 其余环境（水淹洞穴/沙漠/矿洞/墓地/放射性区域/雾都城市）尚未实现，
+                // 等做出来后再在这里补各自的掉落表。
                 default:
                     // 未知环境默认返回空列表
                     break;

@@ -39,6 +39,30 @@ namespace LostCompound.Tools
         public List<ICraftable> Recipes { get; } = [];
 
         /// <summary>
+        /// 背包容量（设计文档 8.1）：初始 15 格。
+        /// 一格 = 一个 Item 条目（可堆叠的道具多份共用一格）。
+        /// 装不下时超出部分直接丢弃（用户决定）。
+        /// </summary>
+        public int InventoryCapacity { get; private set; } = 15;
+
+        /// <summary>背包容量上限（设计文档 8.1：最终 22）。</summary>
+        public const int MaxInventoryCapacity = 22;
+
+        /// <summary>
+        /// 扩充背包容量。设计文档：第 2 次通关 +3（→18），第 4 次通关 +4（→22）。
+        /// 通关系统尚未实现，先留接口。
+        /// </summary>
+        public void GrowInventoryCapacity(int amount)
+        {
+            int before = InventoryCapacity;
+            InventoryCapacity = Math.Min(InventoryCapacity + amount, MaxInventoryCapacity);
+            if (InventoryCapacity != before)
+            {
+                Console.WriteLine($"背包容量扩充至 {InventoryCapacity} 格！");
+            }
+        }
+
+        /// <summary>
         /// 饰品栏（设计文档 8.2）：与背包分开存放，不占背包格。
         /// 初始 5 格，每通关 +1，上限 15。
         ///
@@ -81,8 +105,14 @@ namespace LostCompound.Tools
 
             if (!newItem.IsStackable)
             {
+                // 不可堆叠 = 独占一格。背包满了就丢弃（按用户决定：超过了直接删除）
+                if (Inventory.Count >= InventoryCapacity)
+                {
+                    Console.WriteLine($"背包已满，{newItem.Name} x{newItem.Count} 被丢弃了！");
+                    return;
+                }
                 Inventory.Add(newItem);
-                Console.WriteLine("你获得了 " + newItem.Name + " x" + newItem.Count + "！");
+                Console.WriteLine($"你获得了 {newItem.Name} x{newItem.Count}！");
                 return;
             }
 
@@ -112,15 +142,23 @@ namespace LostCompound.Tools
 
             if (remaining > 0)
             {
-                newItem.Count = remaining;
-                Inventory.Add(newItem);
-                added += remaining;
+                // 现有堆叠都满了，需要新开一格；背包满则丢弃剩余部分
+                if (Inventory.Count >= InventoryCapacity)
+                {
+                    Console.WriteLine($"背包已满，{newItem.Name} x{remaining} 被丢弃了！");
+                }
+                else
+                {
+                    newItem.Count = remaining;
+                    Inventory.Add(newItem);
+                    added += remaining;
+                }
             }
 
             // 统一在这里播报获得，调用方不要再重复打印
             if (added > 0)
             {
-                Console.WriteLine("你获得了 " + newItem.Name + " x" + added + "！");
+                Console.WriteLine($"你获得了 {newItem.Name} x{added}！");
             }
         }
 
@@ -147,7 +185,7 @@ namespace LostCompound.Tools
             }
             Console.WriteLine("=====你的回合=====");
             RefreshStatus();               // 战斗中让状态栏显示血量/防御/格挡
-            HandleChangeableItems(this, envType);
+            HandleChangeableItems(envType);
             Inventory.AddRange(PendingItems);
             PendingItems.Clear();
             if (SkipTurn > 0)
@@ -156,17 +194,8 @@ namespace LostCompound.Tools
                 Console.WriteLine("跳过回合!");
                 return;
             }
-            //接下来看看堆叠 没堆叠就删除
-            /*
-            使用迭代器遍历玩家背包 后面还需要加入buff计算和饰品
-            现在暂时不做
-
-
-
-
-            * 后面进行战斗模块
-            * */
-
+            // 背包中的「可转变道具」（白磷 / 热硫 / 木头等）与耐久结算已经在
+            // HandleChangeableItems 里处理完了；这里只做回合内的展示。
 
             Calculator.Delay(250);
             Console.WriteLine("你的血量:{0:F1}", Hp);
@@ -294,6 +323,7 @@ namespace LostCompound.Tools
                 Console.Write(count + "." + " " + i + "   ");
                 count++;
             }
+            Console.WriteLine();
 
             // 选错目标不再结束回合：重问直到选到合法编号为止
             int choice;
@@ -301,7 +331,7 @@ namespace LostCompound.Tools
             {
                 Console.WriteLine("请选择怪物攻击:");
                 choice = ReadInt("选择目标编号");
-                if (choice >= 0 && choice <= monsters.Count - 1) break;
+                if (choice >= 0 && choice < monsters.Count) break;
                 Console.WriteLine("您的攻击无效！请重新选择(0-" + (monsters.Count - 1) + "):");
             }
 
@@ -329,6 +359,10 @@ namespace LostCompound.Tools
             }
         }
 
+        /// <summary>
+        /// 让玩家从 monsters 里选一个对象，返回其下标；没有可选对象时返回 -1。
+        /// 输入非法不消耗回合，会一直重问。
+        /// </summary>
         public int SelectTarget(List<Monster> monsters)
         {
             Console.WriteLine("请选择对象:");
@@ -350,7 +384,7 @@ namespace LostCompound.Tools
             while (true)
             {
                 int choice = ReadInt("选择对象编号");
-                if (choice >= 0 && choice <= monsters.Count - 1)
+                if (choice >= 0 && choice < monsters.Count)
                 {
                     return choice;
                 }
@@ -525,8 +559,8 @@ namespace LostCompound.Tools
             {
                 Console.WriteLine("请选择道具使用");
                 choice = ReadInt("选择道具编号(-1即退出)");
-                if(choice == -1) break;
-                if (choice >= 0 && choice <= Inventory.Count - 1) break;
+                if (choice == -1) break;
+                if (choice >= 0 && choice < Inventory.Count) break;
                 Console.WriteLine("您的使用无效！请重新选择(0-" + (Inventory.Count - 1) + "):");
             }
 
@@ -541,17 +575,21 @@ namespace LostCompound.Tools
             }
         }
 
-        // 修改后的 HandleChangeableItems 方法（所在类根据实际情况调整）
-        private void HandleChangeableItems(Player owner, EnvType envType)
+        /// <summary>
+        /// 每个玩家回合结算一次「背包里所有与回合数有关的道具」：
+        /// ITurnCount（如木头在熔岩瀑布烧成碳）先推进计数器，
+        /// IChangeable 再判断是否该转变/移除，需要转变的产物统一在遍历结束后入包，
+        /// 避免边遍历边修改 Inventory。
+        /// </summary>
+        private void HandleChangeableItems(EnvType envType)
         {
             List<Item> toAdd = [];
-            for (int i = 0; i < owner.Inventory.Count; i++)
+            for (int i = 0; i < Inventory.Count; i++)
             {
-                Item item = owner.Inventory[i];
+                Item item = Inventory[i];
                 if (item is ITurnCount turnCount)
                 {
-                    // 关键修改：使用 owner 而非 this
-                    turnCount.OnBattleStart(owner, envType);
+                    turnCount.OnBattleStart(this, envType);
                 }
                 if (item is IChangeable c)
                 {
@@ -562,32 +600,23 @@ namespace LostCompound.Tools
                         {
                             toAdd.Add(replacement);
                         }
-                        owner.Inventory.RemoveAt(i);
+                        Inventory.RemoveAt(i);
                         i--;
                     }
                 }
             }
             foreach (Item newItem in toAdd)
             {
-                owner.AddItem(newItem);
+                AddItem(newItem);
             }
         }
 
-        public int CountItemById(int id)
-        {
-            int total = 0;
-            foreach (Item item in Inventory)
-            {
-                if (item.Id == id)
-                {
-                    total += item.Count;
-                }
-            }
-            return total;
+        public int CountItemById(int id) => Inventory.Where(item => item.Id == id).Sum(item => item.Count);
 
-        }
-
-        // 修改后的 ConsumeItem 方法（在 Player 类中）
+        /// <summary>
+        /// 从背包扣除指定 ID 的若干个道具（跨多个堆叠扣），数量归零的堆叠直接移除。
+        /// 调用前先整体校验总量，避免扣到一半发现不够、留下「扣了一半」的状态。
+        /// </summary>
         public void ConsumeItem(int id, int amount)
         {
             // 先检查总数量是否足够

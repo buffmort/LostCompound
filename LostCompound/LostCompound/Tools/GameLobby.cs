@@ -15,10 +15,6 @@ namespace LostCompound.Tools
 
         private bool _running = true;
 
-        public GameLobby()
-        {
-        }
-
         public void Run()
         {
             while (_running)
@@ -82,7 +78,9 @@ namespace LostCompound.Tools
             }
         }
 
-        /** 读一个菜单选项，输入非数字不会崩，会一直重问 */
+        /// <summary>
+        /// 读一个菜单选项：非数字与超出 int 范围的输入都不会崩，会一直重问。
+        /// </summary>
         private int ReadChoice()
         {
             while (true)
@@ -93,14 +91,13 @@ namespace LostCompound.Tools
                 {
                     continue;
                 }
-                try
+                // 用 TryParse 而不是 int.Parse：int.Parse 遇到超长数字会抛 OverflowException，
+                // 和 Player.ReadInt 保持同一种写法。
+                if (int.TryParse(line, out int choice))
                 {
-                    return int.Parse(line);
+                    return choice;
                 }
-                catch (FormatException)
-                {
-                    Console.WriteLine("请输入数字。");
-                }
+                Console.WriteLine("请输入数字。");
             }
         }
     }

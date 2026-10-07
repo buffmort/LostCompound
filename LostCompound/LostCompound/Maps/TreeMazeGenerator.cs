@@ -391,12 +391,5 @@ namespace LostCompound.Maps
                 (list[i], list[j]) = (list[j], list[i]);
             }
         }
-
-        /*
-        * 小巧思
-        * 一个A*寻路找最短boss路径
-        *
-        * */
-
     }
 }

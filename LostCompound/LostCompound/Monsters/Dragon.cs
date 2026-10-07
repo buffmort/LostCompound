@@ -4,8 +4,7 @@ namespace LostCompound.Monsters
 {
     public sealed class Dragon : Monster
     {
-        private const int MAX_BLOCK = 1;    // 格挡上限
-        private const double MIN_DMG = 1.0; // 每次受伤最低值
+        private const int MaxBlock = 1;    // 格挡上限
 
         public Dragon()
         {
@@ -47,13 +46,9 @@ namespace LostCompound.Monsters
                 return;
             }
 
-            // 计算减伤后的伤害
+            // 计算减伤后的伤害。Calculator.ApplyDefense 内部已经保证结果 >= 1，
+            // 所以这里不需要再单独兜底一次。
             double realDmg = Calculator.ApplyDefense(Def, dmg);
-            // 龙族特性：受到的伤害至少为 1（除非被格挡）
-            if (realDmg < MIN_DMG)
-            {
-                realDmg = MIN_DMG;
-            }
 
             Hp -= realDmg;
             Console.WriteLine("{0}受到 {1:F1} 点伤害！", Name, realDmg);
@@ -78,7 +73,7 @@ namespace LostCompound.Monsters
             {
                 case 0:
                     // 第一种：增加格挡（上限 1），并确保防御力为 5（构造时已设置）
-                    if (Block < MAX_BLOCK)
+                    if (Block < MaxBlock)
                     {
                         Block++;
                         Console.WriteLine(Name + "蜷起身躯，鳞甲闪烁（格挡 +1）！");

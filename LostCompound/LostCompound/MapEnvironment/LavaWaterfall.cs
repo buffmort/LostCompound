@@ -44,7 +44,7 @@ namespace LostCompound.MapEnvironment
             if (Water < 0) Water = 0;
         }
 
-        /// <summary>水量越低玩家越弱：每损失 1 点水，STR -0.002（满水到枯竭最多 -0.4）。</summary>
+        /// <summary>水量越低玩家越弱：每损失 1 点水，STR -0.01（满水到枯竭最多 -2.0）。</summary>
         public override double StrModifier => -(MaxWater - Water) * StrPenaltyPerWater;
 
         public override List<Item> GetBattleLoot()
