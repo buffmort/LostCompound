@@ -364,15 +364,23 @@ namespace LostCompound.Tools
                 Console.WriteLine("你不能使用这个命令!");
                 return;
             }
-            Recipes.Add(new Recipe("热硫", [[5, 1], [3, 1], [1, 1]], new FushionSluphur(1)));
-            Recipes.Add(new Recipe("玻璃罐", [[5, 1], [6, 1]], new GlassJar(1)));
+            Recipes.Add(new Recipe("热硫",
+                [[ItemIds.WhitePhosphorus, 1], [ItemIds.Charcoal, 1], [ItemIds.Sulphur, 1]],
+                new FushionSluphur(1)));
+            Recipes.Add(new Recipe("玻璃罐",
+                [[ItemIds.WhitePhosphorus, 1], [ItemIds.Sand, 1]],
+                new GlassJar(1)));
         }
 
         public void AddDefaultRecipes()
         {
             Console.WriteLine("你成功添加了合成表0!");
-            Recipes.Add(new Recipe("热硫", [[5, 1], [3, 1], [1, 1]], new FushionSluphur(1)));
-            Recipes.Add(new Recipe("玻璃罐", [[5, 1], [6, 1]], new GlassJar(1)));
+            Recipes.Add(new Recipe("热硫",
+                [[ItemIds.WhitePhosphorus, 1], [ItemIds.Charcoal, 1], [ItemIds.Sulphur, 1]],
+                new FushionSluphur(1)));
+            Recipes.Add(new Recipe("玻璃罐",
+                [[ItemIds.WhitePhosphorus, 1], [ItemIds.Sand, 1]],
+                new GlassJar(1)));
         }
 
         public void HandCraft()

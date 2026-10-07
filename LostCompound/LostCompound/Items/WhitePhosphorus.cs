@@ -3,7 +3,7 @@ using LostCompound.Tools;
 
 namespace LostCompound.Items
 {
-    public sealed class WhitePhosphorus(int count) : Item(5, "白磷", 99, true, count), Useable, Changeable
+    public sealed class WhitePhosphorus(int count) : Item(ItemIds.WhitePhosphorus, "白磷", 99, true, count), Useable, Changeable
     {
         public override ItemType? Type => ItemType.WhitePhosphorus;
 

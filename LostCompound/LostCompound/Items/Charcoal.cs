@@ -3,7 +3,7 @@ using LostCompound.Tools;
 
 namespace LostCompound.Items
 {
-    public sealed class Charcoal(int count) : Item(3, "木炭", 99, true, count), TurnCount
+    public sealed class Charcoal(int count) : Item(ItemIds.Charcoal, "木炭", 99, true, count), TurnCount
     {
         // Java 原版这里返回 null，与构造函数里设的 type = ItemType.CHARCOAL 自相矛盾，属笔误。
         // 已修正为返回自身类型，与其它道具一致。

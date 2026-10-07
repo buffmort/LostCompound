@@ -4,7 +4,7 @@ using LostCompound.Tools;
 
 namespace LostCompound.Items
 {
-    public sealed class FushionSluphur(int count) : Item(4, "热硫", 99, true, count), Changeable, Useable, TurnCount
+    public sealed class FushionSluphur(int count) : Item(ItemIds.FushionSluphur, "热硫", 99, true, count), Changeable, Useable, TurnCount
     {
         public int Timer { get; set; } = 3;
 
