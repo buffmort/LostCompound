@@ -21,12 +21,13 @@ namespace LostCompound.MapEnvironment
 
         /// <summary>
         /// 每损失 1 点水，STR 的修正量。
-        /// 注意：玩家基础 STR 只有 2，所以这个系数不能大 ——
-        /// 取 0.01 时水枯竭会扣掉整整 2.0 STR（等于扣光 100%），玩家直接失去战斗力
-        /// （实测攻击力从 9.75 掉到 2.9，打个僵尸要 10 回合）。
-        /// 取 0.002，满水到枯竭的惩罚是 -0.4（约基础 STR 的 20%），强度合理。
+        /// 注意：玩家基础 STR 只有 2，攻击力公式是 2 + STR × √Atk，STR 占了大头，
+        /// 所以这个系数不能大：
+        ///   0.01  → 枯竭 -2.0（扣光 100%），攻击力 9.75 → 2.00，打僵尸要 11 回合
+        ///   0.005 → 枯竭 -1.0（扣 50%），攻击力 9.75 → 5.87，削弱明显但还能打
+        ///   0.002 → 枯竭 -0.4（扣 20%），攻击力 9.75 → 8.20，几乎没有感觉
         /// </summary>
-        private const double StrPenaltyPerWater = 0.002;
+        private const double StrPenaltyPerWater = 0.005;
 
         /// <summary>当前水量。</summary>
         public int Water { get; private set; } = MaxWater;

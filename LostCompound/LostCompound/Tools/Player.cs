@@ -13,7 +13,7 @@ namespace LostCompound.Tools
 
         public double Hp { get; set; } = 200;
         public double Atk { get; set; } = 15;
-        public double Str { get; set; } = 200;
+        public double Str { get; set; } = 2;
         public string Name { get; set; }
         public double Def { get; set; } = 5;
         public int Block { get; set; }
@@ -703,6 +703,12 @@ namespace LostCompound.Tools
             screen.Install();
             _screen = screen;              // 供 RefreshStatus / ReadInt 使用
             Console.WriteLine("游戏开始！输入方向探索地图。");
+
+            // 开局解锁「配方0」（热硫 + 玻璃罐）。
+            // 注意：这个方法原先只在 demo02 里被调用，主游戏从来没解锁过任何配方，
+            // 导致玩家选「4.徒手合成」永远只会看到「你没有任何道具合成!」。
+            // 放在 Install 之后，提示才会进日志区（放前面会被 Install 的清屏抹掉）。
+            AddDefaultRecipes();
 
             // 房间事件不立即触发，而是等地图画出来之后再触发，
             // 这样玩家先看到自己身处何地，再看到房间里发生了什么。

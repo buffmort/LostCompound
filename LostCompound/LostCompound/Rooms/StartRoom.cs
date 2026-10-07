@@ -80,15 +80,20 @@ namespace LostCompound.Rooms
 
             Console.WriteLine("===== 初始物品选择 =====");
 
+            // 每轮从 5 个候选里选 1 个（原来是 3 个）
+            const int OptionsPerRound = 5;
+
             // 进行三轮选择
             for (int round = 1; round <= 3; round++)
             {
-                Console.WriteLine("第 " + round + " 轮，请选择一种道具（输入 1、2 或 3）：");
+                Console.WriteLine("第 " + round + " 轮，请选择一种道具（输入 1~" + OptionsPerRound + "）：");
 
-                // 从当前可用索引中随机抽取 3 个不重复的索引
+                // 从当前可用索引中随机抽取 OptionsPerRound 个不重复的索引
+                // 注意用 Math.Min 兜底：可用道具不足时不能硬抽，否则会拿到 -1 索引而崩
                 List<int> roundIndices = [];
                 List<int> tempPool = [.. available];
-                for (int i = 0; i < 3; i++)
+                int drawCount = Math.Min(OptionsPerRound, tempPool.Count);
+                for (int i = 0; i < drawCount; i++)
                 {
                     // 加权随机抽取一个索引
                     int totalWeight = 0;
@@ -133,13 +138,13 @@ namespace LostCompound.Rooms
                     if (int.TryParse(input, out int parsedChoice))
                     {
                         choice = parsedChoice;
-                        if (choice >= 1 && choice <= 3)
+                        if (choice >= 1 && choice <= roundIndices.Count)
                         {
                             valid = true;
                         }
                         else
                         {
-                            Console.WriteLine("无效，请输入 1~3。");
+                            Console.WriteLine("无效，请输入 1~" + roundIndices.Count + "。");
                         }
                     }
                     else
@@ -164,19 +169,19 @@ namespace LostCompound.Rooms
             // 注意：不要关闭 scanner，否则可能影响后续输入
         }
 
-        // 占位方法：你需要根据实际 Item 类的设计返回预置的 Item 对象数组
+        // 起始道具池。数量由设计调整为「原值 +1」。
         private Item[] CreateStartItems()
         {
             return
             [
-                new Wood(1),
                 new Wood(2),
+                new Wood(3),
+                new Sulphur(3),
                 new Sulphur(2),
-                new Sulphur(1),
-                new GlassJar(1),
-                new WhitePhosphorus(2),
-                new RedPhosphorus(1),
-                new Sand(5),
+                new GlassJar(2),
+                new WhitePhosphorus(3),
+                new RedPhosphorus(2),
+                new Sand(6),
             ];
         }
     }
