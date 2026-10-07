@@ -54,7 +54,7 @@ namespace LostCompound.Monsters
             Console.WriteLine(Name + " 死了。");
             foreach (Item item in loots)
             {
-                Console.WriteLine(Name + " 掉落了：" + item.Name);
+                // 掉落播报已统一由 Player.AddItem 负责，这里不再重复打印
                 player.AddItem(item);
             }
             return loots;

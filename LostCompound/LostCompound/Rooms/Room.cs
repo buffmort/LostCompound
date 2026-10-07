@@ -1,3 +1,4 @@
+using Environment = LostCompound.MapEnvironment.Environment;
 using LostCompound.MapEnvironment;
 using LostCompound.Tools;
 
@@ -10,9 +11,13 @@ namespace LostCompound.Rooms
         public bool IsVisited { get; set; }
         public bool IsCleaned { get; set; }
         public bool IsPlayerHere { get; set; }
-        public EnvType Environment { get; }
+        // 环境对象引用（可为 null：该环境尚未实现或本层没有环境）
+        public Environment Environment { get; }
 
-        public Room(RoomType type, EnvType environment)
+        // 便捷属性：原来需要枚举的地方（掉落表、怪物生成、DOT 等）用它取环境类型
+        public EnvType EnvKind => Environment?.Type ?? EnvType.None;
+
+        public Room(RoomType type, Environment environment)
         {
             Type = type;
             Environment = environment;

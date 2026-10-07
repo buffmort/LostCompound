@@ -59,7 +59,9 @@ namespace LostCompound.Tools
             Console.WriteLine(">>> 开始游戏");
             Console.WriteLine();
             Console.WriteLine();
-            TreeMazeGenerator tmg = new TreeMazeGenerator(10, 10, LavaWaterfall);
+            // 注意：必须写 EnvType.LavaWaterfall。简单名 LavaWaterfall 现在与环境类
+            // LostCompound.MapEnvironment.LavaWaterfall 同名，会产生二义性（CS0229）。
+            TreeMazeGenerator tmg = new TreeMazeGenerator(10, 10, EnvType.LavaWaterfall);
             tmg.Generate();
             Room[][] map = tmg.Grid;
             Player p = new Player();

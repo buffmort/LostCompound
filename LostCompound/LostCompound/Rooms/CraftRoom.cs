@@ -1,3 +1,4 @@
+using Environment = LostCompound.MapEnvironment.Environment;
 using LostCompound.MapEnvironment;
 using LostCompound.Tools;
 
@@ -5,7 +6,7 @@ namespace LostCompound.Rooms
 {
     public sealed class CraftRoom : Room
     {
-        public CraftRoom(EnvType envType) : base(RoomType.Craft, envType)
+        public CraftRoom(Environment environment) : base(RoomType.Craft, environment)
         {
         }
 

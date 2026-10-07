@@ -21,7 +21,7 @@ namespace LostCompound.Tools
             //        player.addItem(new Sulphur(5));
             //        player.addItem(new Sand(5));
             player.AddDefaultRecipes();
-            Tools.RunBattle(player, monsters, EnvType.LavaWaterfall);
+            Tools.RunBattle(player, monsters, EnvironmentFactory.Create(EnvType.LavaWaterfall));
         }
 
     }

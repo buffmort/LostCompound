@@ -1,3 +1,4 @@
+using Environment = LostCompound.MapEnvironment.Environment;
 using LostCompound.MapEnvironment;
 using LostCompound.Monsters;
 
@@ -11,7 +12,7 @@ namespace LostCompound.Tools
          * 大回合 = roundSetup + 玩家小回合 + 怪物小回合
          * 跳过回合逻辑封装在 Monster.onMonsterTurn 内部
          */
-        public static void RunBattle(Player p, List<Monster> monsters, EnvType envType)
+        public static void RunBattle(Player p, List<Monster> monsters, Environment env)
         {
             Console.WriteLine("=======战斗开始=======");
             int round = 1;
@@ -21,11 +22,15 @@ namespace LostCompound.Tools
 
                 // ── 大回合开场：DOT 结算一次 ──
                 ApplyDotEffects(p, monsters, round);
+
+                // ── 环境推进：每个大回合一次（如熔岩瀑布每回合掉水）──
+                env?.OnBattleTurn();
+
                 RemoveDeadMonsters(p, monsters);
                 if (!p.IsAlive || monsters.Count == 0) break;
 
                 // ── 小回合 A：玩家行动 ──
-                p.OnPlayerTurn(monsters, envType);
+                p.OnPlayerTurn(monsters, env?.Type ?? EnvType.None);
                 RemoveDeadMonsters(p, monsters);
                 if (!p.IsAlive || monsters.Count == 0) break;
 

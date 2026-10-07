@@ -1,3 +1,4 @@
+using Environment = LostCompound.MapEnvironment.Environment;
 using LostCompound.MapEnvironment;
 using LostCompound.Monsters;
 using LostCompound.Tools;
@@ -6,7 +7,7 @@ namespace LostCompound.Rooms
 {
     public sealed class BossRoom : Room
     {
-        public BossRoom(EnvType envType) : base(RoomType.Boss, envType)
+        public BossRoom(Environment environment) : base(RoomType.Boss, environment)
         {
         }
 

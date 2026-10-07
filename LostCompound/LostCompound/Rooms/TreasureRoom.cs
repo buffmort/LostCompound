@@ -1,3 +1,4 @@
+using Environment = LostCompound.MapEnvironment.Environment;
 using LostCompound.Items;
 using LostCompound.MapEnvironment;
 using LostCompound.Tools;
@@ -11,7 +12,7 @@ namespace LostCompound.Rooms
     /// </summary>
     public sealed class TreasureRoom : Room
     {
-        public TreasureRoom(EnvType envType) : base(RoomType.Treasure, envType)
+        public TreasureRoom(Environment environment) : base(RoomType.Treasure, environment)
         {
         }
 
@@ -28,7 +29,7 @@ namespace LostCompound.Rooms
             // 必定摇两次道具池：每次重新取表，因此两次是相互独立的抽取
             for (int roll = 1; roll <= 2; roll++)
             {
-                List<Item> pool = LootTables.GetLootTable(Environment);
+                List<Item> pool = LootTables.GetLootTable(EnvKind);
                 if (pool.Count == 0)
                 {
                     Console.WriteLine("这个环境里没有可掉落的道具。");
@@ -36,8 +37,9 @@ namespace LostCompound.Rooms
                 }
 
                 Item picked = pool[Random.Shared.Next(pool.Count)];
+                Console.WriteLine("第 " + roll + " 次摇取：");
+                // 获得播报已统一由 Player.AddItem 负责，这里不再重复打印
                 p.AddItem(picked);
-                Console.WriteLine("第 " + roll + " 次摇取：你获得了 " + picked.Name + " x" + picked.Count + "！");
             }
 
             IsCleaned = true;

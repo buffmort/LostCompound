@@ -48,7 +48,7 @@ namespace LostCompound.Tools
                 player.ConsumeItem(id, amount);
             }
             player.AddItem(Product);
-            Console.WriteLine("合成" + Product.Name + "成功!");
+            // 获得播报已统一由 Player.AddItem 负责，这里不再重复打印「合成X成功」
 
         }
 

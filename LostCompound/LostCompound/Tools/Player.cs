@@ -1,3 +1,4 @@
+using Environment = LostCompound.MapEnvironment.Environment;
 using LostCompound.MapEnvironment;
 using LostCompound.Rooms;
 using LostCompound.Items;
@@ -45,6 +46,7 @@ namespace LostCompound.Tools
             if (!newItem.IsStackable)
             {
                 Inventory.Add(newItem);
+                Console.WriteLine("你获得了 " + newItem.Name + " x" + newItem.Count + "！");
                 return;
             }
 
@@ -55,6 +57,7 @@ namespace LostCompound.Tools
             }
 
             int remaining = newItem.Count;
+            int added = 0;   // 实际加进背包的数量（堆叠时可能小于 original count）
 
             foreach (Item existItem in Inventory)
             {
@@ -68,12 +71,20 @@ namespace LostCompound.Tools
                 int move = Math.Min(space, remaining);
                 existItem.Count += move;
                 remaining -= move;
+                added += move;
             }
 
             if (remaining > 0)
             {
                 newItem.Count = remaining;
                 Inventory.Add(newItem);
+                added += remaining;
+            }
+
+            // 统一在这里播报获得，调用方不要再重复打印
+            if (added > 0)
+            {
+                Console.WriteLine("你获得了 " + newItem.Name + " x" + added + "！");
             }
         }
 
@@ -124,6 +135,11 @@ namespace LostCompound.Tools
             Console.WriteLine("你的血量:{0:F1}", Hp);
             Console.WriteLine("你的防御:{0:F1}", Def);
             Console.WriteLine("你的格挡剩余:" + Block);
+            // 环境状态（如熔岩瀑布水量）：供玩家决定要不要用水瓶
+            if (CurrentEnvironment != null)
+            {
+                Console.WriteLine(CurrentEnvironment.DescribeStatus());
+            }
             if (DotDuration > 0)
             {
                 Console.WriteLine("你剩余的dot时长:" + DotDuration);
@@ -190,9 +206,35 @@ namespace LostCompound.Tools
 
         }
 
+        /// <summary>
+        /// 玩家当前所在房间的环境对象（可能为 null：没进地图、或该层没有环境）。
+        /// 用 internal 而不是 public：只给同一程序集内的道具（水瓶）读取，不扩大对外公开 API。
+        /// </summary>
+        internal Environment CurrentEnvironment
+        {
+            get
+            {
+                if (_map == null) return null;
+                Room room = _map[PlayerRow][PlayerCol];
+                return room?.Environment;
+            }
+        }
+
+        /// <summary>当前有效 STR = 基础 STR + 环境修正（如熔岩瀑布缺水会削弱）。</summary>
+        private double EffectiveStr
+        {
+            get
+            {
+                Environment env = CurrentEnvironment;
+                // 注意符号：StrModifier 在缺水时是负值，所以这里直接「加」修正量即可实现
+                // 「缺水 → STR 变小」；水满时修正量为 0，与原来完全一致。
+                return Str + (env?.StrModifier ?? 0.0);
+            }
+        }
+
         public void Attack(List<Monster> monsters)
         {
-            double dmg = Calculator.CalculateAttack(Str, Atk);
+            double dmg = Calculator.CalculateAttack(EffectiveStr, Atk);
             Console.WriteLine("=====攻击界面=====");
             Calculator.Delay(250);
             int count = 0;

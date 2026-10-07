@@ -1,3 +1,4 @@
+using Environment = LostCompound.MapEnvironment.Environment;
 using System.Text;
 using LostCompound.MapEnvironment;
 using LostCompound.Rooms;
@@ -37,9 +38,13 @@ namespace LostCompound.Maps
          */
         private void InitializeRooms(EnvType envType)
         {
+            // 0. 先创建一次环境对象：同一层所有房间共享同一个实例，
+            //    否则水量等状态会变成每个房间各一份，互相看不见。
+            Environment env = EnvironmentFactory.Create(envType);
+
             // 1. 固定起点和终点
-            _grid[0][0] = new StartRoom(envType);
-            _grid[_rows - 1][_cols - 1] = new BossRoom(envType);
+            _grid[0][0] = new StartRoom(env);
+            _grid[_rows - 1][_cols - 1] = new BossRoom(env);
 
             // 2. 收集所有可随机化的普通房间位置（排除起点和终点）
             List<int[]> normalPositions = [];
@@ -59,11 +64,11 @@ namespace LostCompound.Maps
                 int roll = Random.Shared.Next(3); // 0,1,2 均匀分布
                 if (roll < 2)
                 {
-                    _grid[pos[0]][pos[1]] = new FightRoom(envType);  // 2/3 概率
+                    _grid[pos[0]][pos[1]] = new FightRoom(env);  // 2/3 概率
                 }
                 else
                 {
-                    _grid[pos[0]][pos[1]] = new EmptyRoom(envType);  // 1/3 概率
+                    _grid[pos[0]][pos[1]] = new EmptyRoom(env);  // 1/3 概率
                 }
             }
 
@@ -72,7 +77,7 @@ namespace LostCompound.Maps
             {
                 int index = Random.Shared.Next(normalPositions.Count);
                 int[] pos = normalPositions[index];
-                _grid[pos[0]][pos[1]] = new CraftRoom(EnvType.LavaWaterfall);
+                _grid[pos[0]][pos[1]] = new CraftRoom(env);
             }
 
             // 5. 50% 概率生成一个 TreasureRoom，随机替换掉一个普通房间（全图最多一个）
@@ -80,7 +85,7 @@ namespace LostCompound.Maps
             {
                 int index = Random.Shared.Next(normalPositions.Count);
                 int[] pos = normalPositions[index];
-                _grid[pos[0]][pos[1]] = new TreasureRoom(envType);
+                _grid[pos[0]][pos[1]] = new TreasureRoom(env);
             }
         }
 

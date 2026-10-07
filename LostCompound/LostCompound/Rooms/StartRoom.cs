@@ -1,3 +1,4 @@
+using Environment = LostCompound.MapEnvironment.Environment;
 using LostCompound.MapEnvironment;
 using LostCompound.Items;
 using LostCompound.Tools;
@@ -8,7 +9,7 @@ namespace LostCompound.Rooms
     {
         private bool _startItemsGiven;   // 防止重复发放起始道具
 
-        public StartRoom(EnvType envType) : base(RoomType.Start, envType)
+        public StartRoom(Environment environment) : base(RoomType.Start, environment)
         {
             IsVisited = true;
         }
@@ -152,7 +153,7 @@ namespace LostCompound.Rooms
                 int selectedIdx = roundIndices[choice - 1];
                 Item selectedItem = startItems[selectedIdx];
                 p.AddItem(selectedItem);
-                Console.WriteLine("你获得了: " + selectedItem.Name);
+                // 获得播报已统一由 Player.AddItem 负责，这里不再重复打印
 
                 // 从总可用池中移除该索引，防止后续轮次再次获得相同道具
                 available.Remove(selectedIdx);
