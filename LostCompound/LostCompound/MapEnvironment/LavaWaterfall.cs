@@ -20,14 +20,16 @@ namespace LostCompound.MapEnvironment
         private const int MaxWaterDrop = 10;
 
         /// <summary>
-        /// 每损失 1 点水，STR 的修正量。
-        /// 注意：玩家基础 STR 只有 2，攻击力公式是 2 + STR × √Atk，STR 占了大头，
-        /// 所以这个系数不能大：
-        ///   0.01  → 枯竭 -2.0（扣光 100%），攻击力 9.75 → 2.00，打僵尸要 11 回合
-        ///   0.005 → 枯竭 -1.0（扣 50%），攻击力 9.75 → 5.87，削弱明显但还能打
-        ///   0.002 → 枯竭 -0.4（扣 20%），攻击力 9.75 → 8.20，几乎没有感觉
+        /// 每损失 1 点水，STR 的修正量（设计文档 5.1：每降 1 点 STR 降 0.01）。
+        ///
+        /// 历史：这个系数一度被调成 0.002 / 0.005，因为当时玩家 STR 只有 2
+        /// （偏离文档），枯竭时 -2.0 会把 STR 扣光，攻击力从 9.75 掉到 2.00。
+        /// 现在 STR 已按文档改回 3，0.01 就是合理的：
+        ///   满水攻击力 = 2 + 3 × √20 = 15.42
+        ///   枯竭攻击力 = 2 + 1 × √20 =  6.47（-58%，有压力但不至于打不动）
+        /// 所以恢复成文档原值。
         /// </summary>
-        private const double StrPenaltyPerWater = 0.005;
+        private const double StrPenaltyPerWater = 0.01;
 
         /// <summary>当前水量。</summary>
         public int Water { get; private set; } = MaxWater;

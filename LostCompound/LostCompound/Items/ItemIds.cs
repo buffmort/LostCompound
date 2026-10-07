@@ -53,9 +53,33 @@ namespace LostCompound.Items
         /// <summary>硫酸</summary>
         public const int SulfuricAcid = 10;
 
-        // 11-30 尚未实现的道具，等真正做的时候在这里补：
-        // public const int RadioactiveOre = 11;
-        // ...
+        // ---- 配方 1 ----
+        // 按设计文档的 ID 编号。缺号的（11 放射矿、13 核电池、16 万能药、18/19/20…）
+        // 是尚未实现的道具，等真正做的时候在对应位置补上，不要把编号往后挤。
+
+        /// <summary>镐子</summary>
+        public const int Pickaxe = 12;
+
+        /// <summary>碘（原材料）</summary>
+        public const int Iodine = 14;
+
+        /// <summary>碘片</summary>
+        public const int IodineTablet = 15;
+
+        /// <summary>金属罐</summary>
+        public const int MetalCan = 17;
+
+        /// <summary>铁剑</summary>
+        public const int IronSword = 21;
+
+        /// <summary>磷化剑</summary>
+        public const int PhosphorusSword = 22;
+
+        /// <summary>盔甲</summary>
+        public const int Armor = 24;
+
+        /// <summary>盾</summary>
+        public const int Shield = 28;
 
         /// <summary>红磷</summary>
         public const int RedPhosphorus = 31;

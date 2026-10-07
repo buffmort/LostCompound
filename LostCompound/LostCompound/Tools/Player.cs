@@ -12,10 +12,12 @@ namespace LostCompound.Tools
     {
 
         public double Hp { get; set; } = 200;
-        public double Atk { get; set; } = 15;
-        public double Str { get; set; } = 2;
+        // 设计文档 7.3：基础 ATK = 2 + STR × √ATK，STR 基础 = 3，ATK = 20
+        // 初值用常量而不是字面量，避免「改了一处忘了另一处」
+        public double Atk { get; set; } = BaseAtk;
+        public double Str { get; set; } = 3;
         public string Name { get; set; }
-        public double Def { get; set; } = 5;
+        public double Def { get; set; } = BaseDef;
         public int Block { get; set; }
         public double DotDamage { get; set; }
         public int DotDuration { get; set; }
@@ -162,11 +164,12 @@ namespace LostCompound.Tools
             Console.WriteLine();
             Console.WriteLine("请选择操作");
             Calculator.Delay(250);
-            Console.WriteLine("1.攻击   2.防御   3.使用背包道具  4.徒手合成");
+            Console.WriteLine("1.攻击  2.防御  3.使用背包道具  4.徒手合成");
             if (_debug)
             {
                 Console.WriteLine("debug模式操作:");
-                Console.WriteLine("127, 获得全部合成");
+                Console.WriteLine("127, 超雄模式");
+                Console.WriteLine("128, 获得全部合成");
             }
             int option = ReadInt("请选择操作");
             switch (option)
@@ -184,7 +187,7 @@ namespace LostCompound.Tools
                     HandCraft();
                     break;
                 case 127:
-                    Console.WriteLine("此部分尚未开发!");
+                    Str = 100;
                     break;
                 case 128:
                     UnlockAllRecipes();
@@ -353,7 +356,8 @@ namespace LostCompound.Tools
             while (true)
             {
                 Console.WriteLine("请选择道具使用");
-                choice = ReadInt("选择道具编号");
+                choice = ReadInt("选择道具编号(-1即退出)");
+                if(choice == -1) break;
                 if (choice >= 0 && choice <= Inventory.Count - 1) break;
                 Console.WriteLine("您的使用无效！请重新选择(0-" + (Inventory.Count - 1) + "):");
             }
@@ -461,12 +465,8 @@ namespace LostCompound.Tools
                 Console.WriteLine("你不能使用这个命令!");
                 return;
             }
-            Recipes.Add(new Recipe("热硫",
-                [[ItemIds.WhitePhosphorus, 1], [ItemIds.Charcoal, 1], [ItemIds.Sulphur, 1]],
-                new FushionSluphur(1)));
-            Recipes.Add(new Recipe("玻璃罐",
-                [[ItemIds.WhitePhosphorus, 1], [ItemIds.Sand, 1]],
-                new GlassJar(1)));
+            AddDefaultRecipes();
+            AddTier1Recipes();
         }
 
         public void AddDefaultRecipes()
@@ -476,8 +476,57 @@ namespace LostCompound.Tools
                 [[ItemIds.WhitePhosphorus, 1], [ItemIds.Charcoal, 1], [ItemIds.Sulphur, 1]],
                 new FushionSluphur(1)));
             Recipes.Add(new Recipe("玻璃罐",
-                [[ItemIds.WhitePhosphorus, 1], [ItemIds.Sand, 1]],
+                [ [ItemIds.Sand, 3]],
                 new GlassJar(1)));
+
+            // 水瓶：1 玻璃罐（按你的决定，文档原本写的是「水淹洞穴空房间掉落」）
+            Recipes.Add(new Recipe("水瓶",
+                [[ItemIds.GlassJar, 1]],
+                new WaterBottle(1)));
+        }
+
+        /// <summary>
+        /// 解锁配方 1（设计文档十：第 5 次通关解锁）。
+        /// 只收录文档里写明合成材料的条目 —— 硫酸的配方你指定不写，故此处不含硫酸。
+        /// </summary>
+        public void AddTier1Recipes()
+        {
+            Console.WriteLine("你解锁了配方1!");
+
+            // 镐子：5 金属 + 3 木头
+            Recipes.Add(new Recipe("镐子",
+                [[ItemIds.Metal, 5], [ItemIds.Wood, 3]],
+                new Pickaxe(1)));
+
+            // 碘片：碘 + 红磷 + 水瓶
+            Recipes.Add(new Recipe("碘片",
+                [[ItemIds.Iodine, 1], [ItemIds.RedPhosphorus, 1], [ItemIds.WaterBottle, 1]],
+                new IodineTablet(1)));
+
+            // 金属罐：金属 + 白磷
+            Recipes.Add(new Recipe("金属罐",
+                [[ItemIds.Metal, 1], [ItemIds.WhitePhosphorus, 1]],
+                new MetalCan(1)));
+
+            // 铁剑：2 木头 + 2 金属
+            Recipes.Add(new Recipe("铁剑",
+                [[ItemIds.Wood, 2], [ItemIds.Metal, 2]],
+                new IronSword(1)));
+
+            // 磷化剑：铁剑 + 2 白磷 + 2 红磷
+            Recipes.Add(new Recipe("磷化剑",
+                [[ItemIds.IronSword, 1], [ItemIds.WhitePhosphorus, 2], [ItemIds.RedPhosphorus, 2]],
+                new PhosphorusSword(1)));
+
+            // 盔甲：3 金属 + 1 白磷
+            Recipes.Add(new Recipe("盔甲",
+                [[ItemIds.Metal, 3], [ItemIds.WhitePhosphorus, 1]],
+                new Armor(1)));
+
+            // 盾：3 金属
+            Recipes.Add(new Recipe("盾",
+                [[ItemIds.Metal, 3]],
+                new Shield(1)));
         }
 
         public void HandCraft()
@@ -674,8 +723,38 @@ namespace LostCompound.Tools
         public void SetInBattle(bool v)
         {
             _inBattle = v;
+            if (v) ApplyEquipmentPassives();
             RefreshStatus();
         }
+
+        /// <summary>
+        /// 把背包里所有被动装备（Equippable）的加成应用到玩家身上。
+        ///
+        /// 关键：先从基础值重算，再加装备加成。
+        /// 如果直接 Atk += 加成，打第二场战斗时会再叠一次，10 场之后 ATK 就爆了。
+        /// 所以这里先还原成「基础值」，再让每件装备各加一次。
+        /// </summary>
+        private void ApplyEquipmentPassives()
+        {
+            // 还原基础值（这些是 Player 的初始属性，见字段声明处）
+            Atk = BaseAtk;
+            Def = BaseDef;
+            Block = 0;
+
+            foreach (Item item in Inventory)
+            {
+                if (item is Equippable eq)
+                {
+                    eq.ApplyPassive(this);
+                }
+            }
+        }
+
+        /// <summary>玩家基础攻击力（不含装备加成）。</summary>
+        private const double BaseAtk = 20;
+
+        /// <summary>玩家基础防御力（不含装备加成）。</summary>
+        private const double BaseDef = 5;
 
         /// <summary>
         /// 用分区布局重画「地图」与「状态」两块固定区域。
@@ -709,8 +788,6 @@ namespace LostCompound.Tools
             // 导致玩家选「4.徒手合成」永远只会看到「你没有任何道具合成!」。
             // 放在 Install 之后，提示才会进日志区（放前面会被 Install 的清屏抹掉）。
             AddDefaultRecipes();
-
-            // 房间事件不立即触发，而是等地图画出来之后再触发，
             // 这样玩家先看到自己身处何地，再看到房间里发生了什么。
             bool pendingEnter = true;    // 起始房间的事件也要等第一张地图
             bool justMoved = false;

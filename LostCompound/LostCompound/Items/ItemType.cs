@@ -15,5 +15,15 @@ namespace LostCompound.Items
         WaterBottle,
         Metal,
         SulfuricAcid,
+
+        // 配方 1 新增
+        Pickaxe,
+        Iodine,
+        IodineTablet,
+        MetalCan,
+        IronSword,
+        PhosphorusSword,
+        Armor,
+        Shield,
     }
 }
