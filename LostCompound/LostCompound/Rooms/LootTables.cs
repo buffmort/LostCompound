@@ -42,7 +42,7 @@ namespace LostCompound.Rooms
                     items.Add(new SulfuricAcid(1));
 
                     break;
-                // 如果以后新增环境，在这里添加 case
+                // TODO: 如果以后新增环境，在这里添加 case
                 // case Mine:
                 //     items.add(new WoodenBow());
                 //     break;
