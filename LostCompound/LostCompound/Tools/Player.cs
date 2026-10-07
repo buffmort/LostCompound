@@ -4,6 +4,7 @@ using LostCompound.Rooms;
 using LostCompound.Items;
 using LostCompound.Monsters;
 using LostCompound.Maps;
+using LostCompound.UI;
 
 namespace LostCompound.Tools
 {
@@ -613,90 +614,86 @@ namespace LostCompound.Tools
             throw new InvalidOperationException("地图中没有起始房间！");
         }
 
-        /// <summary>清屏并画出「地图 → 当前位置 → 当前房间」这一段状态。</summary>
-        private void DrawStatus(Room[][] map, TreeMazeGenerator tmg)
+        /// <summary>
+        /// 用分区布局重画「地图」与「状态」两块固定区域。
+        /// 注意这里不再清屏：地图固定在屏幕上方，日志在下方滚动，两者互不影响。
+        /// </summary>
+        private void DrawScreen(ConsoleScreen screen, Room[][] map, TreeMazeGenerator tmg)
         {
-            Console.Write("\u001b[H\u001b[2J");
-            Console.WriteLine(tmg.ToDisplayString());
-            Console.WriteLine("\n当前位置: (" + PlayerRow + ", " + PlayerCol + ")");
-            Console.WriteLine("当前房间:" + map[PlayerRow][PlayerCol].Type);
+            screen.DrawMap(tmg.ToDisplayString());
+
+            string status = "当前位置: (" + PlayerRow + ", " + PlayerCol + ")\n"
+                          + "当前房间:" + map[PlayerRow][PlayerCol].Type;
+
+            Environment env = CurrentEnvironment;
+            if (env != null)
+            {
+                status += "\n" + env.DescribeStatus();
+            }
+
+            screen.DrawStatus(status);
         }
 
         public void StartGame(Room[][] map, TreeMazeGenerator tmg)
         {
             JoinMap(map);
+
+            // 地图文本的行数就是地图区需要的高度（rows*2+1）
+            ConsoleScreen screen = new ConsoleScreen(tmg.ToDisplayString().Replace("\r", "").Split('\n').Length);
+            screen.Install();
             Console.WriteLine("游戏开始！输入方向探索地图。");
 
-            // 房间事件不立即触发，而是等地图打印之后再触发，
+            // 房间事件不立即触发，而是等地图画出来之后再触发，
             // 这样玩家先看到自己身处何地，再看到房间里发生了什么。
             bool pendingEnter = true;    // 起始房间的事件也要等第一张地图
             bool justMoved = false;
-            bool keepScreen = false;     // 上次操作失败（无门/撞墙/输入非法）时不清屏，让提示留在屏幕上
 
-            while (IsAlive)
+            try
             {
-                if (keepScreen)
+                while (IsAlive)
                 {
-                    // 关键：不清屏。否则「这个方向没有门！」这类提示会被立刻抹掉，玩家根本看不到。
-                    keepScreen = false;
-                    Console.WriteLine();
-                }
-                else
-                {
-                    // ---- 1. 先发送地图与位置/房间类型 ----
-                    DrawStatus(map, tmg);
+                    // ---- 1. 地图 + 状态（分区绘制，不会影响日志区）----
+                    DrawScreen(screen, map, tmg);
                     if (justMoved)
                     {
                         Console.WriteLine("你移动到了新房间。");
                         justMoved = false;
                     }
 
-                    // ---- 2. 再触发房间事件（宝箱、战斗等）----
-                    bool entered = pendingEnter;
-                    if (entered)
+                    // ---- 2. 房间事件（宝箱、战斗等）----
+                    if (pendingEnter)
                     {
                         pendingEnter = false;
                         map[PlayerRow][PlayerCol].OnEnter(this);
                     }
 
-                    // ---- 3. 事件（尤其战斗日志）会输出大量内容把地图顶出屏幕，重画一次 ----
-                    if (entered)
+                    // ---- 3. 事件可能改变了状态（如水量），重画一次 ----
+                    DrawScreen(screen, map, tmg);
+
+                    ShowAvailableDirections();
+
+                    if (!int.TryParse(Console.ReadLine(), out int direction))
                     {
-                        DrawStatus(map, tmg);
+                        Console.WriteLine("输入无效，请输入数字。");
+                        continue;
+                    }
+                    if (direction == 4)
+                    {
+                        Console.WriteLine("游戏结束，感谢游玩！");
+                        break;
+                    }
+
+                    if (Move((Direction)direction))
+                    {
+                        pendingEnter = true;
+                        justMoved = true;
                     }
                 }
-
-                ShowAvailableDirections();
-
-                int direction;
-                try
-                {
-                    direction = int.Parse(Console.ReadLine());
-                }
-                catch (Exception)
-                {
-                    // Java 原版这里是 scanner.nextLine()，用于丢弃 nextInt() 失败后残留的输入。
-                    // C# 的 Console.ReadLine() 已经把整行读走了，再读一次会吞掉玩家的下一次输入，故删除。
-                    Console.WriteLine("输入无效，请输入数字。");
-                    keepScreen = true;
-                    continue;
-                }
-                if (direction == 4)
-                {
-                    Console.WriteLine("游戏结束，感谢游玩！");
-                    break;
-                }
-
-                // 移动成功后，下一轮循环会先打印地图，再触发新房间的事件
-                if (Move((Direction)direction))
-                {
-                    pendingEnter = true;
-                    justMoved = true;
-                }
-                else
-                {
-                    keepScreen = true;   // 移动失败：保留错误提示，下一轮不清屏
-                }
+            }
+            finally
+            {
+                // 离开地图时把 Console.Out 还给真实输出，否则主菜单的输出会跑进日志区
+                screen.Uninstall();
             }
         }
     }
