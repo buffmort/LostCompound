@@ -17,33 +17,42 @@ namespace LostCompound.Tools
             Console.WriteLine("=======战斗开始=======");
             int round = 1;
 
-            while (p.IsAlive && monsters.Count > 0)
+            // 战斗期间状态栏会显示血量/防御/格挡/攻击力；用 try/finally 保证异常退出也能恢复
+            p.SetInBattle(true);
+            try
             {
-
-                // ── 大回合开场：DOT 结算一次 ──
-                ApplyDotEffects(p, monsters, round);
-
-                // ── 环境推进：每个大回合一次（如熔岩瀑布每回合掉水）──
-                env?.OnBattleTurn();
-
-                RemoveDeadMonsters(p, monsters);
-                if (!p.IsAlive || monsters.Count == 0) break;
-
-                // ── 小回合 A：玩家行动 ──
-                p.OnPlayerTurn(monsters, env?.Type ?? EnvType.None);
-                RemoveDeadMonsters(p, monsters);
-                if (!p.IsAlive || monsters.Count == 0) break;
-
-                // ── 小回合 B：怪物行动（skipTurn 内部自理）──
-                foreach (Monster m in monsters)
+                while (p.IsAlive && monsters.Count > 0)
                 {
-                    if (!p.IsAlive) break;
-                    if (!m.IsAlive) continue;
-                    m.OnMonsterTurn(p);
-                }
-                RemoveDeadMonsters(p, monsters);
 
-                round++;
+                    // ── 大回合开场：DOT 结算一次 ──
+                    ApplyDotEffects(p, monsters, round);
+
+                    // ── 环境推进：每个大回合一次（如熔岩瀑布每回合掉水）──
+                    env?.OnBattleTurn();
+
+                    RemoveDeadMonsters(p, monsters);
+                    if (!p.IsAlive || monsters.Count == 0) break;
+
+                    // ── 小回合 A：玩家行动 ──
+                    p.OnPlayerTurn(monsters, env?.Type ?? EnvType.None);
+                    RemoveDeadMonsters(p, monsters);
+                    if (!p.IsAlive || monsters.Count == 0) break;
+
+                    // ── 小回合 B：怪物行动（skipTurn 内部自理）──
+                    foreach (Monster m in monsters)
+                    {
+                        if (!p.IsAlive) break;
+                        if (!m.IsAlive) continue;
+                        m.OnMonsterTurn(p);
+                    }
+                    RemoveDeadMonsters(p, monsters);
+
+                    round++;
+                }
+            }
+            finally
+            {
+                p.SetInBattle(false);
             }
 
             Console.WriteLine(p.IsAlive ? "战斗结束 你赢了!" : "你死了!");

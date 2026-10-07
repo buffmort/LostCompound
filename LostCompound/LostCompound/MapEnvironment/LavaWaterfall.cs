@@ -54,6 +54,14 @@ namespace LostCompound.MapEnvironment
         /// <summary>回满水量（水瓶使用）。</summary>
         public void RefillWater() => Water = MaxWater;
 
-        public override string DescribeStatus() => $"熔岩瀑布水量：{Water}/{MaxWater}";
+        public override string DescribeStatus()
+        {
+            string s = $"熔岩瀑布水量：{Water}/{MaxWater}";
+            if (Water == 0)
+                s += "\n水已枯竭！你的力量大幅下降";
+            else if (Water < MaxWater / 4)
+                s += "\n水源告急，力量正在衰退";
+            return s;
+        }
     }
 }

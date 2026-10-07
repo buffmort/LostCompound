@@ -26,6 +26,11 @@ namespace LostCompound.Tools
         public int PlayerCol { get; private set; }     // 玩家所在列
         private bool _debug;
 
+        // ---- TUI 状态栏联动 ----
+        private ConsoleScreen _screen;          // 当前接管输出的分栏界面（不在游戏中时为 null）
+        private string _statusHeader = "";      // 状态栏固定两行：当前位置 / 当前房间
+        private bool _inBattle;                 // 是否处于战斗中（决定状态栏是否追加血量等）
+
         // 玩家背包 / 待入包 / 已解锁配方
         public List<Item> Inventory { get; } = [];
         public List<Item> PendingItems { get; } = [];
@@ -111,6 +116,7 @@ namespace LostCompound.Tools
                 Hp -= DotDamage;
             }
             Console.WriteLine("=====你的回合=====");
+            RefreshStatus();               // 战斗中让状态栏显示血量/防御/格挡
             HandleChangeableItems(this, envType);
             Inventory.AddRange(PendingItems);
             PendingItems.Clear();
@@ -147,9 +153,10 @@ namespace LostCompound.Tools
                 Console.WriteLine("你的dot伤害:" + DotDamage);
             }
             Calculator.Delay(250);
-            foreach (Monster m in monsters)
+            Console.WriteLine("敌人：");
+            for (int i = 0; i < monsters.Count; i++)
             {
-                Console.Write(m);
+                Console.WriteLine("  [" + i + "] " + monsters[i]);
             }
             Calculator.Delay(250);
             Console.WriteLine();
@@ -161,7 +168,7 @@ namespace LostCompound.Tools
                 Console.WriteLine("debug模式操作:");
                 Console.WriteLine("127, 获得全部合成");
             }
-            int option = ReadInt();
+            int option = ReadInt("请选择操作");
             switch (option)
             {
                 case 1:
@@ -199,12 +206,13 @@ namespace LostCompound.Tools
             {
                 Console.WriteLine("你格挡了伤害!");
                 Block -= 1;
+                RefreshStatus();           // 受伤/格挡后立刻更新状态栏
                 return;
             }
             Hp -= realDmg;
             Console.WriteLine("你受到{0:F1}点伤害!", realDmg);
             Console.WriteLine();
-
+            RefreshStatus();               // 受伤后立刻更新状态栏
         }
 
         /// <summary>
@@ -238,36 +246,47 @@ namespace LostCompound.Tools
             double dmg = Calculator.CalculateAttack(EffectiveStr, Atk);
             Console.WriteLine("=====攻击界面=====");
             Calculator.Delay(250);
+
+            if (monsters.Count == 0)
+            {
+                // 没有目标就不能进入重问循环，否则会死循环
+                Console.WriteLine("没有可以攻击的目标！");
+                return;
+            }
+
             int count = 0;
             foreach (Monster i in monsters)
             {
                 Console.Write(count + "." + " " + i + "   ");
                 count++;
             }
-            Console.WriteLine("请选择怪物攻击:");
-            int choice = ReadInt();
-            if (choice < 0 || choice > monsters.Count - 1)
+
+            // 选错目标不再结束回合：重问直到选到合法编号为止
+            int choice;
+            while (true)
             {
-                Console.WriteLine("您的攻击无效！");
-            }
-            else
-            {
-                Monster target = monsters[choice];
-                target.TakeDamage(dmg);
-                Console.WriteLine("你攻击了" + target + "!");
+                Console.WriteLine("请选择怪物攻击:");
+                choice = ReadInt("选择目标编号");
+                if (choice >= 0 && choice <= monsters.Count - 1) break;
+                Console.WriteLine("您的攻击无效！请重新选择(0-" + (monsters.Count - 1) + "):");
             }
 
-
+            Monster target = monsters[choice];
+            target.TakeDamage(dmg);
+            Console.WriteLine("你攻击了" + target + "!");
         }
 
         /// <summary>
         /// 读一个整数。输入非法时提示并重新读取，绝不抛异常。
         /// 替代原先裸用的 int.Parse(Console.ReadLine()) —— 那样在菜单里输入一个字母就会让整个游戏崩溃。
+        /// prompt 会同时显示在右侧日志与输入框里（输入框是 TUI 的光标所在处）。
         /// </summary>
-        private static int ReadInt()
+        private int ReadInt(string prompt)
         {
             while (true)
             {
+                // 输入框里也显示一份提示，否则玩家只能盯着滚动日志看要输入什么
+                _screen?.SetPrompt(prompt);
                 if (int.TryParse(Console.ReadLine(), out int value))
                 {
                     return value;
@@ -285,13 +304,24 @@ namespace LostCompound.Tools
                 Console.Write(count + "." + " " + i + "   ");
                 count++;
             }
-            int choice = ReadInt();
-            if (choice < 0 || choice > monsters.Count - 1)
+
+            if (monsters.Count == 0)
             {
-                Console.WriteLine("您的投掷无效！");
+                // 没有目标就不能进入重问循环，否则会死循环
+                Console.WriteLine("没有可以选择的对象！");
                 return -1;
             }
-            return choice;
+
+            // 越界不再直接放弃：重问直到选到合法编号（不消耗回合）
+            while (true)
+            {
+                int choice = ReadInt("选择对象编号");
+                if (choice >= 0 && choice <= monsters.Count - 1)
+                {
+                    return choice;
+                }
+                Console.WriteLine("您的投掷无效！请重新选择(0-" + (monsters.Count - 1) + "):");
+            }
         }
 
         private void OpenItems(List<Monster> monsters)
@@ -310,24 +340,32 @@ namespace LostCompound.Tools
                     count++;
                 }
             }
-            Console.WriteLine("请选择道具使用");
-            int choice = ReadInt();
-            if (choice < 0 || choice > Inventory.Count - 1)
+
+            if (Inventory.Count == 0)
             {
-                Console.WriteLine("您的使用无效！");
+                // 空背包没有任何合法编号，重问会死循环
+                Console.WriteLine("你的背包空空如也！");
+                return;
+            }
+
+            // 选错道具不再结束回合：重问直到选到合法编号为止
+            int choice;
+            while (true)
+            {
+                Console.WriteLine("请选择道具使用");
+                choice = ReadInt("选择道具编号");
+                if (choice >= 0 && choice <= Inventory.Count - 1) break;
+                Console.WriteLine("您的使用无效！请重新选择(0-" + (Inventory.Count - 1) + "):");
+            }
+
+            Item item = Inventory[choice];
+            if (item is Useable useable)
+            {
+                useable.Use(this, monsters);
             }
             else
             {
-                Item item = Inventory[choice];
-                if (item is Useable useable)
-                {
-                    useable.Use(this, monsters);
-                }
-                else
-                {
-                    Console.WriteLine("您的使用无效！");
-
-                }
+                Console.WriteLine("您的使用无效！");
             }
         }
 
@@ -473,13 +511,16 @@ namespace LostCompound.Tools
 
             // 第四步：获取选择并执行
             Console.WriteLine("255. 返回");
-            Console.WriteLine("请选择..");
-            int choice = ReadInt();
-            if (choice == 255) return;
-            if (choice < 0 || choice >= available.Count)
+
+            // 选错配方不再直接返回：重问直到选到合法编号（不消耗回合）
+            int choice;
+            while (true)
             {
-                Console.WriteLine("选择无效!");
-                return;
+                Console.WriteLine("请选择..");
+                choice = ReadInt("选择配方编号");
+                if (choice == 255) return;
+                if (choice >= 0 && choice < available.Count) break;
+                Console.WriteLine("选择无效! 请重新选择(0-" + (available.Count - 1) + ", 255 返回)");
             }
             available[choice].Craft(this);
             HandCraft();
@@ -614,6 +655,28 @@ namespace LostCompound.Tools
             throw new InvalidOperationException("地图中没有起始房间！");
         }
 
+        /// <summary>刷新状态栏。战斗时会追加血量/防御/格挡/攻击力。</summary>
+        private void RefreshStatus()
+        {
+            if (_screen == null) return;
+            string s = _statusHeader;
+            if (_inBattle)
+            {
+                s += "\n血量:" + Hp.ToString("F1") + "  防御:" + Def.ToString("F1") + "  格挡:" + Block;
+                s += "\n攻击力:" + Calculator.CalculateAttack(EffectiveStr, Atk).ToString("F1");
+            }
+            Environment env = CurrentEnvironment;
+            if (env != null) s += "\n" + env.DescribeStatus();
+            _screen.DrawStatus(s);
+        }
+
+        /// <summary>进入/离开战斗。战斗状态会影响状态栏内容。</summary>
+        public void SetInBattle(bool v)
+        {
+            _inBattle = v;
+            RefreshStatus();
+        }
+
         /// <summary>
         /// 用分区布局重画「地图」与「状态」两块固定区域。
         /// 注意这里不再清屏：地图固定在屏幕上方，日志在下方滚动，两者互不影响。
@@ -622,16 +685,11 @@ namespace LostCompound.Tools
         {
             screen.DrawMap(tmg.ToDisplayString());
 
-            string status = "当前位置: (" + PlayerRow + ", " + PlayerCol + ")\n"
+            // 位置/房间这两行是状态栏的固定部分，缓存起来供战斗中刷新时复用
+            _statusHeader = "当前位置: (" + PlayerRow + ", " + PlayerCol + ")\n"
                           + "当前房间:" + map[PlayerRow][PlayerCol].Type;
 
-            Environment env = CurrentEnvironment;
-            if (env != null)
-            {
-                status += "\n" + env.DescribeStatus();
-            }
-
-            screen.DrawStatus(status);
+            RefreshStatus();
         }
 
         public void StartGame(Room[][] map, TreeMazeGenerator tmg)
@@ -643,6 +701,7 @@ namespace LostCompound.Tools
             int mapColumns = mapLines.Max(line => line.Length);
             ConsoleScreen screen = new ConsoleScreen(mapLines.Length, mapColumns);
             screen.Install();
+            _screen = screen;              // 供 RefreshStatus / ReadInt 使用
             Console.WriteLine("游戏开始！输入方向探索地图。");
 
             // 房间事件不立即触发，而是等地图画出来之后再触发，
@@ -674,6 +733,8 @@ namespace LostCompound.Tools
 
                     ShowAvailableDirections();
 
+                    // 输入框里也提示一次可走的方向，别让玩家只看到日志区在滚
+                    _screen?.SetPrompt("选择方向（0上 1下 2左 3右，4 退出）");
                     if (!int.TryParse(Console.ReadLine(), out int direction))
                     {
                         Console.WriteLine("输入无效，请输入数字。");
@@ -696,6 +757,7 @@ namespace LostCompound.Tools
             {
                 // 离开地图时把 Console.Out 还给真实输出，否则主菜单的输出会跑进日志区
                 screen.Uninstall();
+                _screen = null;
             }
         }
     }

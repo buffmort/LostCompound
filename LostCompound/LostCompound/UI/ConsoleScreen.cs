@@ -46,10 +46,16 @@ namespace LostCompound.UI
         public int StatusRows { get; private set; }
         /// <summary>日志区内容行数。状态框变高时日志让出对应行数，所以可写。</summary>
         public int LogRows { get; private set; }
-        /// <summary>地图框外框宽度（含左右竖线）。</summary>
-        private int MapWidth { get; }
-        /// <summary>左列各框外框宽度（含左右竖线）。</summary>
-        private int LeftWidth { get; }
+        /// <summary>地图框外框宽度（含左右竖线）。会随地图内容宽度只涨不缩。</summary>
+        public int MapWidth { get; private set; }
+        /// <summary>左列各框外框宽度（含左右竖线）。随地图宽度反向变化。</summary>
+        public int LeftWidth { get; private set; }
+
+        /// <summary>终端宽度。重排时要用它重新分配左右列。</summary>
+        private readonly int _terminalWidth;
+
+        /// <summary>是否已经按「实际地图内容宽度」定过一次尺寸（首次绘制时允许收缩）。</summary>
+        private bool _mapWidthReady;
 
         /// <summary>日志区最少保留的行数（状态框最多涨到把日志压到这里为止）。</summary>
         private const int MinimumLogRows = 3;
@@ -84,6 +90,8 @@ namespace LostCompound.UI
             int terminalHeight;
             try { terminalWidth = Console.WindowWidth; } catch { terminalWidth = 100; }
             try { terminalHeight = Console.WindowHeight; } catch { terminalHeight = 40; }
+
+            _terminalWidth = terminalWidth;
 
             // ---- 横向分配 ----
             // 地图框要放得下地图（内容宽 + 左右边距 + 两条竖线）
@@ -153,7 +161,55 @@ namespace LostCompound.UI
             if (mapText == _lastMap) return;
             _lastMap = mapText;
 
-            DrawBox(MapBoxTop, MapBoxLeft, MapWidth, "地图", MapRows, SplitLines(mapText));
+            string[] lines = SplitLines(mapText);
+
+            // 实际内容宽度：去掉行尾空格后按显示宽度算（CJK 双宽）。
+            // 早期迷雾下只有左上角一小块有内容，TrimEnd 之后行都很短，框就该窄。
+            int contentWidth = 0;
+            foreach (string line in lines)
+            {
+                int w = DisplayWidth(line.TrimEnd());
+                if (w > contentWidth) contentWidth = w;
+            }
+
+            int wanted = contentWidth + 2 * ContentOffset + 2;
+            // 窄终端下给左列留出最小宽度，避免地图把屏幕撑破导致自动换行
+            int maxWanted = Math.Max(20, _terminalWidth - 2 - 26);
+            if (wanted > maxWanted) wanted = maxWanted;
+
+            // 只涨不缩：探索时地图只会变宽，缩回去会让布局来回抖动。
+            // 例外是第一次绘制 —— 构造函数里的宽度是按「未 TrimEnd 的地图文本」估的，通常偏大。
+            if (!_mapWidthReady || wanted > MapWidth)
+            {
+                _mapWidthReady = true;
+                if (wanted != MapWidth)
+                {
+                    MapWidth = wanted;
+                    LeftWidth = Math.Clamp(_terminalWidth - 2 - MapWidth, 26, 60);
+
+                    // 宽度变化会平移所有框的水平位置，整屏重画一次，避免留下旧边框字符
+                    _raw.Write("\u001b[2J");
+                    RelayoutLeftColumn();
+                }
+            }
+
+            DrawBox(MapBoxTop, MapBoxLeft, MapWidth, "地图", MapRows, lines);
+
+            // 画地图会把光标留在右下角，这里放回输入框，玩家敲的字才会回显在框里
+            RedrawInputBox();
+        }
+
+        /// <summary>
+        /// 按当前 LeftWidth 重排左列（状态框、日志框、输入框的边框与内容）。
+        /// 各框位置都是计算属性，所以只要重画一遍即可。
+        /// </summary>
+        private void RelayoutLeftColumn()
+        {
+            DrawBox(StatusBoxTop, LeftBoxLeft, LeftWidth, "状态", StatusRows, SplitLines(_lastStatus ?? ""));
+            RedrawLogFrame();
+            RedrawInputFrame();
+            RedrawLog();
+            RedrawInputBox();
         }
 
         /// <summary>
@@ -234,6 +290,13 @@ namespace LostCompound.UI
         /// 这类内容几乎都是输入提示（如 "请选择: "），所以放进输入框，而不是日志区。
         /// </summary>
         public void SetPartial(string text)
+        {
+            _partial = text;
+            RedrawInputBox();
+        }
+
+        /// <summary>设置输入框里显示的提示文字（光标自动定位到末尾）。</summary>
+        public void SetPrompt(string text)
         {
             _partial = text;
             RedrawInputBox();
