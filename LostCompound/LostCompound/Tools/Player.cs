@@ -13,7 +13,7 @@ namespace LostCompound.Tools
 
         public double Hp { get; set; } = 200;
         public double Atk { get; set; } = 15;
-        public double Str { get; set; } = 2;
+        public double Str { get; set; } = 200;
         public string Name { get; set; }
         public double Def { get; set; } = 5;
         public int Block { get; set; }

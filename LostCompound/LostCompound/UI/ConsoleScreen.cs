@@ -60,6 +60,12 @@ namespace LostCompound.UI
         /// <summary>日志区最少保留的行数（状态框最多涨到把日志压到这里为止）。</summary>
         private const int MinimumLogRows = 3;
 
+        /// <summary>
+        /// 地图区最少保留的内容宽度（列）。约等于 4-5 格地图。
+        /// 太小的话，迷雾下只探索了左上角时地图框会缩到只能显示 1 列，没法规划路线。
+        /// </summary>
+        private const int MinimumMapContentWidth = 21;
+
         /// <summary>终端高度，用于保证重排后总高依然放得下。</summary>
         private readonly int _terminalHeight;
 
@@ -173,6 +179,12 @@ namespace LostCompound.UI
             }
 
             int wanted = contentWidth + 2 * ContentOffset + 2;
+
+            // 地图框最小宽度：内容至少留 21 列（约 4-5 格地图）。
+            // 否则迷雾下只探索了左上角时，框会缩到只显示 1 列地图，根本没法规划路线。
+            int minimum = MinimumMapContentWidth + 2 * ContentOffset + 2;
+            if (wanted < minimum) wanted = minimum;
+
             // 窄终端下给左列留出最小宽度，避免地图把屏幕撑破导致自动换行
             int maxWanted = Math.Max(20, _terminalWidth - 2 - 26);
             if (wanted > maxWanted) wanted = maxWanted;

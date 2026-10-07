@@ -6,7 +6,7 @@ namespace LostCompound.MapEnvironment
     /// 熔岩瀑布（设计文档 5.1）——固定第一层。
     ///
     /// 水量：满 200，战斗中每回合降 5-10（普通模式；困难模式的 15-20 等困难模式做出来再接）。
-    /// 影响：水量越低玩家越弱 —— 每损失 1 点水，有效 STR -0.01（动态计算，不改 Player.Str）。
+    /// 影响：水量越低玩家越弱 —— 每损失 1 点水，有效 STR -0.002（动态计算，不改 Player.Str）。
     /// 水到 0 不死亡，只是 STR 被扣到底。
     /// 掉落：每个战斗房间必掉硫磺，数量 2-5 随机。
     /// </summary>
@@ -19,8 +19,14 @@ namespace LostCompound.MapEnvironment
         private const int MinWaterDrop = 5;
         private const int MaxWaterDrop = 10;
 
-        /// <summary>每损失 1 点水，STR 的修正量。</summary>
-        private const double StrPenaltyPerWater = 0.01;
+        /// <summary>
+        /// 每损失 1 点水，STR 的修正量。
+        /// 注意：玩家基础 STR 只有 2，所以这个系数不能大 ——
+        /// 取 0.01 时水枯竭会扣掉整整 2.0 STR（等于扣光 100%），玩家直接失去战斗力
+        /// （实测攻击力从 9.75 掉到 2.9，打个僵尸要 10 回合）。
+        /// 取 0.002，满水到枯竭的惩罚是 -0.4（约基础 STR 的 20%），强度合理。
+        /// </summary>
+        private const double StrPenaltyPerWater = 0.002;
 
         /// <summary>当前水量。</summary>
         public int Water { get; private set; } = MaxWater;
@@ -35,7 +41,7 @@ namespace LostCompound.MapEnvironment
             if (Water < 0) Water = 0;
         }
 
-        /// <summary>水量越低玩家越弱：每损失 1 点水，STR -0.01。</summary>
+        /// <summary>水量越低玩家越弱：每损失 1 点水，STR -0.002（满水到枯竭最多 -0.4）。</summary>
         public override double StrModifier => -(MaxWater - Water) * StrPenaltyPerWater;
 
         public override List<Item> GetBattleLoot()
