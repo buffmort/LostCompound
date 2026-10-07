@@ -31,6 +31,13 @@ namespace LostCompound.MapEnvironment
 
         public FloodedCavern() : base(EnvType.FloodedCavern) { }
 
+        /// <summary>
+        /// 水淹洞穴可开采（设计文档 5.2：硫酸在此开采金属矿；镐子的「采掘」也在这里生效）。
+        /// 覆盖基类的 false —— 这是本属性存在的意义：环境自己声明「我能开采」，
+        /// 将来矿洞(5.4) / 放射性区域(5.6) 照抄这一行即可。
+        /// </summary>
+        public override bool CanMine => true;
+
         public override void OnBattleTurn()
         {
             // 被堵住时只走倒计时，且完全不掷随机数 —— 设计文档说「堵住后水位不再上涨」，

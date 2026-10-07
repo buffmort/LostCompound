@@ -30,6 +30,18 @@ namespace LostCompound.MapEnvironment
         /// <summary>事件用：扣除环境资源（水量）。只有具备水量的环境才有意义，默认什么也不做。</summary>
         public virtual void DrainWater(int amount) { }
 
+        /// <summary>
+        /// 本环境是否可开采矿物（镐子的「采掘」只在可开采环境里生效）。
+        /// 默认 false，可开采的环境（如 <see cref="FloodedCavern"/>）覆写为 true。
+        ///
+        /// 为什么放在基类、而不是在 Tool.Pickaxe 里判断具体类型：
+        ///   将来矿洞（5.4）的矿道、放射性区域（5.6）的指定房间做出来时，
+        ///   只要各自覆写这个属性，开采入口就自动接上 —— 不用回头改 Mining / Pickaxe。
+        ///   这和本类「只暴露修正量、不引用 Player」的分工一致：环境自己声明能力，
+        ///   由调用方来问。
+        /// </summary>
+        public virtual bool CanMine => false;
+
         /// <summary>拼进玩家状态栏的一行环境状态。</summary>
         public abstract string DescribeStatus();
     }
