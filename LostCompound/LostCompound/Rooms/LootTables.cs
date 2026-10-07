@@ -34,6 +34,13 @@ namespace LostCompound.Rooms
                     items.Add(new Wood(5));
                     items.Add(new Wood(5));
 
+                    // 临时：让新道具（8 水瓶 / 9 金属 / 10 硫酸）在本环境可获取，便于测试。
+                    // 按设计文档它们的正式来源分别是「水淹洞穴空房间 / 矿洞开采 / 合成」，与熔岩瀑布无关，
+                    // 等对应系统实现后应从这里移除。
+                    items.Add(new WaterBottle(1));
+                    items.Add(new Metal(1));
+                    items.Add(new SulfuricAcid(1));
+
                     break;
                 // 如果以后新增环境，在这里添加 case
                 // case Mine:

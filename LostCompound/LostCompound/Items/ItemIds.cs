@@ -44,9 +44,17 @@ namespace LostCompound.Items
         /// <summary>玻璃罐</summary>
         public const int GlassJar = 7;
 
-        // 8-30 尚未实现的道具，等真正做的时候在这里补：
-        // public const int WaterBottle = 8;
-        // public const int Metal = 9;
+        /// <summary>水瓶</summary>
+        public const int WaterBottle = 8;
+
+        /// <summary>金属</summary>
+        public const int Metal = 9;
+
+        /// <summary>硫酸</summary>
+        public const int SulfuricAcid = 10;
+
+        // 11-30 尚未实现的道具，等真正做的时候在这里补：
+        // public const int RadioactiveOre = 11;
         // ...
 
         /// <summary>红磷</summary>
