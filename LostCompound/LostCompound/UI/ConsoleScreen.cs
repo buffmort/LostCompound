@@ -1,19 +1,25 @@
 namespace LostCompound.UI
 {
     /// <summary>
-    /// 控制台分区布局（带边框）。屏幕被切成三块带框区域，各自固定位置、互不干扰：
+    /// 控制台左右分栏布局（带边框 + 独立输入框）。
     ///
-    ///   ┌─ 地图 ─────────────┐
-    ///   │ ...                │
-    ///   └────────────────────┘
+    ///   左列（窄）                      右列（地图，宽而方）
+    ///   ┌─ 状态 ──────────┐            ┌─ 地图 ──────────────────┐
+    ///   │ 当前位置: (0, 0) │            │ +---+---+---+---+---+    │
+    ///   │ 当前房间:Start   │            │ | S | F | E |   |   |    │
+    ///   │ 水量:191/200     │            │ +---+---+---+---+---+    │
+    ///   └─────────────────┘            │ ...                      │
+    ///   ┌─ 日志 ──────────┐            │                          │
+    ///   │ ...（滚动）      │            │                          │
+    ///   │ ...              │            └──────────────────────────┘
+    ///   └─────────────────┘
+    ///   ┌─ 输入 ──────────┐
+    ///   │ > _              │
+    ///   └─────────────────┘
     ///
-    ///   ┌─ 状态 ─────────────┐
-    ///   │ ...                │
-    ///   └────────────────────┘
-    ///
-    ///   ┌─ 日志 ─────────────┐
-    ///   │ ...（滚动）         │
-    ///   └────────────────────┘
+    /// 为什么左右分栏？地图是宽而方的（10×10 地图 = 41 列 × 21 行），
+    /// 状态/日志/输入本来就窄。上下堆叠时地图会吃掉纵向空间，日志被压到个位数；
+    /// 分栏之后，左列整列高度都归日志，日志能多好几倍。
     ///
     /// 光标定位用 ANSI 转义序列（\u001b[行;列H），而不是 Console.SetCursorPosition。
     /// 原因：ANSI 在「输出被重定向」时只是失效，不会抛异常；SetCursorPosition 会直接抛 IOException。
@@ -26,26 +32,37 @@ namespace LostCompound.UI
         private readonly TextWriter _raw;          // 真实输出，必须在 SetOut 之前抓住
         private readonly LogRegionWriter _writer;
         private readonly List<string> _log = [];
-        private string _partial = "";              // Console.Write 留下的未换行内容
+        private string _partial = "";              // Console.Write 留下的未换行内容 = 当前的输入提示
         private string _lastMap;                   // 上次画过的地图文本（跳过无变化的重绘）
         private string _lastStatus;                // 上次画过的状态文本
 
-        /// <summary>地图区内容行数（等于地图文本的行数）。</summary>
-        public int MapRows { get; }
+        /// <summary>输入框里提示文字前面的前缀。</summary>
+        private const string PromptPrefix = "> ";
 
+        // ---- 尺寸 ----
+        /// <summary>地图区内容行数。</summary>
+        public int MapRows { get; }
         /// <summary>状态区内容行数。</summary>
         public int StatusRows { get; }
-
         /// <summary>日志区内容行数。</summary>
         public int LogRows { get; }
+        /// <summary>地图框外框宽度（含左右竖线）。</summary>
+        private int MapWidth { get; }
+        /// <summary>左列各框外框宽度（含左右竖线）。</summary>
+        private int LeftWidth { get; }
 
-        /// <summary>边框外框宽度（含左右竖线）。</summary>
-        private int BoxWidth { get; }
+        // ---- 位置（1-based）----
+        private const int LeftBoxLeft = 1;
+        private int MapBoxLeft => LeftBoxLeft + LeftWidth + 1;   // 中间留 1 列空隙
 
-        // 三个框的位置（1-based 行号）
-        private int MapBoxTop => 1;
-        private int StatusBoxTop => MapRows + 4;
-        private int LogBoxTop => StatusBoxTop + StatusRows + 3;
+        private int StatusBoxTop => 1;
+        private int LogBoxTop => StatusBoxTop + StatusRows + 2;
+        private int InputBoxTop => LogBoxTop + LogRows + 2;
+
+        private const int MapBoxTop = 1;
+
+        /// <summary>整个布局占用的总行数（用于判断/恢复光标位置）。</summary>
+        public int TotalRows => Math.Max(MapBoxTop + MapRows + 1, InputBoxTop + 2);
 
         /// <summary>竖线之后、内容之前的边距（"│ " 两格）。</summary>
         private const int ContentOffset = 2;
@@ -55,7 +72,6 @@ namespace LostCompound.UI
             _raw = Console.Out;                    // ← 关键：先抓真实输出
             _writer = new LogRegionWriter(this);
 
-            MapRows = mapRows;
             StatusRows = statusRows;
 
             int terminalWidth;
@@ -63,34 +79,67 @@ namespace LostCompound.UI
             try { terminalWidth = Console.WindowWidth; } catch { terminalWidth = 100; }
             try { terminalHeight = Console.WindowHeight; } catch { terminalHeight = 40; }
 
-            // 外框宽 = 地图内容宽度 + 左右边距(各 2) + 两条竖线，且不超过终端宽度
-            int wanted = mapColumns + 2 * ContentOffset + 2;
-            BoxWidth = Math.Max(24, Math.Min(wanted, terminalWidth - 1));
+            // ---- 横向分配 ----
+            // 地图框要放得下地图（内容宽 + 左右边距 + 两条竖线）
+            int wantedMapWidth = mapColumns + 2 * ContentOffset + 2;
+            // 左列给个合适的固定宽度：要装得下「熔岩瀑布水量：191/200」这类状态行
+            int wantedLeftWidth = 38;
 
-            LogRows = Math.Max(3, terminalHeight - LogBoxTop - 2);
+            int budget = terminalWidth - 1;                       // 留最右一列不写，避免自动换行
+            if (wantedMapWidth + 1 + wantedLeftWidth > budget)
+            {
+                // 太窄：先压左列（日志会被截断），还不够再压地图
+                int excess = wantedMapWidth + 1 + wantedLeftWidth - budget;
+                int takeFromLeft = Math.Min(excess, Math.Max(0, wantedLeftWidth - 26));
+                wantedLeftWidth -= takeFromLeft;
+                excess -= takeFromLeft;
+                wantedMapWidth = Math.Max(20, wantedMapWidth - excess);
+            }
+
+            MapWidth = wantedMapWidth;
+            LeftWidth = wantedLeftWidth;
+
+            // ---- 纵向分配 ----
+            // 左列总高 = 状态框(StatusRows+2) + 日志框(LogRows+2) + 输入框(3)
+            // 右列总高 = 地图框(MapRows+2)
+            // 整体不能超过终端高度，否则会触发终端滚动、绝对定位全废。
+            const int MinimumLogRows = 3;
+
+            int leftOverhead = StatusRows + 7;                     // 状态框 + 输入框的固定部分
+            int logRows = Math.Max(MinimumLogRows, terminalHeight - leftOverhead);
+
+            int mapRowsFit = Math.Max(5, terminalHeight - 2);      // 地图框要上下边框各一行
+            MapRows = Math.Min(mapRows, mapRowsFit);
+
+            // 地图如果比左列矮，日志就受左列限制（两者取小，保证都在屏幕内）
+            LogRows = logRows;
         }
 
-        /// <summary>接管 Console.Out，清屏并画出日志框的边框。</summary>
+        /// <summary>接管 Console.Out，清屏并画出日志框与输入框的固定边框。</summary>
         public void Install()
         {
             _raw.Write("\u001b[2J");
             Console.SetOut(_writer);
 
-            // 日志框的上下边框只画一次（框内内容会滚动，边框不动）。
+            // 日志框与输入框的边框只画一次（内容会变，边框不动）。
             // 地图框与状态框由 DrawMap / DrawStatus 各自绘制，因为它们的内容会变。
-            DrawBoxTop(LogBoxTop, "日志");
-            DrawBoxBottom(LogBoxTop + LogRows + 1);
+            DrawBoxTop(LogBoxTop, LeftBoxLeft, LeftWidth, "日志");
+            DrawBoxBottom(LogBoxTop + LogRows + 1, LeftBoxLeft, LeftWidth);
+
+            DrawBoxTop(InputBoxTop, LeftBoxLeft, LeftWidth, "输入");
+            DrawBoxBottom(InputBoxTop + 2, LeftBoxLeft, LeftWidth);
+            DrawBoxContent(InputBoxTop + 1, LeftBoxLeft, LeftWidth, "");
         }
 
         /// <summary>把 Console.Out 还给真实输出（离开地图时调用）。</summary>
         public void Uninstall()
         {
-            // 把光标移到日志框下方，否则退出地图后主菜单的输出会盖在框上面
-            _raw.Write($"\u001b[{LogBoxTop + LogRows + 2};1H");
+            // 把光标移到整个布局下方，否则退出地图后主菜单的输出会盖在框上面
+            _raw.Write($"\u001b[{TotalRows + 1};1H");
             Console.SetOut(_raw);
         }
 
-        /// <summary>重画地图区。内容与上次相同时直接跳过，避免无谓重绘导致闪烁。</summary>
+        /// <summary>重画地图区（右列）。内容与上次相同时直接跳过，避免无谓重绘导致闪烁。</summary>
         public void DrawMap(string mapText)
         {
             // 注意：C# 的 string 用 == 比较的是「内容」，Java 的 == 比较的是「引用」。
@@ -98,18 +147,16 @@ namespace LostCompound.UI
             if (mapText == _lastMap) return;
             _lastMap = mapText;
 
-            DrawBox(MapBoxTop, "地图", MapRows, SplitLines(mapText));
-
-            // 地图区重画会覆盖它上方的内容，但日志与状态在它下方，不受影响
+            DrawBox(MapBoxTop, MapBoxLeft, MapWidth, "地图", MapRows, SplitLines(mapText));
         }
 
-        /// <summary>重画状态区。statusText 里用 \n 分行。内容未变时跳过。</summary>
+        /// <summary>重画状态区（左列顶部）。statusText 里用 \n 分行。内容未变时跳过。</summary>
         public void DrawStatus(string statusText)
         {
             if (statusText == _lastStatus) return;
             _lastStatus = statusText;
 
-            DrawBox(StatusBoxTop, "状态", StatusRows, SplitLines(statusText));
+            DrawBox(StatusBoxTop, LeftBoxLeft, LeftWidth, "状态", StatusRows, SplitLines(statusText));
         }
 
         /// <summary>提交一条日志（由 <see cref="LogRegionWriter"/> 在遇到换行时调用）。</summary>
@@ -119,36 +166,37 @@ namespace LostCompound.UI
             _log.Add(line);
             while (_log.Count > LogRows) _log.RemoveAt(0);
             RedrawLog();
+            RedrawInputBox();
         }
 
-        /// <summary>更新「当前未完成行」（Console.Write 不带换行时）。只重画这一行。</summary>
+        /// <summary>
+        /// 更新「当前未完成行」（Console.Write 不带换行时）。
+        /// 这类内容几乎都是输入提示（如 "请选择: "），所以放进输入框，而不是日志区。
+        /// </summary>
         public void SetPartial(string text)
         {
             _partial = text;
-
-            int row = LogBoxTop + 1 + _log.Count;      // 日志内容从框顶的下一行开始
-            if (row >= LogBoxTop + 1 + LogRows) return;
-
-            DrawBoxContent(row, text);
-            _raw.Write($"\u001b[{row};{ContentOffset + DisplayWidth(Clamp(text)) + 1}H");
+            RedrawInputBox();
         }
 
         private void RedrawLog()
         {
             for (int i = 0; i < LogRows; i++)
             {
-                string text;
-                if (i < _log.Count) text = _log[i];
-                else if (i == _log.Count) text = _partial;
-                else text = "";
-
-                DrawBoxContent(LogBoxTop + 1 + i, text);
+                string text = i < _log.Count ? _log[i] : "";
+                DrawBoxContent(LogBoxTop + 1 + i, LeftBoxLeft, LeftWidth, text);
             }
+        }
 
-            // 光标放到「该输入的地方」：未完成行末尾
-            int cursorRow = LogBoxTop + 1 + Math.Min(_log.Count, LogRows - 1);
-            int cursorCol = ContentOffset + DisplayWidth(Clamp(_partial)) + 1;
-            _raw.Write($"\u001b[{cursorRow};{cursorCol}H");
+        /// <summary>重画输入框内容，并把光标定位到待输入的位置。</summary>
+        private void RedrawInputBox()
+        {
+            int row = InputBoxTop + 1;
+            DrawBoxContent(row, LeftBoxLeft, LeftWidth, PromptPrefix + _partial);
+
+            // 光标跑到提示文字之后，这样玩家敲的字回显在输入框里
+            int col = LeftBoxLeft + ContentOffset + DisplayWidth(Clamp(PromptPrefix + _partial, LeftWidth));
+            _raw.Write($"\u001b[{row};{col}H");
         }
 
         // ==================== 画框 ====================
@@ -156,45 +204,45 @@ namespace LostCompound.UI
         private static string[] SplitLines(string text) => text.Replace("\r", "").Split('\n');
 
         /// <summary>画一个带标题的完整框。</summary>
-        private void DrawBox(int topRow, string title, int contentRows, string[] content)
+        private void DrawBox(int topRow, int leftCol, int width, string title, int contentRows, string[] content)
         {
-            DrawBoxTop(topRow, title);
+            DrawBoxTop(topRow, leftCol, width, title);
 
             for (int i = 0; i < contentRows; i++)
             {
-                DrawBoxContent(topRow + 1 + i, i < content.Length ? content[i] : "");
+                DrawBoxContent(topRow + 1 + i, leftCol, width, i < content.Length ? content[i] : "");
             }
 
-            DrawBoxBottom(topRow + contentRows + 1);
+            DrawBoxBottom(topRow + contentRows + 1, leftCol, width);
         }
 
-        private void DrawBoxTop(int row, string title)
+        private void DrawBoxTop(int row, int col, int width, string title)
         {
             // ┌─ 标题 ───────────────┐
             string head = "┌─ " + title + " ";
-            int fill = Math.Max(0, BoxWidth - DisplayWidth(head) - 1);
-            WriteRawAt(row, head + new string('─', fill) + "┐");
+            int fill = Math.Max(0, width - DisplayWidth(head) - 1);
+            WriteRawAt(row, col, head + new string('─', fill) + "┐");
         }
 
-        private void DrawBoxBottom(int row)
+        private void DrawBoxBottom(int row, int col, int width)
         {
-            WriteRawAt(row, "└" + new string('─', Math.Max(0, BoxWidth - 2)) + "┘");
+            WriteRawAt(row, col, "└" + new string('─', Math.Max(0, width - 2)) + "┘");
         }
 
         /// <summary>画一行框内内容：│ 文本…（补齐空格）│</summary>
-        private void DrawBoxContent(int row, string text)
+        private void DrawBoxContent(int row, int col, int width, string text)
         {
-            string clamped = Clamp(text);
-            int inner = BoxWidth - 2 - ContentOffset;                 // 可用内容宽度
+            string clamped = Clamp(text, width);
+            int inner = width - 2 - ContentOffset;                 // 可用内容宽度
             int pad = Math.Max(0, inner - DisplayWidth(clamped));
 
-            WriteRawAt(row, "│" + new string(' ', ContentOffset - 1) + clamped + new string(' ', pad) + "│");
+            WriteRawAt(row, col, "│" + new string(' ', ContentOffset - 1) + clamped + new string(' ', pad) + "│");
         }
 
         /// <summary>按显示宽度截断，避免撑破右边框。</summary>
-        private string Clamp(string text)
+        private static string Clamp(string text, int boxWidth)
         {
-            int limit = BoxWidth - 2 - ContentOffset;
+            int limit = boxWidth - 2 - ContentOffset;
             if (limit <= 0) return "";
 
             int width = 0;
@@ -207,11 +255,13 @@ namespace LostCompound.UI
             return text;
         }
 
-        private void WriteRawAt(int row, string text)
+        private void WriteRawAt(int row, int col, string text)
         {
-            _raw.Write($"\u001b[{row};1H");
+            // 注意：这里绝不能用 "\u001b[K"（清到行尾）。
+            // 左右分栏时，同一行右边还有另一个框，擦到行尾会把邻居的边框一起擦掉。
+            // 各框自己都按「外框宽度」精确补足了空格，所以不需要清行尾。
+            _raw.Write($"\u001b[{row};{col}H");
             _raw.Write(text);
-            _raw.Write("\u001b[K");           // 清掉这一行剩余部分
         }
 
         // ==================== 显示宽度（CJK 双宽） ====================
