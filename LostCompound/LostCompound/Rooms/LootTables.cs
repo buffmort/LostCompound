@@ -34,16 +34,18 @@ namespace LostCompound.Rooms
                     items.Add(new Wood(5));
                     items.Add(new Wood(5));
                     items.Add(new Wood(5));
-
-                    // 临时：让新道具（8 水瓶 / 9 金属 / 10 硫酸）在本环境可获取，便于测试。
-                    // 按设计文档它们的正式来源分别是「水淹洞穴空房间 / 矿洞开采 / 合成」，与熔岩瀑布无关，
-                    // 等对应系统实现后应从这里移除。
-                    items.Add(new WaterBottle(1));
-                    items.Add(new Metal(1));
-                    items.Add(new SulfuricAcid(1));
-
                     break;
-                // 其余环境（水淹洞穴/沙漠/矿洞/墓地/放射性区域/雾都城市）尚未实现，
+                case EnvType.FloodedCavern:
+                    // 设计文档 5.2：水淹洞穴的空房间是「水瓶」的正式来源，这里就是那条来源。
+                    //
+                    // 沿革：早期为了让新增的水瓶/金属/硫酸有个地方测试，曾在熔岩瀑布分支里
+                    // 临时塞过这三样。现在水淹洞穴做好了，它们各自回到文档规定的来源 ——
+                    // 水瓶 = 本环境，金属 = 矿洞开采（尚未做），硫酸 = 合成（配方 1 已接）。
+                    items.Add(new WaterBottle(1));
+                    items.Add(new Sand(2));
+                    items.Add(new GlassJar(1));
+                    break;
+                // 其余环境（沙漠/矿洞/墓地/放射性区域/雾都城市）尚未实现，
                 // 等做出来后再在这里补各自的掉落表。
                 default:
                     // 未知环境默认返回空列表
