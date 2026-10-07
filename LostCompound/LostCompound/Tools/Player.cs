@@ -698,7 +698,8 @@ namespace LostCompound.Tools
 
         /// <summary>
         /// 解锁配方 1（设计文档十：第 5 次通关解锁）。
-        /// 只收录文档里写明合成材料的条目 —— 硫酸的配方你指定不写，故此处不含硫酸。
+        /// 收录文档里写明合成材料的配方 1 条目（含硫酸：水瓶 + 热硫）。
+        /// 注意：硫酸的「开采效果」本身是占位，但它可以合成（文档第九章配方 1 有写材料）。
         /// </summary>
         public void AddTier1Recipes()
         {
@@ -738,6 +739,18 @@ namespace LostCompound.Tools
             Recipes.Add(new Recipe("盾",
                 [[ItemIds.Metal, 3]],
                 new Shield(1)));
+
+            // 硫酸：水瓶 + 热硫（文档第九章配方 1；开采效果仍是占位）
+            Recipes.Add(new Recipe("硫酸",
+                [[ItemIds.WaterBottle, 1], [ItemIds.FushionSluphur, 1]],
+                new SulfuricAcid(1)));
+
+            // 放射金属罐：2 放射矿 + 金属罐
+            // 注意：放射性矿物（ID 11）目前没有获取途径（Mine / 放射性区域都没做），
+            // 所以这条配方现在只能靠调试拿到材料才合得出来。
+            Recipes.Add(new Recipe("放射金属罐",
+                [[ItemIds.RadioactiveOre, 2], [ItemIds.MetalCan, 1]],
+                new RadioactiveMetalCan(1)));
         }
 
         public void HandCraft()
