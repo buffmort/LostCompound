@@ -12,7 +12,7 @@ namespace LostCompound.Items
     /// 同时实现 Changeable：数量归零后由 Player.HandleChangeableItems 自动移出背包，
     /// 这与 Metal / WhitePhosphorus 等消耗品的做法一致（否则会留下「水瓶 x0」）。
     /// </remarks>
-    public sealed class WaterBottle(int count) : Item(ItemIds.WaterBottle, "水瓶", 10, true, count), Useable, Changeable
+    public sealed class WaterBottle(int count) : Item(ItemIds.WaterBottle, "水瓶", 10, true, count), IUseable, IChangeable
     {
         public override ItemType? Type => ItemType.WaterBottle;
 

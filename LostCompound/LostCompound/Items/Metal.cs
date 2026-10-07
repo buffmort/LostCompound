@@ -8,7 +8,7 @@ namespace LostCompound.Items
     /// 同时实现 Changeable：数量归零后由 Player.HandleChangeableItems 自动移出背包，
     /// 否则会留下一个「金属 x0」。这是本项目中消耗品的统一做法（参见 WhitePhosphorus）。
     /// </remarks>
-    public sealed class Metal(int count) : Item(ItemIds.Metal, "金属", 99, true, count), Useable, Changeable
+    public sealed class Metal(int count) : Item(ItemIds.Metal, "金属", 99, true, count), IUseable, IChangeable
     {
         public override ItemType? Type => ItemType.Metal;
 

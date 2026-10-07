@@ -3,7 +3,7 @@ using LostCompound.Tools;
 
 namespace LostCompound.Items
 {
-    public sealed class Wood(int count) : Item(ItemIds.Wood, "木头", 99, true, count), TurnCount, Changeable
+    public sealed class Wood(int count) : Item(ItemIds.Wood, "木头", 99, true, count), ITurnCount, IChangeable
     {
         public int Change { get; set; } = 3;
 

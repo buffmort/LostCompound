@@ -7,7 +7,7 @@ namespace LostCompound.Items
     /// 合成材料：铁剑 + 2 白磷 + 2 红磷。
     /// 「攻击挂 1 流血」需要流血系统，尚未实现，先只做 ATK 加成。
     /// </summary>
-    public sealed class PhosphorusSword(int count) : Item(ItemIds.PhosphorusSword, "磷化剑", 1, false, count), Equippable
+    public sealed class PhosphorusSword(int count) : Item(ItemIds.PhosphorusSword, "磷化剑", 1, false, count), IEquippable
     {
         public override ItemType? Type => ItemType.PhosphorusSword;
 

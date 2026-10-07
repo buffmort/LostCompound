@@ -11,7 +11,7 @@ namespace LostCompound.Items
     /// 生效方式：Player 每次战斗开始时对背包里所有 Equippable 调用一次
     /// <see cref="ApplyPassive"/>，把加成累加到玩家身上。
     /// </summary>
-    public interface Equippable
+    public interface IEquippable
     {
         /// <summary>把本道具的被动加成应用到玩家身上（每次战斗开始时调用一次）。</summary>
         void ApplyPassive(Player p);

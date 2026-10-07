@@ -8,7 +8,7 @@ namespace LostCompound.Items
     /// 用途（文档）：逃离(1) / 采掘(2) / 打破二叉树（直接损坏，地图重置）。
     /// 矿洞与二叉树系统尚未实现，所以目前只有耐久记录与主动消耗。
     /// </summary>
-    public sealed class Pickaxe(int count) : Item(ItemIds.Pickaxe, "镐子", 1, false, count), Useable, Changeable
+    public sealed class Pickaxe(int count) : Item(ItemIds.Pickaxe, "镐子", 1, false, count), IUseable, IChangeable
     {
         public override ItemType? Type => ItemType.Pickaxe;
 

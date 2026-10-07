@@ -36,7 +36,35 @@ namespace LostCompound.Tools
         // 玩家背包 / 待入包 / 已解锁配方
         public List<Item> Inventory { get; } = [];
         public List<Item> PendingItems { get; } = [];
-        public List<Craftable> Recipes { get; } = [];
+        public List<ICraftable> Recipes { get; } = [];
+
+        /// <summary>
+        /// 饰品栏（设计文档 8.2）：与背包分开存放，不占背包格。
+        /// 初始 5 格，每通关 +1，上限 15。
+        ///
+        /// 按用户决定（方案 B）：任何「被动物件」（武器/防具/饰品）都能放进这里 ——
+        /// 饰品栏本质上是「额外 5 个放被动物件的格子」，不限类别。
+        /// </summary>
+        public List<Item> Accessories { get; } = [];
+
+        /// <summary>饰品栏容量。初始 5，每通关 +1，上限 15。</summary>
+        public int AccessorySlots { get; private set; } = 5;
+
+        /// <summary>饰品栏容量上限（设计文档 8.2）。</summary>
+        public const int MaxAccessorySlots = 15;
+
+        /// <summary>
+        /// 通关一次后扩充饰品栏（+1 格，不超过上限）。
+        /// 通关系统尚未实现，这个方法先留着，等进度系统做出来调用。
+        /// </summary>
+        public void GrowAccessorySlots()
+        {
+            if (AccessorySlots < MaxAccessorySlots)
+            {
+                AccessorySlots++;
+                Console.WriteLine($"饰品栏扩充至 {AccessorySlots} 格！");
+            }
+        }
 
         // 存活判定：派生值用计算属性（原 isAlive() 方法）
         public bool IsAlive => Hp > 0;
@@ -164,7 +192,7 @@ namespace LostCompound.Tools
             Console.WriteLine();
             Console.WriteLine("请选择操作");
             Calculator.Delay(250);
-            Console.WriteLine("1.攻击  2.防御  3.使用背包道具  4.徒手合成");
+            Console.WriteLine("1.攻击  2.防御  3.使用背包道具  4.徒手合成  5.饰品栏");
             if (_debug)
             {
                 Console.WriteLine("debug模式操作:");
@@ -185,6 +213,9 @@ namespace LostCompound.Tools
                     break;
                 case 4:
                     HandCraft();
+                    break;
+                case 5:
+                    OpenAccessoryMenu();
                     break;
                 case 127:
                     Str = 100;
@@ -327,12 +358,149 @@ namespace LostCompound.Tools
             }
         }
 
+        // ==================== 饰品栏（设计文档 8.2） ====================
+
+        /// <summary>
+        /// 饰品栏交互界面：可以装备（把背包里的被动物件放上去）或卸下。
+        /// 选 0 退出，不消耗回合。
+        /// </summary>
+        private void OpenAccessoryMenu()
+        {
+            while (true)
+            {
+                Console.WriteLine("===== 饰品栏 =====");
+                ShowAccessories();
+
+                Console.WriteLine("1.装备   2.卸下   0.返回");
+                int action = ReadInt("饰品栏：1装备 2卸下 0返回");
+                if (action == 0) return;
+
+                if (action == 1)
+                {
+                    // 只列出背包里真正能装备的（实现了 IEquippable 的被动物件）
+                    List<int> equipable = [];
+                    for (int i = 0; i < Inventory.Count; i++)
+                    {
+                        if (Inventory[i] is IEquippable)
+                        {
+                            equipable.Add(i);
+                        }
+                    }
+
+                    if (equipable.Count == 0)
+                    {
+                        Console.WriteLine("背包里没有可以装备的道具。");
+                        continue;
+                    }
+
+                    Console.WriteLine("可装备的道具（武器/防具/饰品等被动物件）：");
+                    foreach (int idx in equipable)
+                    {
+                        string desc = Inventory[idx] is IEquippable eq ? "  " + eq.DescribePassive() : "";
+                        Console.WriteLine("  [" + idx + "] " + Inventory[idx] + desc);
+                    }
+
+                    int pick = ReadInt("选择要装备的道具编号(-1取消)");
+                    if (pick == -1) continue;
+                    EquipAccessory(pick);
+                }
+                else if (action == 2)
+                {
+                    if (Accessories.Count == 0)
+                    {
+                        Console.WriteLine("饰品栏是空的。");
+                        continue;
+                    }
+
+                    int pick = ReadInt("选择要卸下的道具编号(-1取消)");
+                    if (pick == -1) continue;
+                    UnequipAccessory(pick);
+                }
+            }
+        }
+
+        /// <summary>显示饰品栏内容。</summary>
+        public void ShowAccessories()
+        {
+            Console.WriteLine($"===== 饰品栏 ({Accessories.Count}/{AccessorySlots}) =====");
+            if (Accessories.Count == 0)
+            {
+                Console.WriteLine("（空）");
+                return;
+            }
+
+            for (int i = 0; i < Accessories.Count; i++)
+            {
+                string desc = Accessories[i] is IEquippable eq ? "  " + eq.DescribePassive() : "";
+                Console.WriteLine(i + "." + Accessories[i] + desc);
+            }
+        }
+
+        /// <summary>
+        /// 把背包里的第 index 个道具装备到饰品栏。
+        ///
+        /// 按你的决定（方案 B）：任何「被动物件」都能装 —— 武器、防具、饰品都算。
+        /// 判断依据就是实现了 <see cref="IEquippable"/>（放背包/饰品栏都生效）。
+        /// 材料、消耗品这类没有被动效果的，仍然装不上去。
+        /// </summary>
+        public bool EquipAccessory(int index)
+        {
+            if (index < 0 || index >= Inventory.Count)
+            {
+                Console.WriteLine("没有这个道具！");
+                return false;
+            }
+
+            Item item = Inventory[index];
+            if (item is not IEquippable)
+            {
+                Console.WriteLine(item.Name + " 没有被动效果，无法装备到饰品栏。");
+                return false;
+            }
+
+            if (Accessories.Count >= AccessorySlots)
+            {
+                Console.WriteLine($"饰品栏已满（{AccessorySlots} 格）！");
+                return false;
+            }
+
+            Inventory.RemoveAt(index);
+            Accessories.Add(item);
+            Console.WriteLine("你把 " + item.Name + " 装备到了饰品栏。");
+
+            // 被动物件会加属性，装/卸之后要重算，否则属性不会立刻变化
+            ApplyEquipmentPassives();
+            RefreshStatus();
+            return true;
+        }
+
+        /// <summary>
+        /// 把饰品栏里的第 index 个道具卸回背包。
+        /// </summary>
+        public bool UnequipAccessory(int index)
+        {
+            if (index < 0 || index >= Accessories.Count)
+            {
+                Console.WriteLine("饰品栏没有这个位置！");
+                return false;
+            }
+
+            Item item = Accessories[index];
+            Accessories.RemoveAt(index);
+            Inventory.Add(item);
+            Console.WriteLine("你把 " + item.Name + " 放回了背包。");
+
+            ApplyEquipmentPassives();
+            RefreshStatus();
+            return true;
+        }
+
         private void OpenItems(List<Monster> monsters)
         {
             int count = 0;
             foreach (Item i in Inventory)
             {
-                if (i is Useable)
+                if (i is IUseable)
                 {
                     Console.WriteLine(count + "." + i + "[可使用]");
                     count++;
@@ -363,7 +531,7 @@ namespace LostCompound.Tools
             }
 
             Item item = Inventory[choice];
-            if (item is Useable useable)
+            if (item is IUseable useable)
             {
                 useable.Use(this, monsters);
             }
@@ -380,12 +548,12 @@ namespace LostCompound.Tools
             for (int i = 0; i < owner.Inventory.Count; i++)
             {
                 Item item = owner.Inventory[i];
-                if (item is TurnCount turnCount)
+                if (item is ITurnCount turnCount)
                 {
                     // 关键修改：使用 owner 而非 this
                     turnCount.OnBattleStart(owner, envType);
                 }
-                if (item is Changeable c)
+                if (item is IChangeable c)
                 {
                     if (c.ShouldRemove())
                     {
@@ -533,10 +701,10 @@ namespace LostCompound.Tools
         {
             Console.WriteLine("====徒手合成====");
             Calculator.Delay(250);
-            List<Craftable> available = [];
+            List<ICraftable> available = [];
 
             // 第一步：遍历所有配方，筛选可合成的
-            foreach (Craftable recipe in Recipes)
+            foreach (ICraftable recipe in Recipes)
             {
                 if (recipe.CanCraft(this))
                 {
@@ -554,7 +722,7 @@ namespace LostCompound.Tools
             // 第三步：展示可合成列表
             for (int i = 0; i < available.Count; i++)
             {
-                Craftable r = available[i];
+                ICraftable r = available[i];
                 Console.WriteLine(i + ". " + r.Name + " " + r.DescribeMaterials(this));
             }
 
@@ -741,9 +909,19 @@ namespace LostCompound.Tools
             Def = BaseDef;
             Block = 0;
 
+            // 背包里的被动道具
             foreach (Item item in Inventory)
             {
-                if (item is Equippable eq)
+                if (item is IEquippable eq)
+                {
+                    eq.ApplyPassive(this);
+                }
+            }
+
+            // 饰品栏里的被动道具（设计文档 7 节：放在背包或饰品栏中即可生效）
+            foreach (Item item in Accessories)
+            {
+                if (item is IEquippable eq)
                 {
                     eq.ApplyPassive(this);
                 }

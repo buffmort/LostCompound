@@ -1,6 +1,6 @@
 namespace LostCompound.Items
 {
-    public interface Changeable
+    public interface IChangeable
     {
         bool ShouldRemove();
         Item Become();

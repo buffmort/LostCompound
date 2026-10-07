@@ -7,7 +7,7 @@ namespace LostCompound.Items
     /// 合成材料：3 金属。
     /// 「格挡次数」对应 Player.Block（每层可免疫一次伤害的计数）。
     /// </summary>
-    public sealed class Shield(int count) : Item(ItemIds.Shield, "盾", 1, false, count), Equippable
+    public sealed class Shield(int count) : Item(ItemIds.Shield, "盾", 1, false, count), IEquippable
     {
         public override ItemType? Type => ItemType.Shield;
 

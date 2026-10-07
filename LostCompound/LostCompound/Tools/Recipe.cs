@@ -3,7 +3,7 @@ using LostCompound.Items;
 
 namespace LostCompound.Tools
 {
-    public class Recipe : Craftable
+    public class Recipe : ICraftable
     {
         private readonly int[][] _materials;
 

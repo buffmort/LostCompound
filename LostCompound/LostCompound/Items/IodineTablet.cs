@@ -7,7 +7,7 @@ namespace LostCompound.Items
     /// 碘片（配方 1，ID 15）：消耗品，3 耐久，免疫 3 次辐射扣血。
     /// 辐射系统尚未实现，所以目前「使用」只做提示与耐久扣减。
     /// </summary>
-    public sealed class IodineTablet(int count) : Item(ItemIds.IodineTablet, "碘片", 5, true, count), Useable, Changeable
+    public sealed class IodineTablet(int count) : Item(ItemIds.IodineTablet, "碘片", 5, true, count), IUseable, IChangeable
     {
         public override ItemType? Type => ItemType.IodineTablet;
 

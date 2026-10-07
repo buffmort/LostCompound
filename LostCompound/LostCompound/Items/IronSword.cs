@@ -6,7 +6,7 @@ namespace LostCompound.Items
     /// 铁剑（配方 1，ID 21）：武器。背包时 +7 ATK。
     /// 合成材料：2 木头 + 2 金属。
     /// </summary>
-    public sealed class IronSword(int count) : Item(ItemIds.IronSword, "铁剑", 1, false, count), Equippable
+    public sealed class IronSword(int count) : Item(ItemIds.IronSword, "铁剑", 1, false, count), IEquippable
     {
         public override ItemType? Type => ItemType.IronSword;
 

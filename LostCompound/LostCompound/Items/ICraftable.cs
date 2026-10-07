@@ -2,7 +2,7 @@ using LostCompound.Tools;
 
 namespace LostCompound.Items
 {
-    public interface Craftable
+    public interface ICraftable
     {
         string Name { get; } //获得配方叫什么
         int[][] Materials { get; } //获取配方二维数组
