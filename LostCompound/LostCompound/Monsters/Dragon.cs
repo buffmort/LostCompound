@@ -4,7 +4,12 @@ namespace LostCompound.Monsters
 {
     public sealed class Dragon : Monster
     {
-        private const int MaxBlock = 1;    // 格挡上限
+        // 龙的护盾上限（原为 MaxBlock = 1 的「格挡次数上限」）。
+        // 数值理由：旧机制下 1 层格挡相当于「完全免疫任意一击」，按 DESIGN 龙单次最多挨
+        // 15.42 点（玩家满水攻击力）折算，保留 15 点盾最接近原来的生存时长，
+        // 又不会像旧机制那样连 999 点的大招都白吃。每次发动 +5 盾（与僵尸同档）。
+        private const double MaxShield = 15;
+        private const double ShieldPerTurn = 5;
 
         public Dragon()
         {
@@ -38,20 +43,18 @@ namespace LostCompound.Monsters
 
         public override void TakeDamage(double dmg)
         {
-            // 如果拥有格挡，消耗一次格挡并完全抵消本次伤害
-            if (Block > 0)
+            // 先 DEF 减免，再吃盾（理由见 Monster.AbsorbWithShield 的注释）
+            double realDmg = Calculator.ApplyDefense(Def, dmg);
+            double hpLoss = AbsorbWithShield(realDmg);
+            if (hpLoss <= 0)
             {
-                Block--;
-                Console.WriteLine(Name + "用鳞甲格挡了攻击！");
+                // 全部被鳞甲护盾吸收：血量没掉，所以不播报「受到伤害」
+                Console.WriteLine(Name + "用鳞甲挡下了攻击！（剩余护盾:" + Shield.ToString("F1") + "）");
+                Calculator.Delay(250);
                 return;
             }
 
-            // 计算减伤后的伤害。Calculator.ApplyDefense 内部已经保证结果 >= 1，
-            // 所以这里不需要再单独兜底一次。
-            double realDmg = Calculator.ApplyDefense(Def, dmg);
-
-            Hp -= realDmg;
-            Console.WriteLine("{0}受到 {1:F1} 点伤害！", Name, realDmg);
+            Console.WriteLine("{0}受到 {1:F1} 点伤害！", Name, hpLoss);
             Calculator.Delay(250);
         }
 
@@ -65,11 +68,12 @@ namespace LostCompound.Monsters
             switch (option)
             {
                 case 0:
-                    // 第一种：增加格挡（上限 1），并确保防御力为 5（构造时已设置）
-                    if (Block < MaxBlock)
+                    // 第一种：增加护盾（上限 15 点），并确保防御力为 5（构造时已设置）。
+                    // 原为「格挡 +1（上限 1）」的次数制，按本次改动改为护盾值制。
+                    if (Shield < MaxShield)
                     {
-                        Block++;
-                        Console.WriteLine(Name + "蜷起身躯，鳞甲闪烁（格挡 +1）！");
+                        AddShield(ShieldPerTurn);
+                        Console.WriteLine(Name + "蜷起身躯，鳞甲闪烁（护盾 +" + ShieldPerTurn + "）！");
                     }
                     else
                     {

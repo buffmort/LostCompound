@@ -11,7 +11,7 @@ namespace LostCompound.Items
     /// 「继承 11」= 和放射性矿物一样是「背包时定期扣血」，只是参数不同（10 回合 / 2 血）。
     /// </summary>
     /// <remarks>
-    /// 为什么不实现 IEquippable：它没有被动数值加成（不加 ATK/DEF/格挡），
+    /// 为什么不实现 IEquippable：它没有被动数值加成（不加 ATK/DEF/护盾），
     /// 被动清单见 CONVENTIONS 2.4 —— 乱实现会让它出现在饰品栏可装备列表里并打印假的加成描述。
     /// </remarks>
     public sealed class RadioactiveMetalCan(int count) : Item(ItemIds.RadioactiveMetalCan, "放射金属罐", 10, true, count), ITurnCount
@@ -39,7 +39,7 @@ namespace LostCompound.Items
 
             Timer = DamageInterval;
 
-            // 用了和放射性矿物相同的取舍：走 p.TakeDamage（计入格挡/防御，与 Tools.ApplyBuffs
+            // 用了和放射性矿物相同的取舍：走 p.TakeDamage（计入护盾/防御，与 Tools.ApplyBuffs
             // 里的玩家流血一致），并且逐点结算（1 点一次，保证 DEF 最低取 1 时每点都真的扣到）。
             Console.WriteLine($"放射金属罐的辐射在发作！（每 {DamageInterval} 回合 {DamagePerTick} 点）");
             int hits = Count * DamagePerTick;   // 可叠加：同一格里 Count 份，每份扣 DamagePerTick 点

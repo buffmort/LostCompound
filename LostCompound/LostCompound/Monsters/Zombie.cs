@@ -32,15 +32,18 @@ namespace LostCompound.Monsters
 
         public override void TakeDamage(double dmg)
         {
-            if (Block > 0)
+            // 顺序：先 DEF 减免，再吃盾（理由见 Player.TakeDamage / Monster.AbsorbWithShield）。
+            double realDmg = Calculator.ApplyDefense(Def, dmg);
+            double hpLoss = AbsorbWithShield(realDmg);
+            if (hpLoss <= 0)
             {
-                Block -= 1;
-                Console.WriteLine("僵尸格挡了伤害!");
+                // 伤害全被护盾挡下：血量没掉，播报也跟着改口径，
+                // 否则玩家会看到「受到 X 点伤害」但血条纹丝不动。
+                Console.WriteLine(Name + "的护盾挡下了伤害！（剩余护盾:" + Shield.ToString("F1") + "）");
+                Calculator.Delay(250);
                 return;
             }
-            double realDmg = Calculator.ApplyDefense(Def, dmg);
-            Hp -= realDmg;
-            Console.WriteLine(Name + "受到{0:F1}点伤害!", realDmg);
+            Console.WriteLine(Name + "受到{0:F1}点伤害!", hpLoss);
             Calculator.Delay(250);
         }
 
@@ -49,15 +52,18 @@ namespace LostCompound.Monsters
             // 回合头、流血结算与跳过检查都由 Tools.RunBattle 统一处理：
             // 这里如果自己再结算一次流血，就会和 Tools.ApplyBuffs 重复结算（原 bug）。
             Calculator.Delay(250);
-            int option = RollIndex(2);
+            int option = RollIndex(3);
             switch (option)
             {
                 case 0:
                     Attack(p);
                     break;
                 case 1:
-                    Block += 1;
-                    Console.WriteLine(Name + "格挡了!");
+                    // 原为 Block += 1（次数制，一次全免，太超模）；按用户裁定改为加 5 点护盾值。
+                    AddShield(5);
+                    Console.WriteLine(Name + " 增加了 5 点护盾！");
+                    break;
+                case 2:
                     break;
             }
         }

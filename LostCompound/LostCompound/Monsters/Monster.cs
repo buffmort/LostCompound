@@ -13,7 +13,22 @@ namespace LostCompound.Monsters
         public string Name { get; set; }
         // Java 的 protected 同时允许同包访问；C# 的 protected 不允许通过其它子类实例访问，
         // 故此处用 protected internal（= 派生类 or 同一程序集），等价于 Java 语义。
-        public int Block { get; protected internal set; }
+        /// <summary>
+        /// 护盾值（本次改动：整套替换掉原来的「格挡次数」）。
+        ///
+        /// 语义：护盾 = 「额外的血量」。受到伤害时**先扣盾，盾不够扣的部分才扣血**。
+        /// 与旧的 Block（次数制）的本质区别：旧机制 1 点 Block 能完全免疫一次任意大的伤害
+        /// （连 999 点也能全免），太超模；现在盾是按点数消耗的，5 点盾就是最多帮你扛 5 点伤害。
+        ///
+        /// 为什么是 double：与 Hp / Def / Atk 一致，方便将来做「按比例给盾」的装备。
+        /// 为什么是 protected internal set 而不是 public set：与原来的 Block 保持同一可见性，
+        /// 派生类（如 TwistedPairP2 给兄弟加盾）和同程序集调用点都能写，外部只能读。
+        /// </summary>
+        public double Shield { get; protected internal set; }
+
+        /// <summary>增加护盾（与 Player.AddShield 同名同义）。按 CONVENTIONS 2.3 用累加方法而不是属性赋值。</summary>
+        public void AddShield(double amount) => Shield += amount;
+
         public int SkipTurn { get; set; }
 
         public void AddSkipTurn(int count) => SkipTurn += count;
@@ -31,6 +46,37 @@ namespace LostCompound.Monsters
         // 原 6 个子类各自重写的 isAlive() 实现完全相同（都是 hp > 0），
         // 故合并为基类上的一个计算属性，子类不再重写。
         public bool IsAlive => Hp > 0;
+
+        /// <summary>
+        /// 「先扣盾、再扣血」的统一结算（护盾值制）。
+        ///
+        /// 算法（用户裁定：盾 = 额外血量）：
+        ///   设 dmg 为**已过 DEF 减免/抗性**的最终伤害：
+        ///     若 Shield >= dmg → Shield -= dmg，Hp 不变，返回 0
+        ///     否则             → 剩余 = dmg - Shield; Shield = 0; Hp -= 剩余；返回 剩余
+        /// 返回值 = 实际扣掉的血量，供调用方决定要不要打「今天没掉血」的提示。
+        ///
+        /// 抽到基类的理由（CONVENTIONS 2.5）：6 个子类的 TakeDamage 结构高度相似
+        /// （先算 realDmg，再 Hp -= realDmg），扣盾扣血这段逻辑一字不差地要写 6 遍，
+        /// 正是「同一段逻辑在 ≥2 个子类里各写一遍就该提基类」的典型。
+        /// 各子类只保留「自己那份行文独有的控制台输出」，输出文案因此逐字不变。
+        /// </summary>
+        /// <param name="finalDmg">已经算完 DEF 减免（以及岩浆怪的高温抗性）的最终伤害</param>
+        protected double AbsorbWithShield(double finalDmg)
+        {
+            if (Shield >= finalDmg)
+            {
+                // 盾足够厚：这刀完全被盾吃掉，血量一点不掉
+                Shield -= finalDmg;
+                return 0;
+            }
+
+            // 盾不够：先清空盾，剩下的才扣血
+            double remaining = finalDmg - Shield;
+            Shield = 0;
+            Hp -= remaining;
+            return remaining;
+        }
 
         public override string ToString() => $"{Name}({Math.Max(Hp, 0):F1}) ";
 

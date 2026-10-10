@@ -19,7 +19,24 @@ namespace LostCompound.Tools
         public double Str { get; set; } = 3;
         public string Name { get; set; }
         public double Def { get; set; } = BaseDef;
-        public int Block { get; set; }
+
+        /// <summary>
+        /// 护盾值（本次改动：整套替换掉原来的 `public int Block` 次数制）。
+        ///
+        /// 语义：护盾 = 「额外的血量」。受伤时**先扣盾，盾不够扣的部分才扣血**。
+        /// 与旧 Block 的区别：旧机制 1 点 Block 完全免疫一次伤害（哪怕 999 点），
+        /// 用户裁定「太超模」，所以改成按点数消耗的护盾值制。
+        ///
+        /// 为什么是 double：与 Hp / Def / Atk 一致，将来做「按比例给盾」的装备不用再改类型。
+        /// </summary>
+        public double Shield { get; set; }
+
+        /// <summary>
+        /// 增加护盾。用方法而不是裸写 `Shield += x`：CONVENTIONS 2.3 规定
+        /// 「累加语义用 AddXxx 方法」，与 Monster.AddShield / AddSkipTurn 保持同一写法。
+        /// </summary>
+        public void AddShield(double amount) => Shield += amount;
+
         public int SkipTurn { get; set; }
         public bool IsDead { get; set; }
         private Room[][] _map;      // 当前地图
@@ -201,14 +218,14 @@ namespace LostCompound.Tools
         public void OnTurnStart(EnvType envType)
         {
             Console.WriteLine("=====你的回合=====");
-            RefreshStatus();               // 战斗中让状态栏显示血量/防御/格挡
+            RefreshStatus();               // 战斗中让状态栏显示血量/防御/护盾
             HandleChangeableItems(envType);
             Inventory.AddRange(PendingItems);
             PendingItems.Clear();
             Calculator.Delay(250);
             Console.WriteLine("你的血量:{0:F1}", Hp);
             Console.WriteLine("你的防御:{0:F1}", Def);
-            Console.WriteLine("你的格挡剩余:" + Block);
+            Console.WriteLine("你的护盾剩余:" + Shield);
             // 环境状态（如熔岩瀑布水量）：供玩家决定要不要用水瓶
             if (CurrentEnvironment != null)
             {
@@ -244,11 +261,10 @@ namespace LostCompound.Tools
                 Console.WriteLine("你身上的" + b.Name + "剩余回合:" + b.RemainingTurns);
             }
             Calculator.Delay(250);
-            Console.WriteLine("敌人：");
-            for (int i = 0; i < monsters.Count; i++)
-            {
-                Console.WriteLine("  [" + i + "] " + monsters[i]);
-            }
+            // 敌人列表不再写进日志区，改由左列顶部的「敌人框」常驻显示（见 ConsoleScreen.DrawEnemies）。
+            // 为什么搬走：Attack / SelectTarget / OpenItems 的提示都要求玩家按编号选目标，
+            // 编号必须一直挂在眼前；写进滚动日志的话，几行之后就被冲掉了。
+            RefreshEnemyBox(monsters);
             Calculator.Delay(250);
             Console.WriteLine();
             Console.WriteLine("请选择操作");
@@ -267,7 +283,12 @@ namespace LostCompound.Tools
                     Attack(monsters);
                     break;
                 case 2:
-                    Block += 1;
+                    // 原为 Block += 1（次数制，一次全免）；改为加 5 点护盾值。
+                    // 数值理由：这是玩家唯一稳定可控的「攒盾」手段，而玩家面对的单次
+                    // 最高伤害是龙的 10 点、双子技能的 5 点 —— 5 点盾大致等于「挡掉半刀」，
+                    // 一回合换半刀比旧机制「一回合换一整刀」弱得多，符合「旧机制太超模」的裁定。
+                    AddShield(5);
+                    Console.WriteLine("你举起了护盾！（护盾 +5）");
                     break;
                 case 3:
                     OpenItems(monsters);
@@ -294,18 +315,40 @@ namespace LostCompound.Tools
             }
         }
 
+        /// <summary>
+        /// 玩家受伤。
+        ///
+        /// 结算顺序（本次裁定）：**先 DEF 减免，再吃盾**。
+        /// 理由：若反过来「先吃盾再 DEF 减免」，盾会被防御白吃一部分 ——
+        ///   例：打来 10 点、DEF = 5、盾 = 5。
+        ///     先 DEF：10 - 5 = 5 最终伤害 → 盾抵 5 → 掉血 0（盾刚好用完）
+        ///     先吃盾：盾 5 全吃掉 10 里的 5 → 剩 5 再 - DEF 5 → 掉血 0
+        ///   两者这里看似一样，但换成「盾 = 20」就露馅了：
+        ///     先 DEF：10 - 5 = 5，盾剩 15，盾的价值 5
+        ///     先吃盾：盾吃满 10，再被 DEF 夹到最低 1，盾白丢了 9 点价值
+        ///   即「先吃盾」会让盾的每一层都被 DEF 削一次，盾越多亏得越多；
+        ///   「先 DEF」则让盾按最终伤害 1:1 抵扣，数值直观、可预期。
+        ///
+        /// 盾与血的关系：盾就是额外血量，扣完盾才动 Hp（见下面 AbsorbWithShield 的逻辑）。
+        /// </summary>
         public void TakeDamage(double dmg)
         {
             double realDmg = Calculator.ApplyDefense(Def, dmg);
-            if (Block > 0)
+
+            if (Shield >= realDmg)
             {
-                Console.WriteLine("你格挡了伤害!");
-                Block -= 1;
-                RefreshStatus();           // 受伤/格挡后立刻更新状态栏
+                // 盾够厚：完全挡住，血量一点不掉
+                Shield -= realDmg;
+                Console.WriteLine("你的护盾挡下了伤害!");
+                RefreshStatus();           // 护盾变化后立刻更新状态栏
                 return;
             }
-            Hp -= realDmg;
-            Console.WriteLine("你受到{0:F1}点伤害!", realDmg);
+
+            // 盾不够（或没盾）：先清空盾，剩下的才扣血
+            double remaining = realDmg - Shield;
+            Shield = 0;
+            Hp -= remaining;
+            Console.WriteLine("你受到{0:F1}点伤害!", remaining);
             Console.WriteLine();
             RefreshStatus();               // 受伤后立刻更新状态栏
         }
@@ -964,14 +1007,15 @@ namespace LostCompound.Tools
             throw new InvalidOperationException("地图中没有起始房间！");
         }
 
-        /// <summary>刷新状态栏。战斗时会追加血量/防御/格挡/攻击力。</summary>
+        /// <summary>刷新状态栏。战斗时会追加血量/防御/护盾/攻击力。</summary>
         private void RefreshStatus()
         {
             if (_screen == null) return;
             string s = _statusHeader;
             if (_inBattle)
             {
-                s += "\n血量:" + Hp.ToString("F1") + "  防御:" + Def.ToString("F1") + "  格挡:" + Block;
+                // 护盾按 F1 保留一位小数：它是 double，且装备加成将来可能是小数（如盾 +5.0）
+                s += "\n血量:" + Hp.ToString("F1") + "  防御:" + Def.ToString("F1") + "  护盾:" + Shield.ToString("F1");
                 s += "\n攻击力:" + Calculator.CalculateAttack(EffectiveStr, Atk).ToString("F1");
             }
             Environment env = CurrentEnvironment;
@@ -979,11 +1023,41 @@ namespace LostCompound.Tools
             _screen.DrawStatus(s);
         }
 
-        /// <summary>进入/离开战斗。战斗状态会影响状态栏内容。</summary>
+        /// <summary>
+        /// 把战场上的敌人列表喂给左列顶部的「敌人框」。
+        ///
+        /// 格式：每行 "[i] 僵尸(30.0)"，最多 <see cref="ConsoleScreen.EnemyRows"/> 行；
+        /// 不足的行由 DrawEnemies 自己补空，超出的行会被框裁掉（设计上最多同时 3 个敌人）。
+        /// 行尾的空格要 TrimEnd：Monster.ToString() 结尾自带一个空格（那是给
+        /// SelectTarget 的 "0. 僵尸(30.0)   1. ..." 横向排列用的），框内显示不需要它。
+        /// </summary>
+        private void RefreshEnemyBox(List<Monster> monsters)
+        {
+            if (_screen == null) return;
+
+            List<string> lines = [];
+            for (int i = 0; i < monsters.Count && i < ConsoleScreen.EnemyRows; i++)
+            {
+                lines.Add("[" + i + "] " + monsters[i].ToString().TrimEnd());
+            }
+            _screen.DrawEnemies(string.Join("\n", lines));
+        }
+
+        /// <summary>
+        /// 进入/离开战斗。战斗状态会影响状态栏内容；离开战斗时顺手清空敌人框。
+        ///
+        /// 「战斗结束清空敌人框」为什么放在这里 —— Tools.RunBattle 用 try/finally
+        /// 保证无论怎么退出都会走 SetInBattle(false)，在 Player 这一侧清空能覆盖
+        /// 全部战斗入口（FightRoom / BossRoom / demo02），不必去动 Tools.cs。
+        ///
+        /// 不清的后果：最后一名敌人被打死那次，OnPlayerTurn 里的 RefreshEnemyBox
+        /// 不会再被调用（怪死光后循环直接 break），框里会残留一个 0 血的敌人。
+        /// </summary>
         public void SetInBattle(bool v)
         {
             _inBattle = v;
             if (v) ApplyEquipmentPassives();
+            else _screen?.DrawEnemies("");        // 空串 = 敌人框回到 3 行空白
             RefreshStatus();
         }
 
@@ -999,7 +1073,10 @@ namespace LostCompound.Tools
             // 还原基础值（这些是 Player 的初始属性，见字段声明处）
             Atk = BaseAtk;
             Def = BaseDef;
-            Block = 0;
+            // 护盾也一起归零：它是「盾牌」这类被动道具的加成，与 Atk/Def 同属重算类数值。
+            // （CONVENTIONS 2.3：重算类必须每场战斗都从基础值重来，否则打第二场会再叠一次。
+            //   影响面：每场战斗开始时清空战斗外攒下的护盾 —— 盾本来就是战斗内资源，这是预期行为。）
+            Shield = 0;
 
             // 背包里的被动道具
             foreach (Item item in Inventory)

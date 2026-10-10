@@ -39,7 +39,7 @@ namespace LostCompound.Monsters
             Atk = 5;      // 攻击力
             Str = 1;      // 力量（影响伤害）
             Def = 5;       // 防御（用于玩家攻击岩浆怪时的减伤）
-            Block = 0;     // 格挡值
+            Shield = 0;    // 护盾值（原 Block = 0 的次数制已删除；这里显式写 0 只是保留原行意图）
             SkipTurn = 0;  // 跳过回合数
         }
 
@@ -69,19 +69,21 @@ namespace LostCompound.Monsters
          */
         public override void TakeDamage(double dmg)
         {
-            if (Block > 0)
-            {
-                Block -= 1;
-                Console.WriteLine(Name + "格挡了!");
-                return;
-            }
             // 高温免疫（设计文档六：免疫 30% 高温伤害）。
             // 先按比例削掉「造成的伤害」，再交给 DEF 减免 —— 文档说的是「造成的伤害减少 30%」，
             // 作用对象是伤害本身，而不是减免后的结果。
             double afterImmunity = dmg * (1.0 - _highTempImmunity);
+            // 顺序：高温抗性 → DEF → 护盾。三者的作用对象都是「这一击的伤害」，
+            // 从外到内依次打折，最后剩下的部分才动血条（盾是最内层，因为它就是额外血量）。
             double realDmg = Calculator.ApplyDefense(Def, afterImmunity);
-            Hp -= realDmg;
-            Console.WriteLine(Name + "受到{0:F1}点伤害!", realDmg);
+            double hpLoss = AbsorbWithShield(realDmg);
+            if (hpLoss <= 0)
+            {
+                Console.WriteLine(Name + "的护盾挡下了伤害！（剩余护盾:" + Shield.ToString("F1") + "）");
+                Calculator.Delay(250);
+                return;
+            }
+            Console.WriteLine(Name + "受到{0:F1}点伤害!", hpLoss);
             Calculator.Delay(250);
         }
 

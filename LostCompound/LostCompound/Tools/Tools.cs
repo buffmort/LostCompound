@@ -29,7 +29,7 @@ namespace LostCompound.Tools
             // 「当前环境 → 怪物抗性」一次性写进怪物自身（见 LavaSlime._highTempImmunity 注释）。
             ApplyEnvironmentMonsterTraits(env, monsters);
 
-            // 战斗期间状态栏会显示血量/防御/格挡/攻击力；用 try/finally 保证异常退出也能恢复
+            // 战斗期间状态栏会显示血量/防御/护盾/攻击力；用 try/finally 保证异常退出也能恢复
             p.SetInBattle(true);
             try
             {

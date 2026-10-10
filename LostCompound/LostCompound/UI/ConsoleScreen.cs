@@ -4,22 +4,28 @@ namespace LostCompound.UI
     /// 控制台左右分栏布局（带边框 + 独立输入框）。
     ///
     ///   左列（窄）                      右列（地图，宽而方）
-    ///   ┌─ 状态 ──────────┐            ┌─ 地图 ──────────────────┐
-    ///   │ 当前位置: (0, 0) │            │ +---+---+---+---+---+    │
-    ///   │ 当前房间:Start   │            │ | S | F | E |   |   |    │
-    ///   │ 水量:191/200     │            │ +---+---+---+---+---+    │
+    ///   ┌─ 敌人 ──────────┐            ┌─ 地图 ──────────────────┐
+    ///   │ [0] 僵尸(30.0)   │            │ +---+---+---+---+---+    │
+    ///   │ [1] 岩浆怪(80.0) │            │ | S | F | E |   |   |    │
+    ///   │ [2] （空）       │            │ +---+---+---+---+---+    │
     ///   └─────────────────┘            │ ...                      │
-    ///   ┌─ 日志 ──────────┐            │                          │
-    ///   │ ...（滚动）      │            │                          │
-    ///   │ ...              │            └──────────────────────────┘
-    ///   └─────────────────┘
-    ///   ┌─ 输入 ──────────┐
-    ///   │ > _              │
+    ///   ┌─ 日志 ──────────┐            └──────────────────────────┘
+    ///   │ ...（滚动）      │            ┌─ 状态 ──────────────────┐
+    ///   │ ...              │            │ 当前位置: (0, 0)         │
+    ///   └─────────────────┘            │ 当前房间:Start           │
+    ///   ┌─ 输入 ──────────┐            │ 熔岩瀑布水量：200/200    │
+    ///   │ > _              │            └──────────────────────────┘
     ///   └─────────────────┘
     ///
     /// 为什么左右分栏？地图是宽而方的（10×10 地图 = 41 列 × 21 行），
     /// 状态/日志/输入本来就窄。上下堆叠时地图会吃掉纵向空间，日志被压到个位数；
     /// 分栏之后，左列整列高度都归日志，日志能多好几倍。
+    ///
+    /// 为什么敌人框在左列顶部？
+    ///   「敌人」和「状态」原先都在左列顶部，只能有一个占着。敌人列表是战斗时每次决策
+    ///   都要看的信息，而且 Attack / SelectTarget / OpenItems 的提示都写着「选择编号」——
+    ///   编号必须一直挂在眼前。所以把敌人框固定钉在左列顶部（恒定 3 行），
+    ///   状态框挪到地图框下方：状态只在「进新房间 / 受伤」时变，不需要头部位置。
     ///
     /// 光标定位用 ANSI 转义序列（\u001b[行;列H），而不是 Console.SetCursorPosition。
     /// 原因：ANSI 在「输出被重定向」时只是失效，不会抛异常；SetCursorPosition 会直接抛 IOException。
@@ -35,6 +41,7 @@ namespace LostCompound.UI
         private string _partial = "";              // Console.Write 留下的未换行内容 = 当前的输入提示
         private string _lastMap;                   // 上次画过的地图文本（跳过无变化的重绘）
         private string _lastStatus;                // 上次画过的状态文本
+        private string _lastEnemies = "";          // 上次画过的敌人文本
 
         /// <summary>输入框里提示文字前面的前缀。</summary>
         private const string PromptPrefix = "> ";
@@ -42,10 +49,12 @@ namespace LostCompound.UI
         // ---- 尺寸 ----
         /// <summary>地图区内容行数。</summary>
         public int MapRows { get; }
-        /// <summary>状态区内容行数。会按内容自适应，所以可写。</summary>
-        public int StatusRows { get; private set; }
-        /// <summary>日志区内容行数。状态框变高时日志让出对应行数，所以可写。</summary>
+        /// <summary>状态区内容行数。固定 3 行 —— 不再按内容自适应（自适应会让日志跟着抖动）。</summary>
+        public const int StatusRows = 3;
+        /// <summary>日志区内容行数。两列分完剩下的纵向空间全归它，所以可写。</summary>
         public int LogRows { get; private set; }
+        /// <summary>敌人框的内容行数。固定 3 行 —— 足以放下三个敌人。</summary>
+        public const int EnemyRows = 3;
         /// <summary>地图框外框宽度（含左右竖线）。会随地图内容宽度只涨不缩。</summary>
         public int MapWidth { get; private set; }
         /// <summary>左列各框外框宽度（含左右竖线）。随地图宽度反向变化。</summary>
@@ -57,8 +66,8 @@ namespace LostCompound.UI
         /// <summary>是否已经按「实际地图内容宽度」定过一次尺寸（首次绘制时允许收缩）。</summary>
         private bool _mapWidthReady;
 
-        /// <summary>日志区最少保留的行数（状态框最多涨到把日志压到这里为止）。</summary>
-        private const int MinimumLogRows = 3;
+        /// <summary>日志区最少保留的行数。状态框固定 + 敌人框固定后，这里只在极端窄屏下兜底。</summary>
+        private const int MinimumLogRows = 1;
 
         /// <summary>
         /// 地图区最少保留的内容宽度（列）。约等于 4-5 格地图。
@@ -73,24 +82,29 @@ namespace LostCompound.UI
         private const int LeftBoxLeft = 1;
         private int MapBoxLeft => LeftBoxLeft + LeftWidth + 1;   // 中间留 1 列空隙
 
-        private int StatusBoxTop => 1;
-        private int LogBoxTop => StatusBoxTop + StatusRows + 2;
+        // 左列：敌人（固定 3 行内容）→ 日志 → 输入
+        private int EnemyBoxTop => 1;
+        private int LogBoxTop => EnemyBoxTop + EnemyRows + 2;
         private int InputBoxTop => LogBoxTop + LogRows + 2;
 
+        // 右列：地图 → 状态
         private const int MapBoxTop = 1;
+        private int StatusBoxTop => MapBoxTop + MapRows + 2;
 
-        /// <summary>整个布局占用的总行数（用于判断/恢复光标位置）。</summary>
-        public int TotalRows => Math.Max(MapBoxTop + MapRows + 1, InputBoxTop + 2);
+        /// <summary>
+        /// 整个布局占用的总行数（用于判断/恢复光标位置）。
+        /// 左右两列各自占满纵向空间，所以取两者的最大值 —— 少算了矮的那列没关系，
+        /// 但绝不能少算高的那列，否则 Uninstall 后光标会停在框中间。
+        /// </summary>
+        public int TotalRows => Math.Max(InputBoxTop + 2, StatusBoxTop + StatusRows + 2);
 
         /// <summary>竖线之后、内容之前的边距（"│ " 两格）。</summary>
         private const int ContentOffset = 2;
 
-        public ConsoleScreen(int mapRows, int mapColumns, int statusRows = 3)
+        public ConsoleScreen(int mapRows, int mapColumns)
         {
             _raw = Console.Out;                    // ← 关键：先抓真实输出
             _writer = new LogRegionWriter(this);
-
-            StatusRows = statusRows;
 
             int terminalWidth;
             int terminalHeight;
@@ -120,35 +134,61 @@ namespace LostCompound.UI
             LeftWidth = wantedLeftWidth;
 
             // ---- 纵向分配 ----
-            // 左列总高 = 状态框(StatusRows+2) + 日志框(LogRows+2) + 输入框(3)
-            // 右列总高 = 地图框(MapRows+2)
-            // 整体不能超过终端高度，否则会触发终端滚动、绝对定位全废。
+            // 两列各自的总高（含边框）：
+            //   左列 = 敌人框(EnemyRows + 2) + 日志框(LogRows + 2) + 输入框(3)
+            //        = EnemyRows + LogRows + 7 = LogRows + 10
+            //   右列 = 地图框(MapRows + 2) + 状态框(StatusRows + 2)
+            //        = MapRows + StatusRows + 4 = MapRows + 7
+            // 两者取最大不能超过终端高度，否则会触发终端滚动、绝对定位全废（见 CONVENTIONS 2.6）。
             _terminalHeight = terminalHeight;
 
-            int leftOverhead = StatusRows + 7;                     // 状态框 + 输入框的固定部分
-            int logRows = Math.Max(MinimumLogRows, terminalHeight - leftOverhead);
+            // 右列超高时优先压缩地图（日志比地图多显示一行 ≠ 少看一格地图，地图压到 5 行就够辨认方向）
+            int maxMapRows = terminalHeight - StatusRows - 4;
+            MapRows = Math.Clamp(mapRows, 5, Math.Max(5, maxMapRows));
 
-            int mapRowsFit = Math.Max(5, terminalHeight - 2);      // 地图框要上下边框各一行
-            MapRows = Math.Min(mapRows, mapRowsFit);
+            // 左列超高时压缩日志：已知「左列总高 = LogRows + 10」，
+            // 令其 ≤ terminalHeight 即得 LogRows ≤ terminalHeight - 10。
+            // 反推一遍：敌人框上下边框(2) + 输入框(3) + 日志框上下边框(2) 共 7 行是固定开销，
+            // 终端高度减去这 7 行就是日志内容能占的行数。
+            const int LeftColumnFixedHeight = 2 + 3 + 2;           // 敌人框边框 + 输入框 + 日志框边框
+            int logRowsFit = terminalHeight - LeftColumnFixedHeight - EnemyRows;
+            LogRows = Math.Max(1, logRowsFit);
 
-            // 地图如果比左列矮，日志就受左列限制（两者取小，保证都在屏幕内）
-            LogRows = logRows;
+            // 极端矮屏兜底：两列各有绕不开的硬下限 ——
+            //   左列 ≥ 敌人框(3+2) + 日志框(1+2) + 输入框(3) = 11 行
+            //   右列 ≥ 地图框(3+2) + 状态框(3+2) = 10 行
+            // 终端矮到 11 行以下时，任何排布都放不下；此时尽量贴近上限，
+            // 保证 th ≥ 12 的常见终端永远是「两列总高 ≤ 终端高度」。
+            int overLeft = (EnemyRows + LogRows + 7) - terminalHeight;
+            if (overLeft > 0)
+            {
+                MapRows = Math.Max(3, MapRows - overLeft);
+            }
         }
 
-        /// <summary>接管 Console.Out，清屏并画出日志框与输入框的固定边框。</summary>
+        /// <summary>
+        /// 接管 Console.Out，清屏并画出四个固定框的边框。
+        /// 敌人框与状态框的内容每回合都会变，但边框一次画好即可（内容由 DrawEnemies / DrawStatus 填）。
+        /// </summary>
         public void Install()
         {
             _raw.Write("\u001b[2J");
             Console.SetOut(_writer);
 
             // 日志框与输入框的边框只画一次（内容会变，边框不动）。
-            // 地图框与状态框由 DrawMap / DrawStatus 各自绘制，因为它们的内容会变。
             DrawBoxTop(LogBoxTop, LeftBoxLeft, LeftWidth, "日志");
             DrawBoxBottom(LogBoxTop + LogRows + 1, LeftBoxLeft, LeftWidth);
 
             DrawBoxTop(InputBoxTop, LeftBoxLeft, LeftWidth, "输入");
             DrawBoxBottom(InputBoxTop + 2, LeftBoxLeft, LeftWidth);
             DrawBoxContent(InputBoxTop + 1, LeftBoxLeft, LeftWidth, "");
+
+            // 敌人框（左列顶部）：固定 3 行内容，先把空框画出来
+            DrawBox(EnemyBoxTop, LeftBoxLeft, LeftWidth, "敌人", EnemyRows, SplitLines(""));
+
+            // 状态框（右列、地图下方）：宽度跟着 MapWidth 走，所以必须等地图宽度定下来后再画。
+            // 首次绘制时 DrawMap 可能还会调整 MapWidth 并整屏重排，那时会连同状态框一起重画。
+            DrawBox(StatusBoxTop, MapBoxLeft, MapWidth, "状态", StatusRows, SplitLines(_lastStatus ?? ""));
         }
 
         /// <summary>把 Console.Out 还给真实输出（离开地图时调用）。</summary>
@@ -159,7 +199,7 @@ namespace LostCompound.UI
             Console.SetOut(_raw);
         }
 
-        /// <summary>重画地图区（右列）。内容与上次相同时直接跳过，避免无谓重绘导致闪烁。</summary>
+        /// <summary>重画地图区（右列上半）。内容与上次相同时直接跳过，避免无谓重绘导致闪烁。</summary>
         public void DrawMap(string mapText)
         {
             // 注意：C# 的 string 用 == 比较的是「内容」，Java 的 == 比较的是「引用」。
@@ -199,9 +239,10 @@ namespace LostCompound.UI
                     MapWidth = wanted;
                     LeftWidth = Math.Clamp(_terminalWidth - 2 - MapWidth, 26, 60);
 
-                    // 宽度变化会平移所有框的水平位置，整屏重画一次，避免留下旧边框字符
+                    // 宽度变化会平移所有框的水平位置（状态框跟着 MapWidth 走），
+                    // 整屏重画一次，避免留下旧边框字符
                     _raw.Write("\u001b[2J");
-                    RelayoutLeftColumn();
+                    Relayout();
                 }
             }
 
@@ -212,65 +253,47 @@ namespace LostCompound.UI
         }
 
         /// <summary>
-        /// 按当前 LeftWidth 重排左列（状态框、日志框、输入框的边框与内容）。
+        /// 按当前 LeftWidth / MapWidth 重排两列（所有框的边框与内容）。
         /// 各框位置都是计算属性，所以只要重画一遍即可。
+        /// 注意必须重排「两列」：状态框的宽度绑在 MapWidth 上，地图宽度一变它也跟着变。
         /// </summary>
-        private void RelayoutLeftColumn()
+        private void Relayout()
         {
-            DrawBox(StatusBoxTop, LeftBoxLeft, LeftWidth, "状态", StatusRows, SplitLines(_lastStatus ?? ""));
+            DrawBox(EnemyBoxTop, LeftBoxLeft, LeftWidth, "敌人", EnemyRows, SplitLines(_lastEnemies));
             RedrawLogFrame();
             RedrawInputFrame();
             RedrawLog();
             RedrawInputBox();
+
+            DrawBox(MapBoxTop, MapBoxLeft, MapWidth, "地图", MapRows, SplitLines(_lastMap ?? ""));
+            DrawBox(StatusBoxTop, MapBoxLeft, MapWidth, "状态", StatusRows, SplitLines(_lastStatus ?? ""));
         }
 
         /// <summary>
-        /// 重画状态区（左列顶部）。statusText 里用 \n 分行。
-        /// 行数变化时状态框会自动增高/变矮，多占的行由日志区让出，左列总高保持不变。
+        /// 重画敌人区（左列顶部）。enemyText 里用 \n 分行，最多 3 行（EnemyRows）。
+        /// 不足的行会自动补空，超过的行由 DrawBox 忽略。
+        /// </summary>
+        public void DrawEnemies(string enemyText)
+        {
+            if (enemyText == _lastEnemies) return;
+            _lastEnemies = enemyText;
+
+            // 整个框重画一遍（含标题栏）：DrawBox 会按 EnemyRows 把不足的行补空、
+            // 把多余的行丢掉，正好满足「固定 3 行、不足补空」的语义，不需要单独维护边框。
+            DrawBox(EnemyBoxTop, LeftBoxLeft, LeftWidth, "敌人", EnemyRows, SplitLines(enemyText));
+        }
+
+        /// <summary>
+        /// 重画状态区（右列、地图框正下方）。statusText 里用 \n 分行。
+        /// 行数固定 StatusRows（3）—— 原先的「按内容涨缩、从日志借行」会导致整列抖动，
+        /// 而且状态框现在跟地图同宽，高度再变会连带右列总高变化，风险更大。
         /// </summary>
         public void DrawStatus(string statusText)
         {
             if (statusText == _lastStatus) return;
             _lastStatus = statusText;
 
-            string[] lines = SplitLines(statusText);
-
-            // 状态框按内容自适应：内容多就长高，少就变矮（至少 1 行）
-            int wantedRows = Math.Max(1, lines.Length);
-            if (wantedRows != StatusRows)
-            {
-                ResizeStatus(wantedRows);
-            }
-
-            DrawBox(StatusBoxTop, LeftBoxLeft, LeftWidth, "状态", StatusRows, lines);
-        }
-
-        /// <summary>
-        /// 改变状态框高度：左列总高不变，多占的行由日志区让出。
-        /// 各框位置都是计算属性（依赖 StatusRows），所以日志框/输入框会自己跟着挪，
-        /// 这里只需要把它们的边框和内容重画一遍。
-        /// </summary>
-        private void ResizeStatus(int newRows)
-        {
-            int delta = newRows - StatusRows;
-            int targetLog = LogRows - delta;
-
-            if (targetLog < MinimumLogRows)
-            {
-                // 日志已压到下限，状态框不能再涨
-                newRows -= MinimumLogRows - targetLog;
-                if (newRows == StatusRows) return;
-                delta = newRows - StatusRows;
-            }
-
-            StatusRows = newRows;
-            LogRows -= delta;
-
-            // 框的位置变了，边框与内容都要重画
-            RedrawLogFrame();
-            RedrawInputFrame();
-            RedrawLog();
-            RedrawInputBox();
+            DrawBox(StatusBoxTop, MapBoxLeft, MapWidth, "状态", StatusRows, SplitLines(statusText));
         }
 
         /// <summary>单独重画日志框的上下边框（位置变化时用）。</summary>

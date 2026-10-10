@@ -194,7 +194,7 @@ public sealed class Charcoal(int count) : Item(3, "木炭", 99, true, count), Tu
 | `str` / `getStr()` / `setStr()` | `Str` 属性 |
 | `def` / `getDef()` | `Def` 属性 |
 | `name` / `getName()` | `Name` 属性 |
-| `block` / `getBlock()` | `Block` 属性（setter 用 `protected internal`） |
+| `block` / `getBlock()` | ~~`Block` 属性（setter 用 `protected internal`）~~ **已删除**：格挡次数制整体改为护盾值制，见 `Shield` 属性 + `AddShield(double)` |
 | `DOTdmg` / `getDOTdmg()` | `DotDamage` 属性 |
 | `DOTdur` / `getDOTdur()` | `DotDuration` 属性 |
 | `skipTurn` | `SkipTurn` 属性 |
@@ -328,7 +328,7 @@ public Dragon()
 | `str` / `getStr()` / `setStr()` | `Str` 属性 |
 | `def` | `Def` 属性 |
 | `name` | `Name` 属性 |
-| `block` | `Block` 属性 |
+| `block` | ~~`Block` 属性~~ **已删除**：改为 `Shield` 属性（`double`）+ `AddShield(double)` |
 | `DOTdmg` / `getDOTdmg()` | `DotDamage` 属性 |
 | `DOTdur` / `getDOTdur()` | `DotDuration` 属性 |
 | `skipTurn` / `getSkipTurn()` / `setSkipTurn()` | `SkipTurn` 属性 |

@@ -6,7 +6,7 @@ namespace LostCompound.Items
 {
     /// <summary>
     /// 红磷（设计文档 ID 31，配方 0）：消耗品。
-    /// 烟雾 2 回合：全体怪物持续伤害 10（困难 7）+ 50%（困难 40%）概率加格挡。
+    /// 烟雾 2 回合：全体怪物持续伤害 10（困难 7）+ 50%（困难 40%）概率加护盾。
     /// 原先给全体挂的是 DOT 10 / 2 回合；DOT 机制已删除，现在挂的是等值的流血
     /// （每回合伤害 10、剩余 2 回合）。
     ///
@@ -33,8 +33,10 @@ namespace LostCompound.Items
             Console.WriteLine("全部怪物受到" + bleedTurns + "时长的 " + bleedDamage + "伤害!");
             if (Random.Shared.NextDouble() < chance)
             {
-                p.Block += 1;
-                Console.WriteLine("烟雾掩护了你！你获得了一点格挡");
+                // 原为「p.Block += 1」（次数制，白吃一整刀）；改护盾值制后按 5 点盾给，
+                // 与「防御」行动 / 盾牌道具同一档，三个加盾来源数值统一，玩家好记。
+                p.AddShield(5);
+                Console.WriteLine("烟雾掩护了你！你获得了 5 点护盾");
             }
             else
             {

@@ -32,12 +32,8 @@ namespace LostCompound.Monsters
 
         public override void TakeDamage(double dmg)
         {
-            if (Block > 0)
-            {
-                Block--;
-                return;
-            }
-            Hp -= dmg;
+            // 与 P1 同一口径：不过 DEF，直接扣盾再扣血（原实现就是裸 dmg）。
+            AbsorbWithShield(dmg);
         }
 
         public override void OnMonsterTurn(Player p)
@@ -78,13 +74,15 @@ namespace LostCompound.Monsters
                     }
                     break;
                 case 3:
-                    // 技能3：给所有怪物加1格挡，若任意怪物已有格挡则跳过本回合
-                    if (Block > 0 || _brother.Block > 0)
+                    // 技能3：给所有怪物加 5 点护盾（原来是加 1 点「格挡次数」，已按护盾值制改写）；
+                    // 若任意一个怪物已有护盾，则跳过本回合 —— 这条「已有盾就不叠加」的判定保持不变。
+                    if (Shield > 0 || _brother.Shield > 0)
                     {
                         return false; // 直接不行动
                     }
-                    Block++; // 给自己加格挡
-                    _brother.Block++; // 给 p1 加格挡
+                    AddShield(5); // 给自己加护盾
+                    _brother.AddShield(5); // 给 p1 加护盾
+                    Console.WriteLine(Name + " 给双子套上了护盾！（各 +5）");
                     break;
                 case 4:
                     // 技能4：造成5伤害，若p1未攻击则额外行动一次

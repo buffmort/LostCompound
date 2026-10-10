@@ -33,12 +33,9 @@ namespace LostCompound.Monsters
 
         public override void TakeDamage(double dmg)
         {
-            if (Block > 0)
-            {
-                Block--;
-                return;
-            }
-            Hp -= dmg;
+            // 兄弟俩原来是「有格挡就整个免掉、连 DEF 都不算」，现在统一走基类的扣盾扣血。
+            // 注意这里故意不过 Calculator.ApplyDefense：原实现就是裸 dmg，保持行为不变。
+            AbsorbWithShield(dmg);
         }
 
         public override void OnMonsterTurn(Player p)
