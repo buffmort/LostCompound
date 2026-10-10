@@ -52,8 +52,15 @@ namespace LostCompound.UI
         // ---- 尺寸 ----
         /// <summary>地图区内容行数。</summary>
         public int MapRows { get; }
-        /// <summary>状态区内容行数。固定 3 行 —— 不再按内容自适应（自适应会让日志跟着抖动）。</summary>
-        public const int StatusRows = 3;
+        /// <summary>
+        /// 状态区内容行数。固定 4 行 —— 不再按内容自适应（自适应会让日志跟着抖动）。
+        ///
+        /// ⚠️ 这个数字决定了状态栏「最多能显示几行」：
+        /// 超出它的行会被 DrawBox 静默丢弃（不报错、不换行），
+        /// 所以往 RefreshStatus 里加新行时，必须同时确认这里够用。
+        /// 每加 1 行，右列总高 +1，多出来的那行会从地图扣（见构造函数的纵向分配）。
+        /// </summary>
+        public const int StatusRows = 4;
         /// <summary>日志区内容行数。两列分完剩下的纵向空间全归它，所以可写。</summary>
         public int LogRows { get; private set; }
         /// <summary>敌人框的内容行数。固定 3 行 —— 足以放下三个敌人。</summary>
@@ -150,7 +157,7 @@ namespace LostCompound.UI
             //   左列 = 敌人框(EnemyRows + 2) + 日志框(LogRows + 2) + 输入框(3)
             //        = EnemyRows + LogRows + 7 = LogRows + 10
             //   右列 = 地图框(MapRows + 2) + 状态框(StatusRows + 2) + Buff框(BuffRows + 2)
-            //        = MapRows + StatusRows + BuffRows + 6 = MapRows + 11
+            //        = MapRows + StatusRows + BuffRows + 6 = MapRows + 12
             // 两者取最大不能超过终端高度，否则会触发终端滚动、绝对定位全废（见 CONVENTIONS 2.6）。
             _terminalHeight = terminalHeight;
 
@@ -169,7 +176,7 @@ namespace LostCompound.UI
 
             // 极端矮屏兜底：两列各有绕不开的硬下限 ——
             //   左列 ≥ 敌人框(3+2) + 日志框(1+2) + 输入框(3) = 11 行
-            //   右列 ≥ 地图框(3+2) + 状态框(3+2) + Buff框(2+2) = 12 行
+            //   右列 ≥ 地图框(3+2) + 状态框(4+2) + Buff框(2+2) = 13 行
             // 终端矮到 11 行以下时，任何排布都放不下；此时尽量贴近上限。
             // 注意这里仍然只压地图：Buff 框是这一轮新增的常驻框，压它等于把功能压没了。
             int overRight = (MapRows + StatusRows + BuffRows + 6) - terminalHeight;
@@ -408,6 +415,17 @@ namespace LostCompound.UI
         /// <summary>画一个带标题的完整框。</summary>
         private void DrawBox(int topRow, int leftCol, int width, string title, int contentRows, string[] content)
         {
+            // ⚠️ 防静默丢行：内容比框高时，多出来的行会被下面的循环直接忽略 ——
+            // 不报错、不换行，从界面上看就是「我明明写了却没显示」。
+            // 这个坑踩过两次（「力量」挤掉水量、测试行又挤掉一次），所以这里主动喊一声。
+            // 只丢 Debug 断点式提示，不影响正常输出（正常情况各框的行数都是配平的）。
+            if (content.Length > contentRows)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[ConsoleScreen] 「{title}」框只有 {contentRows} 行，但收到 {content.Length} 行 —— " +
+                    $"后 {content.Length - contentRows} 行会被丢弃。请调大对应的 *Rows 常量。");
+            }
+
             DrawBoxTop(topRow, leftCol, width, title);
 
             for (int i = 0; i < contentRows; i++)

@@ -63,9 +63,8 @@ namespace LostCompound.Tools
 
         /// <summary>
         /// 正式入口。
-        /// 注意：曾为了在 Rider 里单跑 demo02，把它临时改名成 Run、把 demo02 改成 Main ——
-        /// 那会让发布的 exe 直接进战斗，没有 banner 和主菜单。现已改回。
-        /// 想单独跑 demo02 请用 Rider 的运行配置指定启动对象，不要动这里的名字。
+        /// 想单独跑别的东西（如调试菜单里的战斗）请用 Rider 的运行配置指定启动对象，
+        /// 不要动这里的名字 —— 曾经把它临时改名、导致发布的 exe 直接进了战斗，没有主菜单。
         /// </summary>
         public static void Main(string[] args)
         {

@@ -47,6 +47,7 @@ namespace LostCompound.Tools
                     ApplyBuffs(p, monsters);
 
                     // ── 2. 环境推进：每个大回合一次（如熔岩瀑布每回合掉水）──
+                    // 环境只推进自己；它对玩家的影响（如缺水扣 STR）由 Player 重算时读取
                     env?.OnBattleTurn();
 
                     // 水淹洞穴：水位涨到极限 → 全部对象死亡，玩家直接算输
@@ -150,17 +151,30 @@ namespace LostCompound.Tools
 
             // 玩家 buff
             if (!p.IsAlive) return;
+            bool removedAny = false;
             for (int i = p.Buffs.Count - 1; i >= 0; i--)
             {
                 Buff b = p.Buffs[i];
                 if (b.IsExpired)
                 {
                     p.Buffs.RemoveAt(i);
+                    removedAny = true;
                     continue;
                 }
                 b.OnTurnTick(p);
-                if (b.IsExpired) p.Buffs.RemoveAt(i);
+                // 结算完可能刚好到期（最后一回合结算过了），这时才移除 ——
+                // 注意不能把它和上面那个「进来就过期」的分支合并：那种情况说明
+                // 它已经不该再结算一次了（否则最后一回合会被扣两次）。
+                if (b.IsExpired)
+                {
+                    p.Buffs.RemoveAt(i);
+                    removedAny = true;
+                }
             }
+
+            // 有 buff 消失就要重算 STR —— 否则「某 buff 提供 +1 STR」会在它到期后
+            // 一直留着那 1 点，因为没有任何地方会去「还原」它（现算机制的意义就在这）。
+            if (removedAny) p.RecomputeStr();
         }
 
         /**
@@ -173,6 +187,7 @@ namespace LostCompound.Tools
         private static void ClearBuffs(Player p, List<Monster> monsters)
         {
             p.Buffs.Clear();
+            p.RecomputeStr();      // buff 全清了，STR 要跟着回到「基础 + 环境修正」
             foreach (Monster m in monsters)
             {
                 m.Buffs.Clear();

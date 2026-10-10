@@ -1,4 +1,5 @@
 using LostCompound.Items;
+using LostCompound.Tools;   // Player：环境直接改玩家（见 Environment 类注释的「方案 A」）
 
 namespace LostCompound.MapEnvironment
 {
@@ -10,7 +11,7 @@ namespace LostCompound.MapEnvironment
     /// 水到 0 不死亡，只是 STR 被扣到底。
     /// 掉落：每个战斗房间必掉硫磺，数量 2-5 随机。
     /// </summary>
-    public sealed class LavaWaterfall : Environment
+    public sealed class LavaWaterfall : Environment 
     {
         /// <summary>满水量。</summary>
         public const int MaxWater = 200;
@@ -42,10 +43,27 @@ namespace LostCompound.MapEnvironment
             int drop = Random.Shared.Next(MinWaterDrop, MaxWaterDrop + 1);
             Water -= drop;
             if (Water < 0) Water = 0;
+            // 这里不再直接改玩家：STR 的削弱由 StrModifier 暴露出去，
+            // 玩家每次重算 STR 时自己来读（见 Player.RecomputeStr）。
         }
 
-        /// <summary>水量越低玩家越弱：每损失 1 点水，STR -0.01（满水到枯竭最多 -2.0）。</summary>
+        /// <summary>
+        /// 水量越低玩家越弱：每损失 1 点水，STR -0.01（满水到枯竭最多 -2.0）。
+        ///
+        /// 只返回修正量、不接触 Player —— 这样它和 buff 的修正、将来装备的加成
+        /// 能在 Player 那一处统一相加，不会互相覆盖。
+        /// </summary>
         public override double StrModifier => -(MaxWater - Water) * StrPenaltyPerWater;
+
+        /// <summary>
+        /// 回满水量（水瓶使用）。
+        /// 不需要再管 STR：StrModifier 是按当前水量现算的，
+        /// 水一满惩罚自然归零，玩家下次重算 STR 时就恢复 —— 这就是「现算」的好处。
+        /// </summary>
+        public void RefillWater()
+        {
+            Water = MaxWater;
+        }
 
         public override List<Item> GetBattleLoot()
         {
@@ -59,9 +77,6 @@ namespace LostCompound.MapEnvironment
             Water -= amount;
             if (Water < 0) Water = 0;
         }
-
-        /// <summary>回满水量（水瓶使用）。</summary>
-        public void RefillWater() => Water = MaxWater;
 
         public override string DescribeStatus()
         {

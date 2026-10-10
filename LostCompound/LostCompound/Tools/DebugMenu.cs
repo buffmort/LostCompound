@@ -4,6 +4,7 @@ using Environment = LostCompound.MapEnvironment.Environment;
 using LostCompound.Items;
 using LostCompound.MapEnvironment;
 using LostCompound.Monsters;
+using LostCompound.Rooms;   // StartRoom：给调试玩家挂假地图用
 
 namespace LostCompound.Tools
 {
@@ -11,13 +12,11 @@ namespace LostCompound.Tools
     /// 调试菜单。只在主菜单输入 255 后可用。
     /// 目前提供两件事：按序号挑怪物 + 地形开一场战斗；按 ID 定量发放道具。
     ///
-    /// 与 <see cref="demo02"/> 的区别：demo02 是写死一只测试假人的入口，本菜单把怪物和地形
-    /// 都做成可选，所以不用改代码就能复现任意一场战斗。
+    /// 怪物和地形都做成可选，所以不用改代码就能复现任意一场战斗。
     ///
-    /// ⚠️ 和 demo02 一样的限制：这样起的战斗**没有地图**，玩家不在任何房间里，
-    /// Player.CurrentEnvironment 恒为 null —— 依赖环境的道具（硫酸、镐子、水瓶的环境分支）
-    /// 在这里测不出真实行为。哪怕在菜单里选了「熔岩瀑布」，那也只是「战斗环境」，
-    /// 不是「玩家所在房间的环境」。要测那些道具请走主流程。
+    /// 环境既影响战斗、也影响玩家的道具（水瓶回水、硫酸开采、镐子采掘），
+    /// 所以开打前会给玩家挂一张 1×1 的假地图（见 <see cref="AttachDebugMap"/>），
+    /// 让两条路读到的是同一个环境对象。
     /// </summary>
     public static class DebugMenu
     {
@@ -79,7 +78,32 @@ namespace LostCompound.Tools
 
             // 注意：RunBattle 的第三个参数是 Environment 对象，不是 EnvType，
             // 所以上面必须先过一遍 EnvironmentFactory.Create。
-            Tools.RunBattle(DebugPlayer(), monsters, env);
+            Player p = DebugPlayer();
+
+            // ⚠️ 必须让玩家"站在地图上"，否则环境只生效一半：
+            //   RunBattle(env) 走的是传进去的 env 对象 → 掉水 / 涨水位 / STR 惩罚都正常；
+            //   但道具侧（水瓶、硫酸、镐子）用的是 p.CurrentEnvironment，
+            //   而它是从 _map[PlayerRow][PlayerCol].Environment 读的 —— 没有地图就恒为 null，
+            //   于是「水瓶说这里没有水源」「硫酸说不能饮用」「镐子说没东西可挖」。
+            //   造一张 1×1 的假地图（只放一间起始房、带着同一个 env）就补上了这条路。
+            //
+            // 为什么这么做是安全的：JoinMap 只调用 StartRoom.MarkArrived()，
+            // 不会触发 OnEnter —— 所以不会弹「初始物品选择」、不会重复发初始道具。
+            AttachDebugMap(p, env);
+
+            Tools.RunBattle(p, monsters, env);
+        }
+
+        /// <summary>
+        /// 给调试玩家挂一张 1×1 的假地图，只为了让 <see cref="Player.CurrentEnvironment"/> 能查到环境。
+        /// 调完之后玩家侧的环境道具（水瓶 / 硫酸 / 镐子）才和战斗侧看到的是同一个环境对象。
+        /// </summary>
+        private static void AttachDebugMap(Player p, Environment env)
+        {
+            Room[][] grid = new Room[1][];
+            grid[0] = new Room[1];
+            grid[0][0] = new StartRoom(env);
+            p.JoinMap(grid);
         }
 
         /// <summary>
@@ -228,7 +252,8 @@ namespace LostCompound.Tools
 
         /// <summary>
         /// 常驻调试玩家（首次或上一次战死时创建）。
-        /// 起手与 demo02 一致：默认配方 + 一把磷化剑，另加硫酸（用来试岩浆怪的高温免疫）。
+        /// 起手配置：默认配方 + 一把磷化剑 + 两个硫酸
+        /// （硫酸用来试岩浆怪的高温免疫，也是能就地验证「环境道具」的最小样本）。
         /// </summary>
         private static Player DebugPlayer()
         {

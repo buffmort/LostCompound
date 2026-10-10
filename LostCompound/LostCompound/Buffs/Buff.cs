@@ -98,6 +98,18 @@ namespace LostCompound.Buffs
         }
 
         /// <summary>
+        /// 本 buff 对 STR 的修正量（正数加强、负数削弱），默认 0。
+        ///
+        /// 为什么是「暴露修正量」而不是在 OnTurnTick 里直接改 owner.Str：
+        ///   直接改要么互相覆盖（环境和 buff 各写一次 Str），要么累加、
+        ///   然后得在 buff 消失时再加回来 —— 而 buff 有三条移除路径
+        ///   （到期 / ClearBuffs / 将来的驱散），漏一条就永久偏移。
+        ///   做成修正量之后，Player.RecomputeStr 每次从基础值重算，
+        ///   挂上自动生效、消失自动恢复，不需要任何「还原」代码。
+        /// </summary>
+        public virtual double StrBonus => 0.0;
+
+        /// <summary>
         /// 每回合结算一次。由战斗回合管线（Tools.ApplyBuffs）调用。
         /// 只扣血，不负责收尸 —— 与原 DOT 结算的纪律一致：
         /// 死亡统一交给 Tools.RemoveDeadMonsters，否则 buff 击杀 + 技能补刀会双发掉落。

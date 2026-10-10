@@ -1,4 +1,5 @@
 using LostCompound.Items;
+using LostCompound.Tools;   // Player：环境直接改玩家（见 Environment 类注释的「方案 A」）
 
 namespace LostCompound.MapEnvironment
 {

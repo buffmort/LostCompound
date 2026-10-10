@@ -16,7 +16,16 @@ namespace LostCompound.Tools
         // 设计文档 7.3：基础 ATK = 2 + STR × √ATK，STR 基础 = 3，ATK = 20
         // 初值用常量而不是字面量，避免「改了一处忘了另一处」
         public double Atk { get; set; } = BaseAtk;
-        public double Str { get; set; } = 3;
+
+        /// <summary>
+        /// 当前 STR。环境（如熔岩瀑布缺水）会直接改这个值 ——
+        /// 所以环境每次都必须「从 <see cref="BaseStr"/> 重算」，不能 -= 累加，
+        /// 否则惩罚会与「打了多少回合」挂钩，而且水回满了也恢复不了。
+        /// </summary>
+        public double Str { get; set; } = BaseStr;
+
+        /// <summary>玩家基础 STR（设计文档 7.3：3）。环境重算时要拿它当基准。</summary>
+        public const double BaseStr = 3;
         public string Name { get; set; }
         public double Def { get; set; } = BaseDef;
 
@@ -132,12 +141,41 @@ namespace LostCompound.Tools
                 if (exist.GetType() == b.GetType())
                 {
                     exist.MergeFrom(b);
+                    RecomputeStr();        // buff 可能改 STR，立刻重算
                     RefreshBuffBox();      // 叠加会改伤害/剩余回合，框要立刻跟上
                     return;
                 }
             }
             Buffs.Add(b);
+            RecomputeStr();                // buff 可能改 STR，立刻重算
             RefreshBuffBox();
+        }
+
+        /// <summary>
+        /// 重算当前 STR = 基础 STR + 环境修正 + 所有 buff 的修正。
+        ///
+        /// 为什么必须「从基础值重算」，而不是谁想改就 -= / += ：
+        ///   改 STR 的来源有好几个（环境、buff、将来的装备）。用加减法的话，
+        ///   每个来源都得自己负责「什么时候加回来」—— buff 有三条移除路径
+        ///   （自然到期 / 战斗结束 ClearBuffs / 将来的驱散），漏掉任何一条，
+        ///   STR 就永久偏移一点，而且不报错、不崩溃，只是「打着打着变弱了」。
+        ///   重算没有这些问题：不管谁改了什么，值永远等于「基础 + 当前所有修正之和」。
+        /// </summary>
+        public void RecomputeStr()
+        {
+            double str = BaseStr;
+
+            // 环境修正（如熔岩瀑布缺水）
+            Environment env = CurrentEnvironment;
+            if (env != null) str += env.StrModifier;
+
+            // buff 修正（如某个增益 +1 STR）
+            foreach (Buff b in Buffs)
+            {
+                str += b.StrBonus;
+            }
+
+            Str = str;
         }
 
         /// <summary>跳过回合：返回"这次是否被跳过"，顺手扣一次计数。
@@ -221,6 +259,9 @@ namespace LostCompound.Tools
         {
             Console.WriteLine("=====你的回合=====");
             RefreshStatus();               // 战斗中让状态栏显示血量/防御/护盾
+            // 环境状态（水量、水位）每回合都在变，所以每回合都要重算 STR，
+            // 不能只在进战斗时算一次 —— 否则缺水削弱要等到下一场战斗才生效。
+            RecomputeStr();
             RefreshBuffBox();              // Buff 框：进新回合时剩余回合已经 -1，必须重画
             HandleChangeableItems(envType);
             Inventory.AddRange(PendingItems);
@@ -244,7 +285,7 @@ namespace LostCompound.Tools
         public void OnPlayerTurn(List<Monster> monsters, EnvType envType)
         {
             if (!IsAlive)
-            {//判定死没死
+            {
                 Console.WriteLine("你死了！");
                 IsDead = true;
                 return;
@@ -376,21 +417,9 @@ namespace LostCompound.Tools
             }
         }
 
-        /// <summary>当前有效 STR = 基础 STR + 环境修正（如熔岩瀑布缺水会削弱）。</summary>
-        private double EffectiveStr
-        {
-            get
-            {
-                Environment env = CurrentEnvironment;
-                // 注意符号：StrModifier 在缺水时是负值，所以这里直接「加」修正量即可实现
-                // 「缺水 → STR 变小」；水满时修正量为 0，与原来完全一致。
-                return Str + (env?.StrModifier ?? 0.0);
-            }
-        }
-
         public void Attack(List<Monster> monsters)
         {
-            double dmg = Calculator.CalculateAttack(EffectiveStr, Atk);
+            double dmg = Calculator.CalculateAttack(Str, Atk);
             Console.WriteLine("=====攻击界面=====");
             Calculator.Delay(250);
 
@@ -1033,7 +1062,8 @@ namespace LostCompound.Tools
                 // 显示 STR（力量）而不是最终的攻击力：攻击力 = 2 + STR × √ATK 是派生值，
                 // 而 STR 才是环境（如熔岩瀑布缺水）与装备真正在改的东西，
                 // 看它才知道「自己是被削了还是被加强了」。
-                s += "\n力量:" + EffectiveStr.ToString("F1");
+                s += "\n力量:" + Str.ToString("F1");
+                // s += "\n攻击力:" + Atk.ToString("F1");
             }
             Environment env = CurrentEnvironment;
             if (env != null) s += "\n" + env.DescribeStatus();
@@ -1093,7 +1123,7 @@ namespace LostCompound.Tools
         ///
         /// 「战斗结束清空敌人框」为什么放在这里 —— Tools.RunBattle 用 try/finally
         /// 保证无论怎么退出都会走 SetInBattle(false)，在 Player 这一侧清空能覆盖
-        /// 全部战斗入口（FightRoom / BossRoom / demo02），不必去动 Tools.cs。
+        /// 全部战斗入口（FightRoom / BossRoom / DebugMenu），不必去动 Tools.cs。
         ///
         /// 不清的后果：最后一名敌人被打死那次，OnPlayerTurn 里的 RefreshEnemyBox
         /// 不会再被调用（怪死光后循环直接 break），框里会残留一个 0 血的敌人。
@@ -1101,12 +1131,17 @@ namespace LostCompound.Tools
         public void SetInBattle(bool v)
         {
             _inBattle = v;
-            if (v) ApplyEquipmentPassives();
+            if (v)
+            {
+                ApplyEquipmentPassives();
+            }
             else
             {
                 _screen?.DrawEnemies("");         // 空串 = 敌人框回到 3 行空白
                 _screen?.DrawBuffs("");           // 同理清空 Buff 框（Tools.ClearBuffs 也会清掉 Buffs 列表）
             }
+            // 进/出战斗都要重算 STR：水量的修正、buff 的修正都得反映进来
+            RecomputeStr();
             RefreshStatus();
         }
 
@@ -1180,7 +1215,7 @@ namespace LostCompound.Tools
             Console.WriteLine("游戏开始！输入方向探索地图。");
 
             // 开局解锁「配方0」（热硫 + 玻璃罐）。
-            // 注意：这个方法原先只在 demo02 里被调用，主游戏从来没解锁过任何配方，
+            // 历史：这个方法原先只在一个已删除的调试入口里被调用，主游戏从来没解锁过任何配方，
             // 导致玩家选「4.徒手合成」永远只会看到「你没有任何道具合成!」。
             // 放在 Install 之后，提示才会进日志区（放前面会被 Install 的清屏抹掉）。
             AddDefaultRecipes();
