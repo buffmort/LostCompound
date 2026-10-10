@@ -15,6 +15,12 @@ namespace LostCompound.Tools
 
         private bool _running = true;
 
+        /// <summary>
+        /// debug 模式开关。在主菜单输入 255 打开（见 HandleChoice）。
+        /// 打开后主菜单多出「调试战斗」「获取道具」两项；关闭时菜单与以前逐字一致。
+        /// </summary>
+        private bool _debug;
+
         public void Run()
         {
             while (_running)
@@ -30,6 +36,13 @@ namespace LostCompound.Tools
             Console.WriteLine("------------ 主菜单 ------------");
             Console.WriteLine("  1. 开始游戏");
             Console.WriteLine("  2. 退出游戏");
+            // 只有 debug 模式才多出这两行：非 debug 时菜单文本与以前逐字一致
+            // （1/2 的编号绝不能被挤动，所以新项一律往后排 3/4）。
+            if (_debug)
+            {
+                Console.WriteLine("  3. 调试战斗");
+                Console.WriteLine("  4. 获取道具");
+            }
             Console.WriteLine("--------------------------------");
         }
 
@@ -42,6 +55,29 @@ namespace LostCompound.Tools
                     break;
                 case 2:
                     ConfirmExit();
+                    break;
+                case 255:
+                    // 255 是「开启 debug 模式」而不是菜单项，所以它不出现在菜单里。
+                    // 这里仅开开关，不做别的：主菜单 1/2 的行为完全不变。
+                    _debug = true;
+                    Console.WriteLine("已进入 debug 模式！\n");
+                    break;
+                case 3:
+                    if (!_debug)
+                    {
+                        // 非 debug 时 3 依旧是「没有这个选项。」，与以前一致
+                        Console.WriteLine("没有这个选项。\n");
+                        break;
+                    }
+                    DebugMenu.RunDebugBattle();
+                    break;
+                case 4:
+                    if (!_debug)
+                    {
+                        Console.WriteLine("没有这个选项。\n");
+                        break;
+                    }
+                    DebugMenu.GiveItems();
                     break;
                 default:
                     Console.WriteLine("没有这个选项。\n");
