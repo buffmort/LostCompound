@@ -46,7 +46,7 @@ namespace LostCompound.Tools
 
         // ---- TUI 状态栏联动 ----
         private ConsoleScreen _screen;          // 当前接管输出的分栏界面（不在游戏中时为 null）
-        private string _statusHeader = "";      // 状态栏固定两行：当前位置 / 当前房间
+        private string _statusHeader = "";      // 状态栏固定行：当前房间
         private bool _inBattle;                 // 是否处于战斗中（决定状态栏是否追加血量等）
 
         // 玩家背包 / 待入包 / 已解锁配方
@@ -1021,7 +1021,7 @@ namespace LostCompound.Tools
             throw new InvalidOperationException("地图中没有起始房间！");
         }
 
-        /// <summary>刷新状态栏。战斗时会追加血量/防御/护盾/攻击力。</summary>
+        /// <summary>刷新状态栏。战斗时会追加血量/防御/护盾/力量。</summary>
         private void RefreshStatus()
         {
             if (_screen == null) return;
@@ -1030,7 +1030,10 @@ namespace LostCompound.Tools
             {
                 // 护盾按 F1 保留一位小数：它是 double，且装备加成将来可能是小数（如盾 +5.0）
                 s += "\n血量:" + Hp.ToString("F1") + "  防御:" + Def.ToString("F1") + "  护盾:" + Shield.ToString("F1");
-                s += "\n攻击力:" + Calculator.CalculateAttack(EffectiveStr, Atk).ToString("F1");
+                // 显示 STR（力量）而不是最终的攻击力：攻击力 = 2 + STR × √ATK 是派生值，
+                // 而 STR 才是环境（如熔岩瀑布缺水）与装备真正在改的东西，
+                // 看它才知道「自己是被削了还是被加强了」。
+                s += "\n力量:" + EffectiveStr.ToString("F1");
             }
             Environment env = CurrentEnvironment;
             if (env != null) s += "\n" + env.DescribeStatus();
@@ -1158,8 +1161,8 @@ namespace LostCompound.Tools
             screen.DrawMap(tmg.ToDisplayString());
 
             // 位置/房间这两行是状态栏的固定部分，缓存起来供战斗中刷新时复用
-            _statusHeader = "当前位置: (" + PlayerRow + ", " + PlayerCol + ")\n"
-                          + "当前房间:" + map[PlayerRow][PlayerCol].Type;
+            // 「当前位置」已按要求去掉：地图上玩家所在格子本来就有 * 标记，再报一遍坐标是冗余。
+            _statusHeader = "当前房间:" + map[PlayerRow][PlayerCol].Type;
 
             RefreshStatus();
         }
