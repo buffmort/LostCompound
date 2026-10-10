@@ -15,7 +15,10 @@ namespace LostCompound.UI
     ///   └─────────────────┘            │ 当前房间:Start           │
     ///   ┌─ 输入 ──────────┐            │ 熔岩瀑布水量：200/200    │
     ///   │ > _              │            └──────────────────────────┘
-    ///   └─────────────────┘
+    ///   └─────────────────┘            ┌─ Buff ──────────────────┐
+    ///                                  │ 流血: 7伤害 2回合         │
+    ///                                  │ （空）                   │
+    ///                                  └──────────────────────────┘
     ///
     /// 为什么左右分栏？地图是宽而方的（10×10 地图 = 41 列 × 21 行），
     /// 状态/日志/输入本来就窄。上下堆叠时地图会吃掉纵向空间，日志被压到个位数；
@@ -42,6 +45,7 @@ namespace LostCompound.UI
         private string _lastMap;                   // 上次画过的地图文本（跳过无变化的重绘）
         private string _lastStatus;                // 上次画过的状态文本
         private string _lastEnemies = "";          // 上次画过的敌人文本
+        private string _lastBuffs = "";            // 上次画过的 Buff 文本
 
         /// <summary>输入框里提示文字前面的前缀。</summary>
         private const string PromptPrefix = "> ";
@@ -55,6 +59,13 @@ namespace LostCompound.UI
         public int LogRows { get; private set; }
         /// <summary>敌人框的内容行数。固定 3 行 —— 足以放下三个敌人。</summary>
         public const int EnemyRows = 3;
+        /// <summary>
+        /// Buff 框的内容行数。固定 2 行 —— 够放满当前全部 buff 种类（现在只有流血一种）。
+        /// 为什么取 2 而不是任务书建议的 3：右列纵向已经排了「地图 + 状态 + Buff」三个框，
+        /// 每多 1 行都要从地图上扣（见构造函数里的纵向分配），2 行足以容纳现存 buff 种类，
+        /// 把省下的 1 行留给地图。将来 buff 种类超过 2 种时再改回 3 即可（只改这一个常量）。
+        /// </summary>
+        public const int BuffRows = 2;
         /// <summary>地图框外框宽度（含左右竖线）。会随地图内容宽度只涨不缩。</summary>
         public int MapWidth { get; private set; }
         /// <summary>左列各框外框宽度（含左右竖线）。随地图宽度反向变化。</summary>
@@ -87,16 +98,18 @@ namespace LostCompound.UI
         private int LogBoxTop => EnemyBoxTop + EnemyRows + 2;
         private int InputBoxTop => LogBoxTop + LogRows + 2;
 
-        // 右列：地图 → 状态
+        // 右列：地图 → 状态 → Buff
         private const int MapBoxTop = 1;
         private int StatusBoxTop => MapBoxTop + MapRows + 2;
+        /// <summary>Buff 框顶部行号：状态框正下方（中间不加空隙，两框紧贴成一组）。</summary>
+        private int BuffBoxTop => StatusBoxTop + StatusRows + 2;
 
         /// <summary>
         /// 整个布局占用的总行数（用于判断/恢复光标位置）。
         /// 左右两列各自占满纵向空间，所以取两者的最大值 —— 少算了矮的那列没关系，
         /// 但绝不能少算高的那列，否则 Uninstall 后光标会停在框中间。
         /// </summary>
-        public int TotalRows => Math.Max(InputBoxTop + 2, StatusBoxTop + StatusRows + 2);
+        public int TotalRows => Math.Max(InputBoxTop + 2, BuffBoxTop + BuffRows + 2);
 
         /// <summary>竖线之后、内容之前的边距（"│ " 两格）。</summary>
         private const int ContentOffset = 2;
@@ -137,13 +150,14 @@ namespace LostCompound.UI
             // 两列各自的总高（含边框）：
             //   左列 = 敌人框(EnemyRows + 2) + 日志框(LogRows + 2) + 输入框(3)
             //        = EnemyRows + LogRows + 7 = LogRows + 10
-            //   右列 = 地图框(MapRows + 2) + 状态框(StatusRows + 2)
-            //        = MapRows + StatusRows + 4 = MapRows + 7
+            //   右列 = 地图框(MapRows + 2) + 状态框(StatusRows + 2) + Buff框(BuffRows + 2)
+            //        = MapRows + StatusRows + BuffRows + 6 = MapRows + 11
             // 两者取最大不能超过终端高度，否则会触发终端滚动、绝对定位全废（见 CONVENTIONS 2.6）。
             _terminalHeight = terminalHeight;
 
             // 右列超高时优先压缩地图（日志比地图多显示一行 ≠ 少看一格地图，地图压到 5 行就够辨认方向）
-            int maxMapRows = terminalHeight - StatusRows - 4;
+            // 反推：MapRows ≤ terminalHeight - StatusRows - BuffRows - 6
+            int maxMapRows = terminalHeight - StatusRows - BuffRows - 6;
             MapRows = Math.Clamp(mapRows, 5, Math.Max(5, maxMapRows));
 
             // 左列超高时压缩日志：已知「左列总高 = LogRows + 10」，
@@ -156,9 +170,16 @@ namespace LostCompound.UI
 
             // 极端矮屏兜底：两列各有绕不开的硬下限 ——
             //   左列 ≥ 敌人框(3+2) + 日志框(1+2) + 输入框(3) = 11 行
-            //   右列 ≥ 地图框(3+2) + 状态框(3+2) = 10 行
-            // 终端矮到 11 行以下时，任何排布都放不下；此时尽量贴近上限，
-            // 保证 th ≥ 12 的常见终端永远是「两列总高 ≤ 终端高度」。
+            //   右列 ≥ 地图框(3+2) + 状态框(3+2) + Buff框(2+2) = 12 行
+            // 终端矮到 11 行以下时，任何排布都放不下；此时尽量贴近上限。
+            // 注意这里仍然只压地图：Buff 框是这一轮新增的常驻框，压它等于把功能压没了。
+            int overRight = (MapRows + StatusRows + BuffRows + 6) - terminalHeight;
+            if (overRight > 0)
+            {
+                MapRows = Math.Max(3, MapRows - overRight);
+            }
+
+            // 左列压完（理论上已经被 logRowsFit 保证不超；这里只做最后一道防线）
             int overLeft = (EnemyRows + LogRows + 7) - terminalHeight;
             if (overLeft > 0)
             {
@@ -189,6 +210,9 @@ namespace LostCompound.UI
             // 状态框（右列、地图下方）：宽度跟着 MapWidth 走，所以必须等地图宽度定下来后再画。
             // 首次绘制时 DrawMap 可能还会调整 MapWidth 并整屏重排，那时会连同状态框一起重画。
             DrawBox(StatusBoxTop, MapBoxLeft, MapWidth, "状态", StatusRows, SplitLines(_lastStatus ?? ""));
+
+            // Buff 框（右列、状态框正下方）：与状态框同理，宽度绑在 MapWidth 上，位置绑在 MapRows 上。
+            DrawBox(BuffBoxTop, MapBoxLeft, MapWidth, "Buff", BuffRows, SplitLines(_lastBuffs ?? ""));
         }
 
         /// <summary>把 Console.Out 还给真实输出（离开地图时调用）。</summary>
@@ -267,6 +291,8 @@ namespace LostCompound.UI
 
             DrawBox(MapBoxTop, MapBoxLeft, MapWidth, "地图", MapRows, SplitLines(_lastMap ?? ""));
             DrawBox(StatusBoxTop, MapBoxLeft, MapWidth, "状态", StatusRows, SplitLines(_lastStatus ?? ""));
+            // Buff 框的宽度同样绑在 MapWidth 上，地图一变宽它也要跟着重画
+            DrawBox(BuffBoxTop, MapBoxLeft, MapWidth, "Buff", BuffRows, SplitLines(_lastBuffs ?? ""));
         }
 
         /// <summary>
@@ -294,6 +320,25 @@ namespace LostCompound.UI
             _lastStatus = statusText;
 
             DrawBox(StatusBoxTop, MapBoxLeft, MapWidth, "状态", StatusRows, SplitLines(statusText));
+        }
+
+        /// <summary>
+        /// 重画 Buff 区（右列、状态框下方）。buffText 里用 \n 分行，最多 BuffRows 行。
+        ///
+        /// 为什么单独开一个框而不是塞进状态框：状态框是「玩家自己 + 环境」的固定快照
+        /// （位置/房间/血迹/水量），行数被 StatusRows 钉死；buff 是数量可变的列表。
+        /// 两者混在一起，buff 一来一回就会把状态行挤出去，行数又得自适应（会抖动）。
+        ///
+        /// 宽度同样用 MapWidth、起始列 MapBoxLeft —— 与状态框左右对齐，右列看起来是一整列。
+        /// 空字符串 = 框内全空（没有 buff 时就是一块 2 行的空白框）。
+        /// </summary>
+        public void DrawBuffs(string buffText)
+        {
+            // 与 DrawStatus / DrawEnemies 同一口径：内容没变就不重画，避免每回合整框闪烁
+            if (buffText == _lastBuffs) return;
+            _lastBuffs = buffText;
+
+            DrawBox(BuffBoxTop, MapBoxLeft, MapWidth, "Buff", BuffRows, SplitLines(buffText));
         }
 
         /// <summary>单独重画日志框的上下边框（位置变化时用）。</summary>

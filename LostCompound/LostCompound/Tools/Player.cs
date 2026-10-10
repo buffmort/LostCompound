@@ -132,10 +132,12 @@ namespace LostCompound.Tools
                 if (exist.GetType() == b.GetType())
                 {
                     exist.MergeFrom(b);
+                    RefreshBuffBox();      // 叠加会改伤害/剩余回合，框要立刻跟上
                     return;
                 }
             }
             Buffs.Add(b);
+            RefreshBuffBox();
         }
 
         /// <summary>跳过回合：返回"这次是否被跳过"，顺手扣一次计数。
@@ -219,6 +221,7 @@ namespace LostCompound.Tools
         {
             Console.WriteLine("=====你的回合=====");
             RefreshStatus();               // 战斗中让状态栏显示血量/防御/护盾
+            RefreshBuffBox();              // Buff 框：进新回合时剩余回合已经 -1，必须重画
             HandleChangeableItems(envType);
             Inventory.AddRange(PendingItems);
             PendingItems.Clear();
@@ -252,14 +255,9 @@ namespace LostCompound.Tools
             // 背包中的「可转变道具」（白磷 / 热硫 / 木头等）与耐久结算已经在
             // OnTurnStart → HandleChangeableItems 里处理完了；这里只做回合内的展示。
 
-            // 状态效果（如流血）：没有 buff 时一行都不打印，保证原有输出逐字不变。
-            // 每个 buff 打两行：每回合伤害 + 剩余回合 —— 这两个数玩家要一起看才有意义，
-            // 只给一个数看不出「还剩多久 / 每秒多疼」。
-            foreach (Buff b in Buffs)
-            {
-                Console.WriteLine("你身上的" + b.Name + "伤害:" + b.Stacks);
-                Console.WriteLine("你身上的" + b.Name + "剩余回合:" + b.RemainingTurns);
-            }
+            // 注意：buff 的状态快照（每回合伤害 / 剩余回合）原先在这里往日志打两行，
+            // 现已整段删除 —— 这些信息改由右列状态框下方的「Buff 框」常驻显示（见 RefreshBuffBox），
+            // 日志省下这些空间给真正的事件流（谁打了谁、掉了多少血）。
             Calculator.Delay(250);
             // 敌人列表不再写进日志区，改由左列顶部的「敌人框」常驻显示（见 ConsoleScreen.DrawEnemies）。
             // 为什么搬走：Attack / SelectTarget / OpenItems 的提示都要求玩家按编号选目标，
@@ -351,6 +349,9 @@ namespace LostCompound.Tools
             Console.WriteLine("你受到{0:F1}点伤害!", remaining);
             Console.WriteLine();
             RefreshStatus();               // 受伤后立刻更新状态栏
+            // 玩家身上可能有 buff 在结算中（如流血每回合走 TakeDamage），
+            // 这里顺手刷新一次 Buff 框，保证「结算完的那一跳」马上反映到框里。
+            RefreshBuffBox();
         }
 
         /// <summary>
@@ -1044,6 +1045,34 @@ namespace LostCompound.Tools
         }
 
         /// <summary>
+        /// 把玩家身上的 buff 喂给右列的「Buff 框」（状态框正下方）。
+        ///
+        /// 格式：每行一条 "名称: 每回合X伤害 · 剩余Y回合"。
+        /// 例：流血 7 点、剩 2 回合 → <c>流血: 每回合7伤害 · 剩余2回合</c>
+        /// 为什么这么排：玩家看 buff 只想一次看懂三件事 ——
+        ///   **什么效果 / 每回合多少 / 还剩多久**。
+        /// 名称放最前（一眼扫到种类），两个数字带上单位（伤害/回合）并排，
+        /// 中间用 " · " 分隔，避免 "7伤害 2回合" 这种两个数字连在一起被看成一串。
+        ///
+        /// 注意不打印「上限 10」这类规则说明：那是设计文档的内容，
+        /// 框里只放当前状态，规则说明文字会挤掉真正会变的数字。
+        ///
+        /// 空 buff 时传空字符串 —— DrawBuffs 会把整框画成空白（与敌人框清空同一口径）。
+        /// </summary>
+        private void RefreshBuffBox()
+        {
+            if (_screen == null) return;
+
+            List<string> lines = [];
+            for (int i = 0; i < Buffs.Count && i < ConsoleScreen.BuffRows; i++)
+            {
+                Buff b = Buffs[i];
+                lines.Add(b.Name + ": 每回合" + b.Stacks + "伤害 · 剩余" + b.RemainingTurns + "回合");
+            }
+            _screen.DrawBuffs(string.Join("\n", lines));
+        }
+
+        /// <summary>
         /// 进入/离开战斗。战斗状态会影响状态栏内容；离开战斗时顺手清空敌人框。
         ///
         /// 「战斗结束清空敌人框」为什么放在这里 —— Tools.RunBattle 用 try/finally
@@ -1057,7 +1086,11 @@ namespace LostCompound.Tools
         {
             _inBattle = v;
             if (v) ApplyEquipmentPassives();
-            else _screen?.DrawEnemies("");        // 空串 = 敌人框回到 3 行空白
+            else
+            {
+                _screen?.DrawEnemies("");         // 空串 = 敌人框回到 3 行空白
+                _screen?.DrawBuffs("");           // 同理清空 Buff 框（Tools.ClearBuffs 也会清掉 Buffs 列表）
+            }
             RefreshStatus();
         }
 
