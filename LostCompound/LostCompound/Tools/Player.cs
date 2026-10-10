@@ -273,6 +273,9 @@ namespace LostCompound.Tools
                 Console.WriteLine("debug模式操作:");
                 Console.WriteLine("127, 超雄模式");
                 Console.WriteLine("128, 获得全部合成");
+                // 129 是新增的：战斗中当场拿道具（主菜单的「4. 获取道具」发到常驻调试玩家身上，
+                // 战斗中由这里拿到正在战斗的这个玩家身上）。编号避开 127/128/255。
+                Console.WriteLine("129, 获取道具");
             }
             int option = ReadInt("请选择操作");
             switch (option)
@@ -302,6 +305,11 @@ namespace LostCompound.Tools
                     break;
                 case 128:
                     UnlockAllRecipes();
+                    break;
+                case 129:
+                    // 定量发放任意道具（ID → 名称 → 数量）。
+                    // 复用 DebugMenu 的那张 ItemFactory 表，不在这里再抄一份 ID 列表。
+                    DebugMenu.GiveItems(this);
                     break;
                 case 255:
                     _debug = true;
@@ -653,7 +661,12 @@ namespace LostCompound.Tools
             {
                 Console.WriteLine("请选择道具使用");
                 choice = ReadInt("选择道具编号(-1即退出)");
-                if (choice == -1) break;
+                if (choice == -1)
+                {
+                    // 直接返回。原来是 break，但那样 choice 仍是 -1，
+                    // 紧接着的 Inventory[choice] 就会越界访问。
+                    return;
+                }
                 if (choice >= 0 && choice < Inventory.Count) break;
                 Console.WriteLine("您的使用无效！请重新选择(0-" + (Inventory.Count - 1) + "):");
             }
