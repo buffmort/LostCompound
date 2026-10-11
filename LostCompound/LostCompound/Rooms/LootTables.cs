@@ -21,7 +21,20 @@ namespace LostCompound.Rooms
             switch (envType)
             {
                 case EnvType.None:
-                    Console.WriteLine("请调试！ 这是一个空环境!");
+                    // 空环境（EnvironmentFactory.Create 返回 null）：**故意返回空表**。
+                    // 这里原先有一句 `Console.WriteLine("请调试！ 这是一个空环境!")` ——
+                    // 已删除，理由不是「不好看」，而是它与事实矛盾且帮不上忙：
+                    //   1. 正常玩法**走不到**这个分支。两个选环境的菜单（GameLobby / DebugMenu）
+                    //      都只列 EnvironmentCatalog.All 里**已实现**的环境；EnvType.None 与
+                    //      「枚举里有、工厂没实现」的环境都进不了 catalog。所以这不是一个
+                    //      「玩家会遇到的缺表」，只有将来有人往 catalog 里加了没有工厂分支的名字时才会出现。
+                    //   2. 真出现时，那句话里也没有任何可用信息（不说是哪个环境、也不说该做什么），
+                    //      玩家只会看到一行像崩溃残留的英文/中文混排。
+                    //   3. 兜底掉落**不该**放在这里：本方法按设计就是「环境 → 该环境专属掉落表」，
+                    //      给 None 塞一份材料表等于让「环境没实现」这件事静默地继续能玩下去，
+                    //      正是 EnvironmentCatalog 注释里要防的那种静默失效。缺环境就该按缺环境处理
+                    //      （空房什么都不掉、StartRoom 走 BuildBasicStartPool 的基础池 —— 那一处
+                    //       是专门为 None 写的兜底，见 GetStartPool）。
                     break;
                 case EnvType.LavaWaterfall:
                     // 熔岩瀑布环境：掉落的特殊道具

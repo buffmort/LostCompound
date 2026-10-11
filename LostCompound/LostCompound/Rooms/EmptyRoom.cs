@@ -64,9 +64,22 @@ namespace LostCompound.Rooms
         }
 
         /// <summary>
-        /// 备用拾取逻辑：只在没有环境对象（<see cref="Room.Environment"/> 为 null）时调用，
-        /// 保持原来的「60% 概率从当前环境掉落表随机取一个」行为。
+        /// 备用拾取逻辑：只在没有环境对象（<see cref="Room.Environment"/> 为 null）时调用。
         /// 注意：候选列表是每次现取的局部变量，不再是静态列表（静态列表会在所有实例间共享累加）。
+        ///
+        /// ⚠️ 关于那句「保持原来的 60% 概率」的说法（原注释这里写错了，现改正）：
+        ///   本方法的实际行为是「60% 概率 × 可能为空的掉落表」——
+        ///   环境为 null 时 <see cref="EnvKind"/> 就是 <see cref="EnvType.None"/>，
+        ///   而 <see cref="LootTables.GetLootTable"/> 对 None 返回的是一张**空表**，
+        ///   于是 <c>possibleItems.Count > 0</c> 恒为假，永远是「什么也没找到」。
+        ///   所以 60% 这个概率在这个分支里**根本不起作用** —— 原来那句注释描述的是一种不存在的现象。
+        ///
+        /// 为什么不在这里补一份兜底掉落表：正常玩法走不到本方法。
+        ///   选中环境的两条入口（GameLobby.SelectEnvironment / DebugMenu.SelectEnvironment）
+        ///   都只列 EnvironmentCatalog.All 中已实现的环境，None 进不去；
+        ///   只有「catalog 里加了名字、EnvironmentFactory 却忘了加分支」这种**违反既定约定**的
+        ///   状态才会落到这里。那时正确做法是把工厂补上（catalog 的注释就是这么要求的），
+        ///   而不是让「环境没实现」继续安静地发道具。故保留空表、只把注释改成与代码相符。
         /// </summary>
         private void FallbackLoot(Player p)
         {
@@ -76,7 +89,7 @@ namespace LostCompound.Rooms
             {
                 List<Item> possibleItems = LootTables.GetLootTable(EnvKind);
 
-                // 60% 概率生成随机道具
+                // 60% 概率生成随机道具（注意：可能的候选表为空时下面这个分支永远走不到 else）
                 if (Random.Shared.NextDouble() < 0.6 && possibleItems.Count > 0)
                 {
                     int index = (int)(Random.Shared.NextDouble() * possibleItems.Count);
