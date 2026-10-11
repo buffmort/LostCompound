@@ -32,6 +32,16 @@ namespace LostCompound.Buffs
         public abstract string Name { get; }
 
         /// <summary>
+        /// 本 buff 的 ID（见 <see cref="BuffIds"/>）。由子类声明 —— 与 <see cref="Items.Item.Id"/> 同一做法。
+        ///
+        /// 为什么是抽象成员而不是在基类里放一个可写字段：ID 是**类型固有的身份**，
+        /// 一个 buff 类对应一个编号，不该由「谁 new 了谁」决定，也不该在运行期被改。
+        /// 写成 abstract 还有个副作用（好事）：新加一个 buff 子类时编译器会立刻报错，
+        /// 逼着人补上 ID 与 <see cref="BuffFactory"/> 的登记，不会静默漏掉。
+        /// </summary>
+        public abstract int Id { get; }
+
+        /// <summary>
         /// 效果量。**它的语义由各 buff 子类自己定义**，基类不规定单位：
         ///   - 流血里 = 每回合扣血数（不是「层数」）；
         ///   - 超雄综合症里 = 强度（当前实现并不读它）。

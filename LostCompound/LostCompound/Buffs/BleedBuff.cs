@@ -28,6 +28,9 @@ namespace LostCompound.Buffs
     {
         public override string Name => "流血";
 
+        /// <summary>本 buff 的 ID（见 <see cref="BuffIds"/>）。</summary>
+        public override int Id => BuffIds.Bleed;
+
         /// <summary>
         /// 流血的显示文案。**「伤害」这个词只能出现在这里** ——
         /// 它是流血的语义，不是所有 buff 的语义，所以由本子类自己声明，

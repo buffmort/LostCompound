@@ -11,6 +11,9 @@ public class SuperMaleBuff : Buff
     public override double StrBonus => 1000;
     public override string Name => "超雄综合症";
 
+    /// <summary>本 buff 的 ID（见 <see cref="BuffIds"/>）。</summary>
+    public override int Id => BuffIds.SuperMale;
+
     /// <summary>
     /// 显示文案：本 buff 的效果量（Stacks）**不是伤害**，所以绝不能沿用流血那套
     /// 「每回合 N 伤害」的写法（那正是改造前 Buff 框显示
