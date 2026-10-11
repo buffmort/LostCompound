@@ -126,6 +126,20 @@ namespace LostCompound.Rooms
                 {
                     Console.Write("输入你的选择: ");
                     string input = Console.ReadLine();
+                    if (input == null)
+                    {
+                        // 输入流结束（管道关闭 / 重定向读完 / Ctrl+Z）：ReadLine 之后每次都返回 null，
+                        // 而 int.TryParse(null) 恒为 false —— 原先这个 while (!valid) 就永远出不来，
+                        // 开局直接卡死在这里（这是全项目唯一一处裸用 ReadLine 的地方，连 ?. 兜底都没有）。
+                        // 处理：按「取默认」算 —— 默认本轮第 1 个候选，后面的发道具流程照旧走完。
+                        // ⚠️ 空行（""）不在这里：空行仍然走下面的「无效，请输入数字」重问，
+                        //    那是玩家有意不选，与「输入流没了」不是一回事。
+                        Console.WriteLine();
+                        Console.WriteLine("输入已结束，默认选择第 1 项。");
+                        choice = 1;
+                        valid = true;
+                        break;
+                    }
                     if (int.TryParse(input, out int parsedChoice))
                     {
                         choice = parsedChoice;
