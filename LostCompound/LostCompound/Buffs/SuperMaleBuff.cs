@@ -19,8 +19,12 @@ public class SuperMaleBuff : Buff
     /// 「每回合 N 伤害」的写法（那正是改造前 Buff 框显示
     /// 「超雄综合症: 每回合2147483647伤害」的原因）。
     /// 这里报的是真正在起作用的东西：STR 加成 = StrBonus。
+    ///
+    /// 时长段：永久时走 <see cref="Buff.RemainingTurnsText"/> 显示「永久」，
+    /// 不把哨兵 -1 印出来。与流血同理，非永久分支保持原有的「剩余N」写法，逐字不变。
     /// </summary>
-    public override string Describe() => "力量 +" + StrBonus + " · 剩余" + RemainingTurns;
+    public override string Describe() =>
+        "力量 +" + StrBonus + " · 剩余" + (IsPermanent ? RemainingTurnsText : RemainingTurns.ToString());
 
     public override void OnTurnTick(Player owner)
     {

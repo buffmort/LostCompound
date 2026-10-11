@@ -30,7 +30,13 @@ namespace LostCompound.Items
             // 伤害会被夹取、剩余回合会相加，直接打印字面量会与实际结算不符。
             // （这一点与旧代码打印 target.DotDuration / target.DotDamage 的口径一致。）
             BleedBuff applied = target.Buffs.OfType<BleedBuff>().First();
-            Console.WriteLine("你向" + target.Name + "投掷了一个白磷!造成" + applied.RemainingTurns + "回合持续时间" +
+            // 时长同样要判永久：RemainingTurns 在永久 buff 上是哨兵 -1（见 Buff.Permanent），
+            // 直接拼会写出「造成-1回合持续时间」。**目前怪物侧挂不到永久 buff**
+            // （BuffFactory 只由调试 130 用，而 130 只挂给玩家），这里属于防御 ——
+            // 但不判的话，将来任何一处给怪挂永久 buff 的代码都会把哨兵印给玩家。
+            // 非永久分支与改动前逐字相同（仍是「造成3回合持续时间」）。
+            Console.WriteLine("你向" + target.Name + "投掷了一个白磷!造成"
+                    + (applied.IsPermanent ? "永久" : applied.RemainingTurns + "回合") + "持续时间" +
                     "与 " + applied.Stacks + "每回合伤害");
             foreach (Monster monster in m)
             {

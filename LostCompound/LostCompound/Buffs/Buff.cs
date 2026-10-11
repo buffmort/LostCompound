@@ -21,11 +21,14 @@ namespace LostCompound.Buffs
         /// <summary>
         /// 初始效果量与初始剩余回合。子类构造函数传进来，避免每个子类自己写一遍字段初始化。
         /// 这里不能直接给 Stacks 赋值：MaxStacks 是虚属性，赋值必须走 AddStacks 才能保证不超过上限。
+        ///
+        /// turns 传 <see cref="Permanent"/> 表示永久。**⚠️ 这里必须先判永久再 Math.Max** ——
+        /// 否则 Math.Max(-1, 0) 会把它夹成 0，也就是"已到期"，永久 buff 一挂上就消失。
         /// </summary>
         protected Buff(int stacks, int turns)
         {
             AddStacks(stacks);
-            RemainingTurns = Math.Max(turns, 0);
+            RemainingTurns = turns == Permanent ? Permanent : Math.Max(turns, 0);
         }
 
         /// <summary>显示名（如「流血」）。</summary>
@@ -72,15 +75,33 @@ namespace LostCompound.Buffs
         public int RemainingTurns { get; private set; }
 
         /// <summary>
+        /// 「永久」的剩余回合哨兵：构造时传它进来，这个 buff 就永不因回合数到期
+        /// （<see cref="ConsumeTurn"/> 不会再递减，<see cref="IsExpired"/> 也不看回合数）。
+        ///
+        /// 为什么用哨兵而不是 int.MaxValue：
+        ///   ① int.MaxValue 终究会走到 0（约 21 亿回合），不是真正的"永久"，
+        ///      而且同类叠加时 AddTurns 相加会溢出去撞上限，行为含糊；
+        ///   ② 状态栏会显示「剩余 2147483647 回合」，很难看也没信息量。
+        ///   哨兵让「永久」成为显式表达的意图，显示层也能写成「永久」。
+        ///
+        /// 注意用 -1 而不是 0：0 已经是「已到期」的含义，不能复用。
+        /// </summary>
+        public const int Permanent = -1;
+
+        /// <summary>本 buff 是否为永久（构造时传了 <see cref="Permanent"/>）。</summary>
+        public bool IsPermanent => RemainingTurns == Permanent;
+
+        /// <summary>
         /// 是否已失效（该移除了）：剩余回合归零，或效果量为 0。
         /// 效果量为 0 也算失效 —— 留着它每回合什么都不做，只会在状态栏里显示一条假状态。
+        /// **永久 buff 不受回合数约束**，只看效果量。
         ///
         /// ⚠️ 这条默认规则本身就是「按流血这类周期性伤害 buff 写的」：它假定「效果量归零 = 没意义」。
         /// 对**效果量与持续时间无关**的 buff（如「开关型」buff、只靠 RemainingTurns 计时的 buff）
         /// 这个默认值是错的。所以它是 virtual：这类子类自己覆写即可
         /// （例如改成 `=> RemainingTurns <= 0`），不必去改基类。
         /// </summary>
-        public virtual bool IsExpired => RemainingTurns <= 0 || Stacks <= 0;
+        public virtual bool IsExpired => (!IsPermanent && RemainingTurns <= 0) || Stacks <= 0;
 
         /// <summary>
         /// 叠加效果量（不超过 MaxStacks）。
@@ -105,15 +126,26 @@ namespace LostCompound.Buffs
         /// ⚠️ 与 <see cref="AddStacks"/> 同因同治：中间用 <c>long</c> 累加再夹取，只为防 int 静默溢出。
         ///   这里溢出更直接：<c>RemainingTurns + n</c> 绕成负数后，<c>Math.Max(负数, 0)</c> 把它变成 0，
         ///   回合管线于是判定 buff 已过期并移除 —— 正是调试 127 连按两次会丢掉 +1000 STR 的那条路径。
-        /// 正常范围内的结果逐字不变。</summary>
+        /// 正常范围内的结果逐字不变。
+        ///
+        /// 永久 buff 叠加后仍是永久（"永久 + 3 回合" 不该变成 3 回合）。
+        /// </summary>
         public void AddTurns(int n)
         {
+            if (IsPermanent) return;
+            if (n == Permanent)
+            {
+                RemainingTurns = Permanent;      // 叠加进来一个永久的 → 整体变永久
+                return;
+            }
             RemainingTurns = (int)Math.Clamp((long)RemainingTurns + n, 0, int.MaxValue);
         }
 
-        /// <summary>结算一次剩余回合（每回合调用一次）。归零后 IsExpired 为真，由回合管线移除。</summary>
+        /// <summary>结算一次剩余回合（每回合调用一次）。归零后 IsExpired 为真，由回合管线移除。
+        /// 永久 buff 不递减 —— 这正是「无限持续」的实现方式。</summary>
         public void ConsumeTurn()
         {
+            if (IsPermanent) return;
             RemainingTurns = Math.Max(RemainingTurns - 1, 0);
         }
 
@@ -184,6 +216,19 @@ namespace LostCompound.Buffs
         public virtual double DefBonus => 0.0;
 
         /// <summary>
+        /// 给显示用的「剩余时长」文本：永久就是「永久」，否则「N 回合」。
+        ///
+        /// 为什么要有它：永久 buff 的 <see cref="RemainingTurns"/> 是哨兵 -1
+        /// （见 <see cref="Permanent"/> 的注释），**哨兵是内部表示，不是给玩家看的数值** ——
+        /// 显示层直接拼就会写出「剩余-1回合」。把「哨兵 → 人话」这一步收在这一个属性里，
+        /// 各子类的 <see cref="Describe"/> 都走它，将来再加 buff 子类也不会有人漏判永久又写出 -1。
+        ///
+        /// 非永久时它返回的就是 <c>RemainingTurns + "回合"</c>，与加永久之前的写法逐字一致
+        /// （例如仍是「2回合」）—— 这次只改永久那一种情况。
+        /// </summary>
+        protected string RemainingTurnsText => IsPermanent ? "永久" : RemainingTurns + "回合";
+
+        /// <summary>
         /// 状态栏「Buff 框」里显示的一行效果说明（不含显示名，名字由调用方拼在前面）。
         ///
         /// 为什么要有它：显示层（Player.RefreshBuffBox）原先自己拼
@@ -199,8 +244,11 @@ namespace LostCompound.Buffs
         ///
         /// 默认实现刻意**只说通用事实**（剩余回合），不写任何单位 ——
         /// 基类不该猜子类的效果量是什么。子类若觉得不够显眼，覆写它即可。
+        ///
+        /// 时长段走 <see cref="RemainingTurnsText"/>：永久 buff 显示「剩余永久」，
+        /// 而不是把哨兵 -1 直接印成「剩余-1回合」。
         /// </summary>
-        public virtual string Describe() => "剩余" + RemainingTurns + "回合";
+        public virtual string Describe() => "剩余" + RemainingTurnsText;
 
         /// <summary>
         /// 每回合结算一次。由战斗回合管线（Tools.ApplyBuffs）调用。
