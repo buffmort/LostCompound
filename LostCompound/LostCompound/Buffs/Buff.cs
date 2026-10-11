@@ -65,12 +65,12 @@ namespace LostCompound.Buffs
         /// 是否已失效（该移除了）：剩余回合归零，或效果量为 0。
         /// 效果量为 0 也算失效 —— 留着它每回合什么都不做，只会在状态栏里显示一条假状态。
         ///
-        /// ⚠️ 这条默认规则本身就是「按流血写的」：它假定「效果量归零 = 没意义」。
+        /// ⚠️ 这条默认规则本身就是「按流血这类周期性伤害 buff 写的」：它假定「效果量归零 = 没意义」。
         /// 对**效果量与持续时间无关**的 buff（如「开关型」buff、只靠 RemainingTurns 计时的 buff）
-        /// 这个默认值是错的。这类 buff 目前只能靠「别把 Stacks 传 0」绕过。
-        /// 建议（未改，见排查报告）：把它改成虚属性，让这类子类能覆盖。
+        /// 这个默认值是错的。所以它是 virtual：这类子类自己覆写即可
+        /// （例如改成 `=> RemainingTurns <= 0`），不必去改基类。
         /// </summary>
-        public bool IsExpired => RemainingTurns <= 0 || Stacks <= 0;
+        public virtual bool IsExpired => RemainingTurns <= 0 || Stacks <= 0;
 
         /// <summary>叠加效果量（不超过 MaxStacks）。</summary>
         public void AddStacks(int n)
@@ -95,16 +95,17 @@ namespace LostCompound.Buffs
 
         /// <summary>
         /// 同类叠加的**默认**规则：效果量取 min(现有 + 新增, 上限)，剩余回合取两者之和。
+        /// 这套默认语义是**按周期伤害类 buff（流血）定的**：效果量越大越疼、时长相加越长。
+        /// 其它类型的 buff（开关型、只刷时长不叠强度等）可以覆写本方法。
         /// 为什么放在基类：Player.AddBuff 和 Monster.AddBuff 都要做这件事
         /// （CONVENTIONS 2.5：同一段逻辑出现两遍就提到基类），否则以后加第三种持有者又要再抄一遍。
         ///
         /// ⚠️ 这只是一个默认实现，**「叠加 = 效果量相加」并不是所有 buff 都成立的语义**
         /// （旧 DOT 的 AddDotDuration 是 += 累加，所以这里沿用了加法）。
         /// 如果某个 buff 的叠加规则不是「相加」（例如「重复挂只刷新时长、不叠强度」），
-        /// 目前只能覆盖 AddStacks/AddTurns 侧的效果，MergeFrom 本身不是 virtual，
-        /// 想换规则就得改基类。建议（未改，见排查报告）：把 MergeFrom 改成 virtual。
+        /// 覆写本方法（必要时配合 AddStacks/AddTurns）即可，不必改基类。
         /// </summary>
-        public void MergeFrom(Buff other)
+        public virtual void MergeFrom(Buff other)
         {
             AddStacks(other.Stacks);
             AddTurns(other.RemainingTurns);
