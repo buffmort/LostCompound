@@ -996,6 +996,26 @@ namespace LostCompound.Tools
             if (item is IUseable useable)
             {
                 useable.Use(this, monsters);
+
+                // 用完立刻收尸：把「数量归零 / 该转变」的道具当场处理掉，别再等下一个玩家回合。
+                //
+                // 为什么必须在这里做：IUseable.Use() 只负责扣 Count（如硫酸 / 水瓶 / 金属 / 碘片），
+                // 而移除的时机原先**只**挂在 OnTurnStart → HandleChangeableItems 上。
+                // 于是「用掉最后一瓶水」之后，本回合剩下的所有显示（敌人框、状态栏、日志）
+                // 都还在背包里挂着一条「水瓶 x0」—— 直到下一回合开头才消失。
+                // 那不是显示延迟 0.5 秒的问题：道具列表是玩家下一次 OpenItems 要按编号选的，
+                // x0 的条目占着一个编号、还能被再次选中，点下去只会得到一句「你已经没有…」。
+                //
+                // 为什么判定必须用 ShouldRemove()：不能写 `if (item.Count == 0)`。
+                // IChangeable 的语义是「数量归零后移出背包 / 变成别的」（CONVENTIONS 2.4），
+                // 具体条件由各道具自己声明（ShouldRemove），Become 决定是否留下替代品。
+                // 把条件写死成「Count == 0」会漏掉「还没用光但应该移除」的道具
+                // （如将来某个道具在耐久耗尽时就该消失），所以这里只调用 c.ShouldRemove()，
+                // 与回合末那条通路**走同一个判定**，绝不在使用路径上另立一套规则。
+                //
+                // 注意：走到这里意味着上面的 while 已经校验过编号合法，且 branch 确实执行了 Use()。
+                // 用户输入无效编号 / -1 退出 / 非 IUseable 时都不会到这里，不会被误删。
+                RemoveConsumedItems();
             }
             else
             {
@@ -1006,8 +1026,14 @@ namespace LostCompound.Tools
         /// <summary>
         /// 每个玩家回合结算一次「背包里所有与回合数有关的道具」：
         /// ITurnCount（如木头在熔岩瀑布烧成碳）先推进计数器，
-        /// IChangeable 再判断是否该转变/移除，需要转变的产物统一在遍历结束后入包，
+        /// 再立刻判断 IChangeable 是否该转变/移除，需要转变的产物统一在遍历结束后入包，
         /// 避免边遍历边修改 Inventory。
+        ///
+        /// ⚠️ 「推进计数器」与「收尸」必须**逐项交替**（先推进、再收这一项），
+        /// 不能拆成「全推进一轮、再收尸一轮」：某个道具的计数推进可能正好把自己用到 0
+        /// （如木头按环境扣 Change），那种道具应当在**本轮**就被收走，而拆成两轮会让它多留一轮。
+        /// 这里只把收尸那一步抽成 <see cref="TryRemoveIfConsumed"/>（与「用完立刻收尸」共用判定），
+        /// 交替顺序逐字保留。
         /// </summary>
         private void HandleChangeableItems(EnvType envType)
         {
@@ -1019,19 +1045,52 @@ namespace LostCompound.Tools
                 {
                     turnCount.OnBattleStart(this, envType);
                 }
-                if (item is IChangeable c)
-                {
-                    if (c.ShouldRemove())
-                    {
-                        Item replacement = c.Become();
-                        if (replacement != null)
-                        {
-                            toAdd.Add(replacement);
-                        }
-                        Inventory.RemoveAt(i);
-                        i--;
-                    }
-                }
+                // 收尸后 i-- 让本次循环重看同一个下标（列表左移了一格）—— 与原先一致
+                if (TryRemoveIfConsumed(i, toAdd)) i--;
+            }
+            foreach (Item newItem in toAdd)
+            {
+                AddItem(newItem);
+            }
+        }
+
+        /// <summary>
+        /// 若 <paramref name="index"/> 处的道具满足 <see cref="IChangeable.ShouldRemove"/>
+        /// （「数量归零后移出背包 / 变成别的」，判定归各道具自己声明），就把它移出背包，
+        /// 产物（<see cref="IChangeable.Become"/>）收进 <paramref name="toAdd"/> 由调用方统一入包。
+        /// 返回是否发生了移除（调用方据此决定要不要 `i--`）。
+        ///
+        /// 为什么判定必须走 ShouldRemove()：不能写 `if (item.Count == 0)` —— 那会漏掉
+        /// 「还没用光但应该移除」的道具，等于在使用路径上另立一套与回合末不同的规则。
+        /// 两条收尸通路（回合末 / 用完一次）走同一个判定，正是因为收尸条件只有一处定义。
+        /// </summary>
+        private bool TryRemoveIfConsumed(int index, List<Item> toAdd)
+        {
+            Item item = Inventory[index];
+            if (item is not IChangeable c || !c.ShouldRemove()) return false;
+
+            Item replacement = c.Become();
+            if (replacement != null)
+            {
+                toAdd.Add(replacement);
+            }
+            Inventory.RemoveAt(index);
+            return true;
+        }
+
+        /// <summary>
+        /// 收走背包里所有「该走了」的道具 —— 用完道具（<see cref="OpenItems"/>）后立刻调用，
+        /// 免得「用掉最后一瓶水」之后背包里还挂着一条可被重新选中的「水瓶 x0」，
+        /// 一直等到下一个玩家回合的 <see cref="HandleChangeableItems"/> 才消失。
+        ///
+        /// 只做收尸，不推进 ITurnCount —— 那是「回合」的事，不是「用了一次」的事。
+        /// </summary>
+        private void RemoveConsumedItems()
+        {
+            List<Item> toAdd = [];
+            for (int i = 0; i < Inventory.Count; i++)
+            {
+                if (TryRemoveIfConsumed(i, toAdd)) i--;
             }
             foreach (Item newItem in toAdd)
             {
