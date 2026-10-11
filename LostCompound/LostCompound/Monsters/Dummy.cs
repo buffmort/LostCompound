@@ -18,16 +18,21 @@ namespace LostCompound.Monsters
 
         public override void TakeDamage(double dmg)
         {
-            double realDmg = Calculator.ApplyDefense(Def, dmg);
-            double hpLoss = AbsorbWithShield(realDmg);
-            if (hpLoss <= 0)
-            {
-                Console.WriteLine(Name + "的护盾挡下了伤害！（剩余护盾:" + Shield.ToString("F1") + "）");
-                Calculator.Delay(250);
-                return;
-            }
+            // 骨架在 Monster.TakeDamageWithDefaultLog 里（DEF 减免 → 吃盾 → 播报），
+            // 本类只提供自己那两句文案。假人 Def 为 0，结算结果与重构前一致。
+            TakeDamageWithDefaultLog(dmg);
+        }
+
+        /// <summary>护盾吃光整刀时的播报（文案与重构前逐字一致）。</summary>
+        protected override void LogShieldAbsorbed()
+        {
+            Console.WriteLine(Name + "的护盾挡下了伤害！（剩余护盾:" + Shield.ToString("F1") + "）");
+        }
+
+        /// <summary>实际扣血时的播报（文案与重构前逐字一致）。</summary>
+        protected override void LogDamageTaken(double hpLoss)
+        {
             Console.WriteLine(Name + "受到{0:F1}点伤害!", hpLoss);
-            Calculator.Delay(250);
         }
 
         public override void OnMonsterTurn(Player p)

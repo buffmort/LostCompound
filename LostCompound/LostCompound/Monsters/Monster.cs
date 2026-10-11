@@ -108,6 +108,74 @@ namespace LostCompound.Monsters
             return remaining;
         }
 
+        /// <summary>
+        /// 子类 <c>TakeDamage</c> 的公共骨架：<b>预处理 → DEF 减免 → 吃盾 → 播报</b>。
+        ///
+        /// 抽到基类的理由（CONVENTIONS 2.5）：Dragon / Zombie / Dummy / LavaSlime
+        /// 四个子类的这段逻辑逐字相同，只有**播报文案**和 LavaSlime 的**高温抗性预处理**不同。
+        /// 各子类现在只需要声明三段文案（<see cref="LogShieldAbsorbed"/> /
+        /// <see cref="LogDamageTaken"/>）与必要的预处理（<see cref="ProcessIncomingDamage"/>）。
+        ///
+        /// ⚠️ 判定顺序与返回值**逐字不变**：先 <see cref="ProcessIncomingDamage"/>（默认恒等，
+        /// 只有岩浆怪覆写成高温免疫），再 <see cref="Calculator.ApplyDefense"/>，
+        /// 最后 <see cref="AbsorbWithShield"/>；<c>hpLoss &lt;= 0</c> 走「被盾挡下」那条、
+        /// 且那里**不**再播报受伤。任何顺序调换都会改变数值，属于 bug。
+        /// </summary>
+        /// <param name="incomingDamage">玩家打过来的原始伤害（还没过任何减免）</param>
+        protected void TakeDamageWithDefaultLog(double incomingDamage)
+        {
+            // 1. 预处理（岩浆怪在此削掉高温免疫的那 30%；其余怪物用默认的恒等）
+            double preprocessed = ProcessIncomingDamage(incomingDamage);
+
+            // 2. DEF 减免
+            double realDmg = Calculator.ApplyDefense(Def, preprocessed);
+
+            // 3. 先扣盾、盾不够再扣血；hpLoss = 实际扣掉的血量
+            double hpLoss = AbsorbWithShield(realDmg);
+
+            // 4. 播报：伤害全被盾吃下时血量没掉，口径也必须跟着换，
+            //    否则玩家会看到「受到 X 点伤害」但血条纹丝不动。
+            if (hpLoss <= 0)
+            {
+                LogShieldAbsorbed();
+                Calculator.Delay(250);
+                return;
+            }
+
+            LogDamageTaken(hpLoss);
+            Calculator.Delay(250);
+        }
+
+        /// <summary>
+        /// 伤害进入「DEF 减免」之前的一次预处理。默认恒等（原样返回）。
+        /// 目前只有岩浆怪覆写它，用来先削掉高温免疫的那 30%（设计文档六）。
+        /// </summary>
+        protected virtual double ProcessIncomingDamage(double incomingDamage) => incomingDamage;
+
+        /// <summary>
+        /// 伤害**全部被护盾吸收**（血量没掉）时的播报。
+        /// 只负责打印，不负责 <see cref="Calculator.Delay"/> —— 延迟由基类统一加，
+        /// 免得某个子类多写或少写一句 Delay 就改变了节奏。
+        /// 文案由各子类原样提供，必须与重构前逐字一致。
+        ///
+        /// 为什么是 virtual 而不是 abstract：不是所有怪物都走这条带播报的骨架。
+        /// 作孽双子（TwistedPairP1 / TwistedPairP2）的 TakeDamage 是**故意短一截**的
+        /// —— 原实现就是「不过 DEF、也不播报」，只 <see cref="AbsorbWithShield"/>（见那两个类的注释）。
+        /// 它们若不覆写本方法，就自动继承「什么都不打印」的默认行为，正好与原实现一致；
+        /// 若写成 abstract，就会被迫在两个「本来就没有播报」的类里写空实现，
+        /// 那反而像是「这里本该播报、只是懒得写」。
+        /// </summary>
+        protected virtual void LogShieldAbsorbed() { }
+
+        /// <summary>
+        /// 实际扣血时的播报，<paramref name="hpLoss"/> = 真正扣掉的血量。
+        /// 同样只负责打印、不含 Delay。文案必须与重构前逐字一致
+        /// （注意各怪的写法本来就不同：龙是 "{0}受到 {1:F1} 点伤害！"，
+        /// 其余三只是 Name + "受到{0:F1}点伤害!"，不要「顺手统一」）。
+        /// virtual 而非 abstract 的理由同 <see cref="LogShieldAbsorbed"/>。
+        /// </summary>
+        protected virtual void LogDamageTaken(double hpLoss) { }
+
         public override string ToString() => $"{Name}({Math.Max(Hp, 0):F1}) ";
 
         private bool _lootDropped;

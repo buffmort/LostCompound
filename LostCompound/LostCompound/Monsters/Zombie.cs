@@ -32,19 +32,22 @@ namespace LostCompound.Monsters
 
         public override void TakeDamage(double dmg)
         {
-            // 顺序：先 DEF 减免，再吃盾（理由见 Player.TakeDamage / Monster.AbsorbWithShield）。
-            double realDmg = Calculator.ApplyDefense(Def, dmg);
-            double hpLoss = AbsorbWithShield(realDmg);
-            if (hpLoss <= 0)
-            {
-                // 伤害全被护盾挡下：血量没掉，播报也跟着改口径，
-                // 否则玩家会看到「受到 X 点伤害」但血条纹丝不动。
-                Console.WriteLine(Name + "的护盾挡下了伤害！（剩余护盾:" + Shield.ToString("F1") + "）");
-                Calculator.Delay(250);
-                return;
-            }
+            // 顺序：先 DEF 减免，再吃盾 —— 骨架在 Monster.TakeDamageWithDefaultLog 里，
+            // 本类只提供自己那两句文案（僵尸与假人/岩浆怪用同一套措辞，但各自声明，
+            // 避免将来其中一只单独改文案时被另一只连带改掉）。
+            TakeDamageWithDefaultLog(dmg);
+        }
+
+        /// <summary>护盾吃光整刀时的播报（文案与重构前逐字一致）。</summary>
+        protected override void LogShieldAbsorbed()
+        {
+            Console.WriteLine(Name + "的护盾挡下了伤害！（剩余护盾:" + Shield.ToString("F1") + "）");
+        }
+
+        /// <summary>实际扣血时的播报（文案与重构前逐字一致）。</summary>
+        protected override void LogDamageTaken(double hpLoss)
+        {
             Console.WriteLine(Name + "受到{0:F1}点伤害!", hpLoss);
-            Calculator.Delay(250);
         }
 
         public override void OnMonsterTurn(Player p)

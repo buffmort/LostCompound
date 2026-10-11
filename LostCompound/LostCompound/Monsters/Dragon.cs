@@ -43,19 +43,22 @@ namespace LostCompound.Monsters
 
         public override void TakeDamage(double dmg)
         {
-            // 先 DEF 减免，再吃盾（理由见 Monster.AbsorbWithShield 的注释）
-            double realDmg = Calculator.ApplyDefense(Def, dmg);
-            double hpLoss = AbsorbWithShield(realDmg);
-            if (hpLoss <= 0)
-            {
-                // 全部被鳞甲护盾吸收：血量没掉，所以不播报「受到伤害」
-                Console.WriteLine(Name + "用鳞甲挡下了攻击！（剩余护盾:" + Shield.ToString("F1") + "）");
-                Calculator.Delay(250);
-                return;
-            }
+            // 先 DEF 减免，再吃盾，最后播报 —— 骨架在 Monster.TakeDamageWithDefaultLog 里，
+            // 本类只提供自己那两句文案（龙的「鳞甲」措辞，其余怪物不一样）。
+            TakeDamageWithDefaultLog(dmg);
+        }
 
+        /// <summary>护盾吃光整刀时的播报（文案与重构前逐字一致）。</summary>
+        protected override void LogShieldAbsorbed()
+        {
+            // 全部被鳞甲护盾吸收：血量没掉，所以不播报「受到伤害」
+            Console.WriteLine(Name + "用鳞甲挡下了攻击！（剩余护盾:" + Shield.ToString("F1") + "）");
+        }
+
+        /// <summary>实际扣血时的播报（文案与重构前逐字一致，含 {0}/{1:F1} 的写法与空格）。</summary>
+        protected override void LogDamageTaken(double hpLoss)
+        {
             Console.WriteLine("{0}受到 {1:F1} 点伤害！", Name, hpLoss);
-            Calculator.Delay(250);
         }
 
         public override void OnMonsterTurn(Player p)

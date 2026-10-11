@@ -103,22 +103,33 @@ namespace LostCompound.Monsters
          */
         public override void TakeDamage(double dmg)
         {
-            // 高温免疫（设计文档六：免疫 30% 高温伤害）。
-            // 先按比例削掉「造成的伤害」，再交给 DEF 减免 —— 文档说的是「造成的伤害减少 30%」，
-            // 作用对象是伤害本身，而不是减免后的结果。
-            double afterImmunity = dmg * (1.0 - _highTempImmunity);
-            // 顺序：高温抗性 → DEF → 护盾。三者的作用对象都是「这一击的伤害」，
-            // 从外到内依次打折，最后剩下的部分才动血条（盾是最内层，因为它就是额外血量）。
-            double realDmg = Calculator.ApplyDefense(Def, afterImmunity);
-            double hpLoss = AbsorbWithShield(realDmg);
-            if (hpLoss <= 0)
-            {
-                Console.WriteLine(Name + "的护盾挡下了伤害！（剩余护盾:" + Shield.ToString("F1") + "）");
-                Calculator.Delay(250);
-                return;
-            }
+            // 骨架在 Monster.TakeDamageWithDefaultLog 里，本类只覆写「预处理」那一环
+            // （高温免疫）并提供自己那两句文案。
+            TakeDamageWithDefaultLog(dmg);
+        }
+
+        /// <summary>
+        /// 伤害进入 DEF 减免之前先削掉高温免疫的部分（设计文档六：免疫 30% 高温伤害）。
+        ///
+        /// 为什么在这里而不是在 TakeDamage 里：文档说的是「造成的伤害减少 30%」，
+        /// 作用对象是伤害本身、而不是减免后的结果，所以必须排在 DEF 减免**之前**。
+        /// 基类的骨架就是按这个顺序调的（预处理 → ApplyDefense → AbsorbWithShield）。
+        /// </summary>
+        protected override double ProcessIncomingDamage(double incomingDamage)
+        {
+            return incomingDamage * (1.0 - _highTempImmunity);
+        }
+
+        /// <summary>护盾吃光整刀时的播报（文案与重构前逐字一致）。</summary>
+        protected override void LogShieldAbsorbed()
+        {
+            Console.WriteLine(Name + "的护盾挡下了伤害！（剩余护盾:" + Shield.ToString("F1") + "）");
+        }
+
+        /// <summary>实际扣血时的播报（文案与重构前逐字一致）。</summary>
+        protected override void LogDamageTaken(double hpLoss)
+        {
             Console.WriteLine(Name + "受到{0:F1}点伤害!", hpLoss);
-            Calculator.Delay(250);
         }
 
         /**
