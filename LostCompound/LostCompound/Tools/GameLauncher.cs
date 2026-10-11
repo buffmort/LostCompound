@@ -69,7 +69,6 @@ namespace LostCompound.Tools
         public static void Main(string[] args)
         {
             // 必须在任何输出之前开启：banner 之后马上就会用到 ANSI 定位
-            TryEnableAnsi();
             PrintBanner();
             GameLobby lobby = new GameLobby();
             lobby.Run();

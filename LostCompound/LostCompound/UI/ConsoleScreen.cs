@@ -87,10 +87,16 @@ namespace LostCompound.UI
         private const int MinimumLogRows = 1;
 
         /// <summary>
-        /// 地图区最少保留的内容宽度（列）。约等于 4-5 格地图。
-        /// 太小的话，迷雾下只探索了左上角时地图框会缩到只能显示 1 列，没法规划路线。
+        /// 地图区最少保留的内容宽度（列）。41 列 ≈ 10 格地图（每格 4 字符 + 边框）。
+        ///
+        /// 为什么取整张地图的宽度而不是"够看几格就行"：
+        ///   状态框和 Buff 框的宽度**绑在地图框上**（都在右列、用同一个 MapWidth），
+        ///   而地图框会随探索进度只涨不缩。如果最小值太小，迷雾下只探索了左上角时
+        ///   地图框会很窄 → 状态框跟着窄 → 「熔岩瀑布水量：191/200」这类描述被截断。
+        ///   取满宽度后，状态栏从第一屏起就够用，不必等探索开。
+        /// 代价：早期地图框右侧会留一段空白（迷雾未探索的区域本来也没内容）。
         /// </summary>
-        private const int MinimumMapContentWidth = 21;
+        private const int MinimumMapContentWidth = 41;
 
         /// <summary>终端高度，用于保证重排后总高依然放得下。</summary>
         private readonly int _terminalHeight;

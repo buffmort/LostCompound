@@ -28,6 +28,13 @@ namespace LostCompound.Buffs
     {
         public override string Name => "流血";
 
+        /// <summary>
+        /// 流血的显示文案。**「伤害」这个词只能出现在这里** ——
+        /// 它是流血的语义，不是所有 buff 的语义，所以由本子类自己声明，
+        /// 而不是让显示层（Player.RefreshBuffBox）替所有 buff 写死。
+        /// </summary>
+        public override string Describe() => "每回合" + Stacks + "伤害 · 剩余" + RemainingTurns;
+
         /// <summary>每回合伤害上限 10（设计文档 3.2 技能 6 的「上限 10」）。</summary>
         public override int MaxStacks => MaxDamagePerTurn;
 

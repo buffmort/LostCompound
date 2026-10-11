@@ -375,10 +375,7 @@ namespace LostCompound.Tools
                     OpenAccessoryMenu();
                     break;
                 case 127:
-                    // 走 SetBaseStr 而不是直接写 Str：直接写会被下一次 RecomputeStr 冲掉
-                    // （曾经就是这样，超雄模式只能生效一回合）。
-                    // 改基础值才是「永久」，而且它会立刻触发重算。
-                    SetBaseStr(100);
+                    AddBuff(new SuperMaleBuff(1,int.MaxValue));
                     Console.WriteLine($"超雄模式：基础 STR 已设为 {BaseStr}（当前 STR {Str}）");
                     break;
                 case 128:
@@ -1130,12 +1127,22 @@ namespace LostCompound.Tools
         /// <summary>
         /// 把玩家身上的 buff 喂给右列的「Buff 框」（状态框正下方）。
         ///
-        /// 格式：每行一条 "名称: 每回合X伤害 · 剩余Y回合"。
+        /// 文案由 **buff 自己**决定（<see cref="Buff.Describe"/>），这里只负责加上显示名。
         /// 例：流血 7 点、剩 2 回合 → <c>流血: 每回合7伤害 · 剩余2回合</c>
-        /// 为什么这么排：玩家看 buff 只想一次看懂三件事 ——
-        ///   **什么效果 / 每回合多少 / 还剩多久**。
-        /// 名称放最前（一眼扫到种类），两个数字带上单位（伤害/回合）并排，
-        /// 中间用 " · " 分隔，避免 "7伤害 2回合" 这种两个数字连在一起被看成一串。
+        ///     超雄综合症          → <c>超雄综合症: 力量 +1000 · 剩余N回合</c>
+        ///
+        /// 为什么文案下放到子类（这次踩过的坑）：
+        ///   这里原先拼的是 <c>b.Name + ": " + b.Stacks + "伤害 · 剩余" + b.RemainingTurns + "回合"</c>，
+        ///   其中「伤害」写死了 —— 等于假设「所有 buff 都是每回合造成伤害的」。
+        ///   而 Stacks 的语义本来就由各 buff 自己定义（流血 = 每回合伤害，超雄 = 强度）。
+        ///   结果第二个 buff 一挂上就显示出「超雄综合症: 每回合2147483647伤害」，它根本不扣血。
+        ///
+        ///   中途曾改成中性的 <c>"lvl." + b.Stacks</c>，那只是把「错的话」换成「没信息的话」：
+        ///   玩家看到「lvl.2147483647」仍然不知道这是什么量。
+        ///   根因不是文案不准确，而是**显示层知道了一个具体子类的语义**：
+        ///   每当新增一种 buff，这里就得回来加一个 if —— 那正是该用虚方法消除的场合。
+        ///   现在显示层只问「你怎么描述你自己」，对 buff 的种类与单位一无所知，
+        ///   以后加第 10 个 buff（回蓝、加速、反伤……）本文件一行都不用动。
         ///
         /// 注意不打印「上限 10」这类规则说明：那是设计文档的内容，
         /// 框里只放当前状态，规则说明文字会挤掉真正会变的数字。
@@ -1150,7 +1157,7 @@ namespace LostCompound.Tools
             for (int i = 0; i < Buffs.Count && i < ConsoleScreen.BuffRows; i++)
             {
                 Buff b = Buffs[i];
-                lines.Add(b.Name + ": 每回合" + b.Stacks + "伤害 · 剩余" + b.RemainingTurns + "回合");
+                lines.Add(b.Name + ": " + b.Describe());
             }
             _screen.DrawBuffs(string.Join("\n", lines));
         }
