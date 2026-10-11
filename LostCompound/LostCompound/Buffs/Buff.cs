@@ -72,19 +72,33 @@ namespace LostCompound.Buffs
         /// </summary>
         public virtual bool IsExpired => RemainingTurns <= 0 || Stacks <= 0;
 
-        /// <summary>叠加效果量（不超过 MaxStacks）。</summary>
+        /// <summary>
+        /// 叠加效果量（不超过 MaxStacks）。
+        ///
+        /// ⚠️ 中间用 <c>long</c> 累加再夹取，**不是**为了改数值，而是防 int 静默溢出：
+        ///   <c>Stacks + n</c> 是 int + int，两个都接近 <see cref="int.MaxValue"/> 时
+        ///   结果会绕成负数（int.MaxValue + int.MaxValue = -2），
+        ///   于是 <c>Math.Min(负数, MaxStacks)</c> 得到一个**负的 Stacks**，
+        ///   再由 <see cref="IsExpired"/>（Stacks &lt;= 0）判定该 buff 立即失效并移除。
+        ///   实际触发路径：调试开关 127 挂 <c>SuperMaleBuff(1, int.MaxValue)</c>，
+        ///   再输一次 127 走 MergeFrom → AddStacks(int.MaxValue) → 溢出 → +1000 STR 凭空消失。
+        /// 正常范围的输入结果逐字不变（long 的加法在 int 范围内与 int 加法完全一致）。</summary>
         public void AddStacks(int n)
         {
-            Stacks = Math.Min(Stacks + n, MaxStacks);
+            Stacks = (int)Math.Clamp((long)Stacks + n, int.MinValue, MaxStacks);
         }
 
         /// <summary>
         /// 累加剩余回合。同类叠加时用「两者之和」——
         /// 与旧 DOT 的 AddDotDuration 就是 += 累加的语义保持一致。
-        /// </summary>
+        ///
+        /// ⚠️ 与 <see cref="AddStacks"/> 同因同治：中间用 <c>long</c> 累加再夹取，只为防 int 静默溢出。
+        ///   这里溢出更直接：<c>RemainingTurns + n</c> 绕成负数后，<c>Math.Max(负数, 0)</c> 把它变成 0，
+        ///   回合管线于是判定 buff 已过期并移除 —— 正是调试 127 连按两次会丢掉 +1000 STR 的那条路径。
+        /// 正常范围内的结果逐字不变。</summary>
         public void AddTurns(int n)
         {
-            RemainingTurns = Math.Max(RemainingTurns + n, 0);
+            RemainingTurns = (int)Math.Clamp((long)RemainingTurns + n, 0, int.MaxValue);
         }
 
         /// <summary>结算一次剩余回合（每回合调用一次）。归零后 IsExpired 为真，由回合管线移除。</summary>
