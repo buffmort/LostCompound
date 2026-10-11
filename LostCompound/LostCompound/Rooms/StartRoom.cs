@@ -87,6 +87,20 @@ namespace LostCompound.Rooms
                 List<int> roundIndices = [];
                 List<int> tempPool = [.. available];
                 int drawCount = Math.Min(OptionsPerRound, tempPool.Count);
+
+                // 候选数为 0（权重表为空，或长度不匹配被截断到 0）时必须在这里收场：
+                // 下面一个候选都抽不出来 → roundIndices.Count == 0 → 输入校验的条件会退化成
+                // `choice >= 1 && choice <= 0`，**永假**，无论玩家输入什么都会死循环（这正是本轮要修的坑）。
+                // 用 return 而不是 continue：可用池本来就是空的，后面几轮同样一个候选都抽不出来，
+                // 继续转轮次只会把这句提示重复三遍。
+                // 说明：当前 LootTables.GetStartWeights 的 default 回落到 8 项基础权重，走不到这里；
+                //       这是把「池子与权重表耦合」这件事做成的显式防线。
+                if (drawCount == 0)
+                {
+                    Console.WriteLine("没有可选的起始道具（权重表为空），跳过初始物品选择。");
+                    return;
+                }
+
                 for (int i = 0; i < drawCount; i++)
                 {
                     // 加权随机抽取一个索引。权重全为正数，所以随机值必定落在某个区间内，
