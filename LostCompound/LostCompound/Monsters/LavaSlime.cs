@@ -17,6 +17,32 @@ namespace LostCompound.Monsters
         public const double WaterBottleHpLossRatio = 0.70;
 
         /// <summary>
+        /// 被泼水：扣「当前血量」的 70%（设计文档六）。
+        ///
+        /// 为什么不走 Monster.TakeDamage：那条路会依次过护盾、DEF 减免和岩浆怪的
+        /// 30% 高温免疫，最后落地的伤害远低于 70%（0.7 × 0.7 再减 DEF），
+        /// 与文档「扣当前 70% 血量」不符。所以这里直接改 Hp —— 与「按当前血量比例」
+        /// 类效果（如除法运算符）口径一致。
+        ///
+        /// 为什么这里不调 Die()：死了的怪由 Tools.RunBattle 的 RemoveDeadMonsters 统一收尸，
+        /// 在这里结算掉落会让它跑在战斗循环之外，还可能和循环里的收尸重复。
+        ///
+        /// 为什么要有 IsAlive 判断：死了的怪不该再吃一瓶水（这正是原来写在
+        /// WaterBottle.PourOnLavaSlime 里的那个判断，现在随规则一起搬进怪物自己）。
+        /// 返回 true = 这瓶水用在岩浆怪身上了（一瓶只泼一只）。
+        /// </summary>
+        public override bool OnWaterPoured()
+        {
+            if (!IsAlive) return false;
+            double loss = Hp * WaterBottleHpLossRatio;
+            Hp -= loss;
+            // 文案与原先逐字一致（原先是道具侧拼的 mon.Name，这里就是自己的 Name）
+            Console.WriteLine("你把水泼向" + Name + "，它被浇掉 " + loss.ToString("F1") + " 点血！");
+            Calculator.Delay(250);
+            return true;
+        }
+
+        /// <summary>
         /// 高温伤害免疫比例（0~1），由战斗开始时按环境写入（见 Tools.ApplyEnvironmentMonsterTraits）。
         ///
         /// 为什么做成「开战时写入的字段」而不是在 TakeDamage 里读环境：

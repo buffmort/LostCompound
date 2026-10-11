@@ -27,12 +27,12 @@ namespace LostCompound.Items
             if (env?.CanRefillWater == true)
             {
                 // 顺序（设计文档六：水瓶可扣岩浆怪当前 70% 血量）：
-                //   1. 先泼岩浆怪（扣它当前血量的 70%）
+                //   1. 先泼怪（问每只怪「你被泼水会怎样」）
                 //   2. 再回满水量（水瓶原本的功能，保持不变）
                 //   3. 最后才 Count -= 1
                 // 为什么先泼再回水：两件事互不依赖，但先结算伤害可以保证「这一泼把怪打死了」
                 // 也不会让回水被跳过；反之若先回水再泼，中途 return 就会漏掉原来的功能。
-                PourOnLavaSlime(m);
+                PourWater(m);
 
                 env.RefillWater();
                 // 回水后必须重算 STR：StrModifier 是按当前水量现算的，水量变了，
@@ -49,29 +49,20 @@ namespace LostCompound.Items
         }
 
         /// <summary>
-        /// 把水泼向列表里的岩浆怪：扣它「当前血量」的 70%（设计文档六）。
+        /// 把水泼向列表里第一只「肯接下这瓶水」的怪（<see cref="Monster.OnWaterPoured"/>）。
         ///
-        /// 为什么不走 Monster.TakeDamage：那条路会依次过护盾、DEF 减免和岩浆怪的
-        /// 30% 高温免疫，最后落地的伤害远低于 70%（0.7 × 0.7 再减 DEF），
-        /// 与文档「扣当前 70% 血量」不符。所以这里直接改 Hp —— 与「按当前血量比例」
-        /// 类效果（如除法运算符）口径一致。
-        ///
-        /// 为什么这里不调 Die()：死了的怪由 Tools.RunBattle 的 RemoveDeadMonsters 统一收尸，
-        /// 在这里结算掉落会让它跑在战斗循环之外，还可能和循环里的收尸重复。
-        /// 一瓶水只泼一只：列表里可能有多只岩浆怪，取第一只存活的。
+        /// 一瓶水只泼一只：原来这里写死 `mon is LavaSlime &amp;&amp; mon.IsAlive` 并直接读
+        /// LavaSlime.WaterBottleHpLossRatio，道具因此必须认识岩浆怪这个类型和它的比例常量；
+        /// 每加一种「怕水的怪」（水元素、火系怪……）都要回来改这个道具。
+        /// 现在改为逐只提问、第一只返回 true 的用掉这瓶水，反应内容（扣当前 70% 血量 + 播报）
+        /// 归 LavaSlime 自己（见 Monster.OnWaterPoured 的说明）。
+        /// 行为不变：仍是列表里第一只**活着**的岩浆怪吃这 70%，其余怪不动。
         /// </summary>
-        private static void PourOnLavaSlime(List<Monster> monsters)
+        private static void PourWater(List<Monster> monsters)
         {
             foreach (Monster mon in monsters)
             {
-                if (mon is LavaSlime && mon.IsAlive)
-                {
-                    double loss = mon.Hp * LavaSlime.WaterBottleHpLossRatio;
-                    mon.Hp -= loss;
-                    Console.WriteLine("你把水泼向" + mon.Name + "，它被浇掉 " + loss.ToString("F1") + " 点血！");
-                    Calculator.Delay(250);
-                    return;
-                }
+                if (mon.OnWaterPoured()) return;
             }
         }
 

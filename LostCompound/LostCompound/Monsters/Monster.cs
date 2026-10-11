@@ -55,6 +55,24 @@ namespace LostCompound.Monsters
         /// </summary>
         public virtual void ApplyDamageImmunity(double ratio) { }
 
+        /// <summary>
+        /// 被泼水时的反应。返回 true = 这一瓶水用在这只身上了
+        /// （保持原来「一瓶水只泼一只」的语义：第一个接下的怪用掉这瓶水）。
+        /// 默认无反应（返回 false，水继续找下一只）。
+        ///
+        /// 为什么把「被泼水会怎样」放到怪物自己身上：
+        ///   原先 <see cref="Items.WaterBottle"/> 里写的是 `if (mon is LavaSlime &amp;&amp; mon.IsAlive)`
+        ///   并直接读 <c>LavaSlime.WaterBottleHpLossRatio</c> —— 每加一种「怕水的怪」
+        ///   （水元素、火系怪……）都要回头改这个道具，而且道具还得认识每只怪的比例常量。
+        ///   现在道具只问「你被泼水会怎样」，反应内容（扣多少、播报什么）由怪物自己声明，
+        ///   与 <see cref="ApplyDamageImmunity"/>、「环境能力位」是同一套分工：
+        ///   通用流程只提问，具体规则归拥有者。
+        ///
+        /// 实现注意：把自己身上的效果结算掉（含扣血、播报），返回 true 表示水被用掉了。
+        /// 已经死掉的怪应该返回 false —— 它不该再吃一瓶水（原来由道具侧的 mon.IsAlive 负责）。
+        /// </summary>
+        public virtual bool OnWaterPoured() => false;
+
         // 原 6 个子类各自重写的 isAlive() 实现完全相同（都是 hp > 0），
         // 故合并为基类上的一个计算属性，子类不再重写。
         public bool IsAlive => Hp > 0;
