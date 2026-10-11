@@ -94,6 +94,42 @@ namespace LostCompound.MapEnvironment
         /// </summary>
         public virtual double GetDamageImmunity(Monster m) => 0.0;
 
+        /// <summary>
+        /// 本环境是否有可回的水（水瓶能不能在这里生效）。
+        /// 默认 false，有水源的环境（如 <see cref="LavaWaterfall"/>）覆写为 true。
+        ///
+        /// 与 <see cref="DrainWater"/> 同一套做法：基类声明「有没有这件事 + 空实现」，
+        /// 子类只覆写自己有语义的那一份。
+        /// 为什么不在道具里判断具体环境类型：原先是
+        /// `if (p.CurrentEnvironment is LavaWaterfall lw)`，每加一个有水源的环境
+        /// （湖泊、雨水收集点……）就要回头改 WaterBottle。
+        /// </summary>
+        public virtual bool CanRefillWater => false;
+
+        /// <summary>把本环境的水回满。默认什么也不做（见 <see cref="CanRefillWater"/>）。</summary>
+        public virtual void RefillWater() { }
+
+        /// <summary>
+        /// 本环境能否用硫酸开采矿石（设计文档第九章：水淹洞穴开采金属矿）。
+        /// 默认 false，水淹洞穴覆写为 true。
+        ///
+        /// 为什么不直接复用 <see cref="CanMine"/>（镐子的能力位）：
+        /// 两者当前恰好落在同一个环境上，但语义不同 —— 镐子挖的是「全类别随机矿脉」，
+        /// 硫酸腐蚀的是「指定的金属矿脉」；将来完全可能出现「能挖矿但硫酸没用」
+        /// （矿洞里没有可腐蚀的岩缝）或反之的环境。合用一个能力位会把两者绑死。
+        /// </summary>
+        public virtual bool CanMineOre => false;
+
+        /// <summary>
+        /// 热硫在本环境被使用时的额外环境效果（设计文档 5.2：堵住水淹洞穴的出水口）。
+        /// 默认什么也不做 —— 没有这类规则的环境不受影响。
+        ///
+        /// 为什么由环境来执行：热硫的攻击效果是通用的，只有「这一层有没有出水口」
+        /// 是环境自己的知识。原先道具里写的是 `if (p.CurrentEnvironment is FloodedCavern flooded)`，
+        /// 每加一种「某道具在某环境有额外效果」的规则，道具里就多一个 is。
+        /// </summary>
+        public virtual void OnFusionSulphurUsed() { }
+
         /// <summary>拼进玩家状态栏的一行环境状态。</summary>
         public abstract string DescribeStatus();
     }

@@ -57,11 +57,17 @@ namespace LostCompound.MapEnvironment
         public override double StrModifier => -(MaxWater - Water) * StrPenaltyPerWater;
 
         /// <summary>
+        /// 熔岩瀑布有水源（满 200），所以水瓶在这里生效。
+        /// 覆写基类的 false：这是本属性存在的意义 —— 环境自己声明「我能回水」。
+        /// </summary>
+        public override bool CanRefillWater => true;
+
+        /// <summary>
         /// 回满水量（水瓶使用）。
         /// 不需要再管 STR：StrModifier 是按当前水量现算的，
         /// 水一满惩罚自然归零，玩家下次重算 STR 时就恢复 —— 这就是「现算」的好处。
         /// </summary>
-        public void RefillWater()
+        public override void RefillWater()
         {
             Water = MaxWater;
         }

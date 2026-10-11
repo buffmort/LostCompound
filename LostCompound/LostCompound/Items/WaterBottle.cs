@@ -1,3 +1,6 @@
+// 与 Tools.cs 同样的别名：不加这行时 Environment 会同时命中
+// System.Environment（隐式 using）与 LostCompound.MapEnvironment.Environment，产生 CS0104。
+using Environment = LostCompound.MapEnvironment.Environment;
 using LostCompound.MapEnvironment;
 using LostCompound.Monsters;
 using LostCompound.Tools;
@@ -18,8 +21,10 @@ namespace LostCompound.Items
 
         public void Use(Player p, List<Monster> m)
         {
-            // 通过 Player 的 internal CurrentEnvironment 拿到当前房间的环境对象
-            if (p.CurrentEnvironment is LavaWaterfall lw)
+            // 通过 Player 的 internal CurrentEnvironment 拿到当前房间的环境对象，
+            // 然后只问它「这里能不能回水」——不判断具体是哪种环境。
+            Environment env = p.CurrentEnvironment;
+            if (env?.CanRefillWater == true)
             {
                 // 顺序（设计文档六：水瓶可扣岩浆怪当前 70% 血量）：
                 //   1. 先泼岩浆怪（扣它当前血量的 70%）
@@ -29,7 +34,7 @@ namespace LostCompound.Items
                 // 也不会让回水被跳过；反之若先回水再泼，中途 return 就会漏掉原来的功能。
                 PourOnLavaSlime(m);
 
-                lw.RefillWater();
+                env.RefillWater();
                 // 回水后必须重算 STR：StrModifier 是按当前水量现算的，水量变了，
                 // 玩家的 STR 也得跟着回到「基础 + 新修正」，否则要等到下一回合才恢复。
                 p.RecomputeStr();

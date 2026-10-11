@@ -14,6 +14,12 @@ namespace LostCompound.MapEnvironment
     /// </summary>
     public sealed class FloodedCavern : Environment
     {
+        /// <summary>
+        /// 水淹洞穴可用硫酸开采金属矿（设计文档第九章）。
+        /// 与 <see cref="CanMine"/>（镐子）分开声明：见基类 CanMineOre 的说明。
+        /// </summary>
+        public override bool CanMineOre => true;
+
         /// <summary>水位上限。到 15 就是设计文档 5.2 的「15 计数」。</summary>
         public const int MaxWaterLevel = 15;
 
@@ -97,6 +103,13 @@ namespace LostCompound.MapEnvironment
             if (turns > _pluggedTurns) _pluggedTurns = turns;
             Console.WriteLine($"你用热硫堵住了出水口，水位在{_pluggedTurns}回合内不再上涨。");
         }
+
+        /// <summary>
+        /// 热硫在本环境被使用时的额外效果：堵住出水口（设计文档 5.2 的对策）。
+        /// 回合数 3 与原先写在 FushionSluphur.Use 里的字面量一致 —— 现在这份规则
+        /// 「热硫在水淹洞穴堵 3 回合」整条都归环境，道具侧只负责喊一声「我用了热硫」。
+        /// </summary>
+        public override void OnFusionSulphurUsed() => PlugOutlet(3);
 
         public override string DescribeStatus()
         {

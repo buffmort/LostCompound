@@ -47,11 +47,11 @@ namespace LostCompound.Items
             }
             Count -= 1;
 
-            // 水淹洞穴的对策：热硫可以堵住出水口（沿用设计文档的说法，作为额外的环境效果叠加）
-            if (p.CurrentEnvironment is FloodedCavern flooded)
-            {
-                flooded.PlugOutlet(3);
-            }
+            // 环境自己的额外效果：热硫可以堵住水淹洞穴的出水口（设计文档 5.2）。
+            // 只通知环境「热硫被用了」，具体做什么、堵几回合由环境决定 ——
+            // 原先这里是 `if (p.CurrentEnvironment is FloodedCavern flooded) flooded.PlugOutlet(3)`，
+            // 每加一种「某道具在某环境有额外效果」的组合，道具里就要多一个 is。
+            p.CurrentEnvironment?.OnFusionSulphurUsed();
         }
 
         public void ExplainBattleOnly(Player p)
