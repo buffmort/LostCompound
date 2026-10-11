@@ -18,14 +18,47 @@ namespace LostCompound.Tools
         public double Atk { get; set; } = BaseAtk;
 
         /// <summary>
-        /// 当前 STR。环境（如熔岩瀑布缺水）会直接改这个值 ——
-        /// 所以环境每次都必须「从 <see cref="BaseStr"/> 重算」，不能 -= 累加，
-        /// 否则惩罚会与「打了多少回合」挂钩，而且水回满了也恢复不了。
+        /// 基础 STR（设计文档 7.3：3）。这是角色的**固有属性**，是「永久成长」的载体
+        /// —— 如通关奖励、永久强化道具，将来都走 <see cref="GrowBaseStr"/> 改它。
+        ///
+        /// 为什么不是 const：const 是编译期常量，谁也改不了，
+        /// 那样「永久 +STR 的道具」就无处安放。
+        /// 为什么不是 static：每个 Player 实例各自一份。static 会让
+        /// 多场对局（或调试玩家 + 正式玩家）共用同一个值而互相干扰。
         /// </summary>
-        public double Str { get; set; } = BaseStr;
+        public double BaseStr { get; private set; } = 3.0;
 
-        /// <summary>玩家基础 STR（设计文档 7.3：3）。环境重算时要拿它当基准。</summary>
-        public const double BaseStr = 3;
+        /// <summary>
+        /// 当前有效 STR = 基础 STR + 环境修正 + buff 修正。
+        ///
+        /// 只读（private set）：外部想改 STR 必须二选一 ——
+        ///   临时效果 → 走环境 StrModifier / buff StrBonus；
+        ///   永久成长 → 走 GrowBaseStr。
+        /// 直接把 Str 设成某个值没有意义：下一次 RecomputeStr 就会把它冲掉
+        /// （debug 的 127 曾因此只能生效一回合）。
+        ///
+        /// 伤害计算读的是这个值，不是 BaseStr。
+        /// </summary>
+        public double Str { get; private set; }
+
+        /// <summary>
+        /// 永久提升基础 STR（通关奖励 / 永久强化道具用），并立刻重算当前值。
+        /// 这是「永久成长」的唯一入口 —— 直接写 Str 会在下次重算时被冲掉。
+        /// 传负数即为永久降低。
+        /// </summary>
+        public void GrowBaseStr(double amount)
+        {
+            BaseStr += amount;
+            RecomputeStr();
+        }
+
+        /// <summary>直接把基础 STR 设成某个值（调试用，避免写 GrowBaseStr(目标 - BaseStr) 这种别扭算式）。</summary>
+        public void SetBaseStr(double value)
+        {
+            BaseStr = value;
+            RecomputeStr();
+        }
+
         public string Name { get; set; }
         public double Def { get; set; } = BaseDef;
 
@@ -342,7 +375,11 @@ namespace LostCompound.Tools
                     OpenAccessoryMenu();
                     break;
                 case 127:
-                    Str = 100;
+                    // 走 SetBaseStr 而不是直接写 Str：直接写会被下一次 RecomputeStr 冲掉
+                    // （曾经就是这样，超雄模式只能生效一回合）。
+                    // 改基础值才是「永久」，而且它会立刻触发重算。
+                    SetBaseStr(100);
+                    Console.WriteLine($"超雄模式：基础 STR 已设为 {BaseStr}（当前 STR {Str}）");
                     break;
                 case 128:
                     UnlockAllRecipes();
