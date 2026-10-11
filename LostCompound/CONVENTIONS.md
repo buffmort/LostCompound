@@ -145,6 +145,9 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 1. `EnvType.cs` 加枚举成员（**只追加在末尾**）
 2. `EnvironmentFactory.Create()` 加一个 `case`（未实现的返回 `null`）
 3. 新建 `Xxx.cs` 继承 `Environment`，**照 `LavaWaterfall.cs` 的结构写**
+4. 要让玩家/调试菜单选得到：`EnvironmentCatalog.All` 加一行（主菜单与调试菜单**共用这一份清单**，不要再各抄一份）
+5. 本环境特有的能力（能挖矿 / 能回水 / 有判负条件 / 对某只怪有抗性…）一律**覆写能力位**，
+   不要去改通用流程、道具或战斗循环
 
 **基类成员：**
 
@@ -155,9 +158,22 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 | `GetBattleLoot()` | 战斗房间通关后的额外掉落 |
 | `DrainWater(int)` | 空房事件扣水（不涉及水的环境是 no-op） |
 | `DescribeStatus()` | 拼进状态栏的一行或多行（`\n` 分行，**高度会自适应**） |
+| `CanMine` | 镐子的「采掘」能否在此生效（水淹洞穴为 true） |
+| `CanMineOre` | 硫酸能否开采金属矿。**与 `CanMine` 分开**：镐子挖随机矿脉、硫酸腐蚀指定金属脉，语义不同 |
+| `CanRefillWater` / `RefillWater()` | 水瓶能否在此生效 / 把水回满 |
+| `OnFusionSulphurUsed()` | 热硫在此环境的额外效果（水淹洞穴 → 堵出水口 3 回合） |
+| `IsFatalToPlayer` / `FatalMessage` | 本环境是否已到「玩家必败」（水淹洞穴水位满）/ 判负时打印的那句话 |
+| `GetDamageImmunity(Monster)` | 本环境给某只怪的伤害免疫比例（0 = 不免疫）；开打前由战斗循环写进怪物（`Monster.ApplyDamageImmunity`） |
+
+**能力位的判据（不要 `is 具体环境类`）：** 问自己「这个判断会不会挡住将来合理的新增」——
+会挡（每加一个有该特性的环境就得回头改通用代码）就把它做成基类上的 `virtual`（默认 false / no-op），
+由有能力的子类覆写。参照 `CanMine` / `IsFatalToPlayer` / `GetDamageImmunity`。
+`EnvironmentCatalog` 同理：环境清单只留一份，避免「主菜单能选、调试菜单选不到」。
 
 **注意**：`Environment` 基类**不引用 `Player`** —— 它只暴露「修正量」，由 `Player` 主动来读。
 这样避免 `MapEnvironment` 和 `Tools` 互相依赖。
+（唯一引用 `Monsters` 的地方是 `GetDamageImmunity(Monster)`：免疫规则只与环境有关，
+怪物侧只提供一个接收槽位 `Monster.ApplyDamageImmunity`，两边都拿不到对方的实例。）
 
 ---
 
