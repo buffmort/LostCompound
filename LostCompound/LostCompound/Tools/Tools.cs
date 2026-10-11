@@ -108,6 +108,15 @@ namespace LostCompound.Tools
                 // 同一个对象 —— 不清的话，上一场战斗里没走完的流血会跟着他进后面每一场战斗，
                 // 变成「新战斗第 1 回合就白掉一次血」。
                 ClearBuffs(p, monsters);
+
+                // 跳过回合计数也必须一起清（本次修掉的一个真 bug）。
+                // 与 buff 同一个道理：Player 跨战斗复用，而 SkipTurn 是「还没被消费掉的跳过次数」。
+                // 触发路径：双子的「困住你」把 SkipTurn 置 1 之后，同一回合内怪全被流血打死 /
+                // 玩家把怪清完 → 战斗直接结束、TryConsumeSkipTurn 还没轮到 → 那 1 点残留下来，
+                // 下一场战斗玩家的第一回合被白跳一次（不报错、不崩溃，只是莫名其妙少一回合）。
+                // 清在 finally 里而不是循环末尾：异常退出、EOF 中止、战败三条路都覆盖得到。
+                p.SkipTurn = 0;
+
                 p.SetInBattle(false);
             }
 

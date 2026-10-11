@@ -166,6 +166,16 @@ namespace LostCompound.Tools
         public void AddShield(double amount) => Shield += amount;
 
         public int SkipTurn { get; set; }
+
+        /// <summary>
+        /// 累加跳过回合数（与 <see cref="Monsters.Monster.AddSkipTurn"/> 对称，见 CONVENTIONS 2.3）。
+        /// 为什么要有这个方法：<c>SkipTurn</c> 是**累加语义**的量（连中两次「困住」就该被跳两回合），
+        /// 而它原先只由调用点裸写 <c>p.SkipTurn = 1</c> —— 那种写法是**赋值**：连中两次也只剩 1，
+        /// 而且一旦将来第二个来源也来写，两边会互相覆盖。出口统一成 AddXxx 之后，
+        /// 「谁改过它」不再重要，值永远等于各方增量之和。
+        /// 战斗结束时由 Tools.RunBattle 的 finally 清零（跨战斗残留是另一个 bug，见那里）。
+        /// </summary>
+        public void AddSkipTurn(int count) => SkipTurn += count;
         public bool IsDead { get; set; }
         private Room[][] _map;      // 当前地图
         public int PlayerRow { get; private set; }     // 玩家所在行
@@ -440,10 +450,19 @@ namespace LostCompound.Tools
             // 放在 RefreshStatus 之前，状态栏显示的才是重置后的值，而不是上回合残留。
             ResetShieldForTurn();
 
-            RefreshStatus();               // 战斗中让状态栏显示血量/防御/护盾
             // 环境状态（水量、水位）每回合都在变，所以每回合都要重算派生值，
             // 不能只在进战斗时算一次 —— 否则缺水削弱要等到下一场战斗才生效。
+            //
+            // ⚠️ RecomputeStats 必须在 RefreshStatus **之前**（本次修掉的一个真 bug）：
+            //   本回合的环境推进（Tools 里的 env?.OnBattleTurn()）在 OnTurnStart 之前就已经跑完了，
+            //   但原先的顺序是 ResetShieldForTurn → RefreshStatus → RecomputeStats ——
+            //   状态栏读到的还是**上一回合**的力量/防御，于是熔岩瀑布每回合掉水后
+            //   「力量」落后一跳（0.05~0.10），要等玩家挨打触发 TakeDamage 里的刷新才被覆盖。
+            //   把重算提到刷新之前，状态栏这一跳就即时了。
+            //   （ResetShieldForTurn 仍留在最前：盾是资源、必须最先重置；
+            //     RefreshBuffBox 仍在其后 —— 它只画 buff 框，与属性快照无关。）
             RecomputeStats();
+            RefreshStatus();               // 战斗中让状态栏显示血量/防御/护盾
             RefreshBuffBox();              // Buff 框：进新回合时剩余回合已经 -1，必须重画
             HandleChangeableItems(envType);
             Inventory.AddRange(PendingItems);
@@ -894,12 +913,31 @@ namespace LostCompound.Tools
 
         /// <summary>
         /// 把饰品栏里的第 index 个道具卸回背包。
+        ///
+        /// ⚠️ 背包满时**拒绝**卸下，而不是照旧塞进去或静默丢弃（本次修掉的一个真 bug）：
+        ///   原先这里直接 <c>Inventory.Add(item)</c>，完全不看容量 ——
+        ///   背包 15/15 时卸一个饰品就变成 16 格，容量上限形同虚设
+        ///   （<see cref="AddItem"/> 的容量检查只保护了「进包」的另一条路径）。
+        ///   为什么选「拒绝」而不是走 AddItem（满了就丢）：
+        ///     走 AddItem 的话，玩家手上这件装备会在「卸下」这个动作里被**静默销毁** ——
+        ///     卸装备的本意是把它收好，丢掉装备是玩家绝不会预期的结果，
+        ///     而且丢失无声无息（只有一行「被丢弃了」混在滚动日志里），比多占一格严重得多。
+        ///   为什么也不选「不让卸」的另一种写法（例如卸下时把背包整屏锁住）：
+        ///     那样玩家在战斗中等于被永久锁死饰品栏。提示一句、让玩家先腾一格最直观。
         /// </summary>
         public bool UnequipAccessory(int index)
         {
             if (index < 0 || index >= Accessories.Count)
             {
                 Console.WriteLine("饰品栏没有这个位置！");
+                return false;
+            }
+
+            // 容量检查必须在「从 Accessories 移除」之前：否则检查失败时物品已经被摘下来了，
+            // 它既不在饰品栏也不在背包里 —— 直接消失。
+            if (Inventory.Count >= InventoryCapacity)
+            {
+                Console.WriteLine($"背包已满（{InventoryCapacity} 格），先腾出一格再卸下 {Accessories[index].Name}。");
                 return false;
             }
 

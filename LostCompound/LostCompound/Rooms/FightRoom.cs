@@ -21,8 +21,19 @@ namespace LostCompound.Rooms
                 // 命名空间，因此这里必须写全限定名 LostCompound.Tools.Tools。
                 LostCompound.Tools.Tools.RunBattle(p, MobSpawner.Spawn(EnvKind), Environment);
 
-                // 战斗结束后的环境额外掉落（如熔岩瀑布必掉硫磺）
-                if (Environment != null)
+                // 战斗结束后的环境额外掉落（如熔岩瀑布必掉硫磺）。
+                //
+                // ⚠️ 只在「真的打赢了」时发（本次修掉的一个真 bug）：
+                //   原先 RunBattle 一返回就无条件发掉落，可它就是「这场战斗已经结束」的意思，
+                //   并不代表赢了 —— 玩家可能被打死（Hp ≤ 0），也可能是输入流结束（EOF）
+                //   导致战斗中止（Tools.RunBattle 特意说这种不算赢也不算输）。
+                //   于是出现「熔岩瀑布战斗房打输 / 输入没了，照样获得硫磺 2-5」，
+                //   甚至死亡结算之后还在往背包里塞东西。
+                //   判据用 Player.IsAlive（Hp > 0）与 Player.InputClosed（EOF 标志），两者都是 public。
+                //
+                // 注意 IsCleaned 仍要无条件置 true（放在 if 外面，无论胜负）：
+                //   这房间**打过了**，再进来就是「战斗过后的遗迹」，不能因为输过就允许重打刷怪。
+                if (p.IsAlive && !p.InputClosed && Environment != null)
                 {
                     foreach (Item it in Environment.GetBattleLoot())
                     {

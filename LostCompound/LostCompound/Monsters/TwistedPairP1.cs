@@ -61,7 +61,10 @@ namespace LostCompound.Monsters
                 case 3:
                     Console.WriteLine(Name + "困住了你！");
                     Console.WriteLine("你下一回合无法行动!");
-                    p.SkipTurn = 1;
+                    // 走 AddSkipTurn（累加语义，见 CONVENTIONS 2.3）而不是裸写 p.SkipTurn = 1：
+                    // 本技能每个怪物回合都可能抽到，「困住两次就该被跳两回合」，
+                    // 赋值写法会把第二次覆盖成 1。技能文案「你下一回合无法行动」不变。
+                    p.AddSkipTurn(1);
                     break;
             }
         }
