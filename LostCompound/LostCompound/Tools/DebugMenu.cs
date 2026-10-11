@@ -249,8 +249,15 @@ namespace LostCompound.Tools
 
         /// <summary>
         /// 常驻调试玩家（首次或上一次战死时创建）。
-        /// 起手配置：默认配方 + 一把磷化剑 + 两个硫酸
-        /// （硫酸用来试岩浆怪的高温免疫，也是能就地验证「环境道具」的最小样本）。
+        ///
+        /// 起手**不带任何道具** —— 想要什么自己用「获取道具」领。
+        /// 早先版本会静默附赠一把磷化剑和两个硫酸，结果第一次进来领道具时
+        /// 背包里凭空多出两样东西，看起来像是"获得道具"发错了。
+        /// 需要测某件装备时，先领再用就是了，不必预置。
+        ///
+        /// AddDefaultRecipes 保留：它只解锁配方（不产生道具），
+        /// 与正式开局（Player.StartGame 里也调它）保持一致，
+        /// 否则调试战斗里「4.徒手合成」永远是空的。
         /// </summary>
         private static Player DebugPlayer()
         {
@@ -260,8 +267,6 @@ namespace LostCompound.Tools
                 // 进战斗会立刻走「你死了!」，等于一场空。
                 _debugPlayer = new Player();
                 _debugPlayer.AddDefaultRecipes();
-                _debugPlayer.AddItem(new PhosphorusSword(1));
-                _debugPlayer.AddItem(new SulfuricAcid(2));
             }
             return _debugPlayer;
         }
