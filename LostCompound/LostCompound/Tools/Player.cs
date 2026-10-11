@@ -86,6 +86,22 @@ namespace LostCompound.Tools
         public int PlayerCol { get; private set; }     // 玩家所在列
         private bool _debug;
 
+        /// <summary>
+        /// 输入流是否已经结束（EOF）。
+        ///
+        /// 为什么需要它：<c>Console.ReadLine()</c> 在管道关闭 / 重定向读完 / Ctrl+Z 之后
+        /// 会一直返回 null。这时任何「重问直到输入合法」的循环都不再读得到输入，
+        /// 只会空转刷屏。ReadInt 读到 null 就置位本标志，让上层（战斗循环、开局方向循环）
+        /// 能分辨「玩家输错了」（继续重问）和「输入已经没了」（必须收场）。
+        /// </summary>
+        private bool _inputClosed;
+
+        /// <summary>
+        /// 输入流是否已结束（EOF）。见 <see cref="_inputClosed"/>。
+        /// 战斗循环用它决定「还要不要继续问玩家要操作」。
+        /// </summary>
+        public bool InputClosed => _inputClosed;
+
         // ---- TUI 状态栏联动 ----
         private ConsoleScreen _screen;          // 当前接管输出的分栏界面（不在游戏中时为 null）
         private string _statusHeader = "";      // 状态栏固定行：当前房间
@@ -358,6 +374,13 @@ namespace LostCompound.Tools
                 Console.WriteLine("129, 获取道具");
             }
             int option = ReadInt("请选择操作");
+            if (option == -1 && _inputClosed)
+            {
+                // 输入流已结束：本回合没法行动，直接放弃这次行动返回。
+                // 不落到下面的 default —— 那句「你输入的类型不正确！」是给手输错的玩家看的，
+                // EOF 不是玩家输错。战斗循环会在这一回合之后看到 InputClosed 并收场（见 Tools.RunBattle）。
+                return;
+            }
             switch (option)
             {
                 case 1:
@@ -485,6 +508,10 @@ namespace LostCompound.Tools
                 Console.WriteLine("请选择怪物攻击:");
                 choice = ReadInt("选择目标编号");
                 if (choice >= 0 && choice < monsters.Count) break;
+                // 输入流结束：没有输入就永远选不出目标，再重问就是 ReadInt 立刻返回 -1 的空转。
+                // 本次攻击按取消处理（不消耗回合，也不打错目标），交给战斗循环收场。
+                // 注意手输 -1 走不到这里：那时 _inputClosed 为 false，照旧重问，行为不变。
+                if (_inputClosed) return;
                 Console.WriteLine("您的攻击无效！请重新选择(0-" + (monsters.Count - 1) + "):");
             }
 
@@ -528,6 +555,16 @@ namespace LostCompound.Tools
         /// 读一个整数。输入非法时提示并重新读取，绝不抛异常。
         /// 替代原先裸用的 int.Parse(Console.ReadLine()) —— 那样在菜单里输入一个字母就会让整个游戏崩溃。
         /// prompt 会同时显示在右侧日志与输入框里（输入框是 TUI 的光标所在处）。
+        ///
+        /// 返回 <c>-1</c> 表示**输入流已结束（EOF）**，调用方按「取消」处理；
+        /// 同时 <see cref="InputClosed"/> 会被置位，供上层（战斗循环 / 开局方向循环）收场。
+        ///
+        /// 为什么用 -1 当取消哨兵：各调用点的提示里本来就写着「-1取消」「-1即退出」
+        /// （饰品栏、背包），-1 从来不是任何合法编号（编号一律从 0 起），所以不会与真实输入撞车，
+        /// 也不需要给 5 个调用点各改一次签名。
+        ///
+        /// ⚠️ 空行（<c>""</c>）不是 EOF：空行按原来的「输入无效」重问 —— 那是玩家有意不选，
+        /// 与「输入流没了」是两件事，不能混为一谈。
         /// </summary>
         private int ReadInt(string prompt)
         {
@@ -535,7 +572,15 @@ namespace LostCompound.Tools
             {
                 // 输入框里也显示一份提示，否则玩家只能盯着滚动日志看要输入什么
                 _screen?.SetPrompt(prompt);
-                if (int.TryParse(Console.ReadLine(), out int value))
+                string line = Console.ReadLine();
+                if (line == null)
+                {
+                    // EOF：再循环一次 ReadLine 还是立刻返回 null，重问就是不读输入的 CPU 空转 + 刷屏。
+                    // 所以这里不重问，直接把这当成「取消」交回调用方。
+                    _inputClosed = true;
+                    return -1;
+                }
+                if (int.TryParse(line, out int value))
                 {
                     return value;
                 }
@@ -572,6 +617,10 @@ namespace LostCompound.Tools
                 {
                     return choice;
                 }
+                // 输入流结束：重问只会空转（ReadInt 每次都立刻返回 -1）。
+                // 按本方法既有的「没有可选对象」语义返回 -1，让调用方收场。
+                // 手输 -1 时 _inputClosed 为 false，照旧重问，行为不变。
+                if (_inputClosed) return -1;
                 Console.WriteLine("您的投掷无效！请重新选择(0-" + (monsters.Count - 1) + "):");
             }
         }
@@ -592,6 +641,10 @@ namespace LostCompound.Tools
                 Console.WriteLine("1.装备   2.卸下   0.返回");
                 int action = ReadInt("饰品栏：1装备 2卸下 0返回");
                 if (action == 0) return;
+                // 输入流结束：菜单再问也读不到输入（ReadInt 会一直立刻返回 -1），
+                // 直接退出饰品栏菜单，等价于玩家选了「0.返回」。手输 -1 时 _inputClosed 为 false，
+                // 仍按原来的「什么都不做、重画菜单」处理，交互不变。
+                if (_inputClosed) return;
 
                 if (action == 1)
                 {
@@ -619,7 +672,12 @@ namespace LostCompound.Tools
                     }
 
                     int pick = ReadInt("选择要装备的道具编号(-1取消)");
-                    if (pick == -1) continue;
+                    if (pick == -1)
+                    {
+                        // 输入流结束：不再重画菜单空转，直接退出饰品栏
+                        if (_inputClosed) return;
+                        continue;
+                    }
                     EquipAccessory(pick);
                 }
                 else if (action == 2)
@@ -631,7 +689,12 @@ namespace LostCompound.Tools
                     }
 
                     int pick = ReadInt("选择要卸下的道具编号(-1取消)");
-                    if (pick == -1) continue;
+                    if (pick == -1)
+                    {
+                        // 输入流结束：不再重画菜单空转，直接退出饰品栏
+                        if (_inputClosed) return;
+                        continue;
+                    }
                     UnequipAccessory(pick);
                 }
             }
@@ -747,6 +810,7 @@ namespace LostCompound.Tools
                 {
                     // 直接返回。原来是 break，但那样 choice 仍是 -1，
                     // 紧接着的 Inventory[choice] 就会越界访问。
+                    // 输入流结束（EOF）也走这条：同样返回、不消耗回合，不会空转。
                     return;
                 }
                 if (choice >= 0 && choice < Inventory.Count) break;
@@ -968,6 +1032,10 @@ namespace LostCompound.Tools
                 choice = ReadInt("选择配方编号");
                 if (choice == 255) return;
                 if (choice >= 0 && choice < available.Count) break;
+                // 输入流结束：重问只会空转（ReadInt 每次都立刻返回 -1）。
+                // 按 255「返回」的同一出口退出合成界面；手输 -1 时 _inputClosed 为 false，
+                // 仍走下面那句重问提示，交互不变。
+                if (_inputClosed) return;
                 Console.WriteLine("选择无效! 请重新选择(0-" + (available.Count - 1) + ", 255 返回)");
             }
             available[choice].Craft(this);
@@ -1330,7 +1398,17 @@ namespace LostCompound.Tools
 
                     // 输入框里也提示一次可走的方向，别让玩家只看到日志区在滚
                     _screen?.SetPrompt("选择方向（0上 1下 2左 3右，4 退出）");
-                    if (!int.TryParse(Console.ReadLine(), out int direction))
+                    string line = Console.ReadLine();
+                    if (line == null)
+                    {
+                        // 输入流结束（EOF）：方向永远读不到了。必须退出游戏循环 ——
+                        // 原先下面的 continue 会立刻再读到 null，主循环变成不读输入的 CPU 空转 + 刷屏。
+                        // 退出效果与玩家输入 4 相同（同一句结束语）。
+                        _inputClosed = true;
+                        Console.WriteLine("游戏结束，感谢游玩！");
+                        break;
+                    }
+                    if (!int.TryParse(line, out int direction))
                     {
                         Console.WriteLine("输入无效，请输入数字。");
                         continue;

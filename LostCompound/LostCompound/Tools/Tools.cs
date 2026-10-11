@@ -78,6 +78,12 @@ namespace LostCompound.Tools
                     {
                         p.OnPlayerTurn(monsters, env?.Type ?? EnvType.None);
                     }
+                    // 输入流已结束（EOF）：玩家已经没法再操作了，继续循环只会一回合接一回合地
+                    // 「自动跳过/放弃行动」空转到死。这里直接结束这场战斗 —— 既不算赢也不算输。
+                    if (p.InputClosed)
+                    {
+                        break;
+                    }
                     RemoveDeadMonsters(p, monsters);
                     if (!p.IsAlive || monsters.Count == 0) break;
 
@@ -105,7 +111,15 @@ namespace LostCompound.Tools
                 p.SetInBattle(false);
             }
 
-            Console.WriteLine(p.IsAlive ? "战斗结束 你赢了!" : "你死了!");
+            if (p.InputClosed)
+            {
+                // EOF 收场：别报胜负 —— 这一场既没打赢也没打输，是输入没了
+                Console.WriteLine("输入已结束，战斗中止。");
+            }
+            else
+            {
+                Console.WriteLine(p.IsAlive ? "战斗结束 你赢了!" : "你死了!");
+            }
         }
 
         /**
