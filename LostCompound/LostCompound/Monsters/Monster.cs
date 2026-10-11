@@ -142,6 +142,27 @@ namespace LostCompound.Monsters
         /// 给怪物挂一个状态效果。同类 buff 叠加到已有对象上（与 Player.AddBuff 同一口径），
         /// 避免同一只怪身上出现两个「流血」互相独立结算。
         /// 叠加规则（伤害取 min、剩余回合相加）写在 Buff.MergeFrom 里，玩家/怪物共用一份。
+        ///
+        /// ⚠️ 怪物**不吃** buff 的 <see cref="Buff.StrBonus"/> / <see cref="Buff.AtkBonus"/> /
+        /// <see cref="Buff.DefBonus"/>（用户裁定，取「明确写死」而不是给怪物加一套重算）。
+        /// 也就是说：一个覆写了那三个属性的 buff 挂在怪物身上时，**只有结算部分（如每回合扣血）生效，
+        /// 属性修正会被静默忽略**。之所以要在这里写死，是因为这属于「不报错、不崩溃、只是数值不对」
+        /// 的那类坑 —— 与当年 `Metal` 里 `p.Def += 1` 被下次 RecomputeStats 冲掉同型。
+        ///
+        /// 为什么不给 Monster 也加一套 RecomputeStats（方案 a）：
+        ///   1. 没有基础值可回退。怪物的 Atk/Def/Str 是在各子类构造器里**直接赋**的
+        ///      （Zombie / Dragon / Dummy / LavaSlime 各写各的），Monster 上没有
+        ///      对应 Player 的 BaseAtk/BaseDef/BaseStr，也没有 GrowBaseXxx。
+        ///      「从基础值重算」第一步就无处取基础值，只能再加一组 BaseXxx 字段并回头改每个子类构造器。
+        ///   2. 重算的触发点比玩家侧多一倍。玩家只有「加 buff / 移 buff」两个入口；
+        ///      怪物的 Atk/Def 还会在自己的 OnMonsterTurn 里被直接改（Dragon 的防御注释即是此意），
+        ///      任何一次这样的赋值都会被下一次重算冲掉 —— 静默失效比现在「根本不读」更难查。
+        ///   3. 现状收益为零：目前挂在怪物身上的 buff 只有一例 —— BleedBuff（每回合扣血），
+        ///      它不覆写那三个属性；唯一覆写了 StrBonus 的 SuperMaleBuff 只可能挂在玩家身上。
+        ///      为 0 个使用者引入 4 个子类的基础值字段与重算通路，风险大于收益。
+        ///   → 因此按 (b)：明确写死「怪物不吃属性修正」，并在三处（Buff 的三个属性、
+        ///     本方法、Tools.ClearBuffs 里「怪物只清列表、不重算」那一行）说明，
+        ///     后来者不必再踩一遍。
         /// </summary>
         public void AddBuff(Buff b)
         {

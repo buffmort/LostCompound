@@ -129,6 +129,12 @@ namespace LostCompound.Buffs
         ///   （到期 / ClearBuffs / 将来的驱散），漏一条就永久偏移。
         ///   做成修正量之后，Player.RecomputeStats 每次从基础值重算，
         ///   挂上自动生效、消失自动恢复，不需要任何「还原」代码。
+        ///
+        /// ⚠️ <b>只有 Player 会读这三个修正量，怪物不会</b>（见 <see cref="Monster.AddBuff"/> 的说明）。
+        ///   给怪物挂一个覆写了本属性的 buff，三个修正量会被静默忽略 —— 不报错、不崩溃、
+        ///   只是「+DEF buff 挂了但防御没变」。这是刻意选择（怪物侧没有 BaseXxx 重算通路，
+        ///   加一套的风险大于收益），不是遗漏；要让怪物吃属性修正，得先按
+        ///   <see cref="Player.RecomputeStats"/> 的样子给 Monster 建基础值 + 重算入口。
         /// </summary>
         public virtual double StrBonus => 0.0;
 
@@ -141,10 +147,16 @@ namespace LostCompound.Buffs
         /// 目前没有 buff 覆写它（流血扣血、超雄加 STR），加它是为了让三条修正通道
         /// 对三个派生属性都成立 —— 否则将来做「+ATK 的药」时，写 buff 的人只能
         /// 回到「结算时直接改 owner.Atk」那种会被下次重算冲掉的写法。
+        ///
+        /// ⚠️ 与 <see cref="StrBonus"/> 相同：**怪物不读本属性**。
         /// </summary>
         public virtual double AtkBonus => 0.0;
 
-        /// <summary>本 buff 对 DEF 的修正量（正数加强、负数削弱），默认 0。见 <see cref="AtkBonus"/>。</summary>
+        /// <summary>
+        /// 本 buff 对 DEF 的修正量（正数加强、负数削弱），默认 0。见 <see cref="AtkBonus"/>。
+        ///
+        /// ⚠️ 与 <see cref="StrBonus"/> 相同：**怪物不读本属性**。
+        /// </summary>
         public virtual double DefBonus => 0.0;
 
         /// <summary>

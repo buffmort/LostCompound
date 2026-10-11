@@ -230,6 +230,11 @@ namespace LostCompound.Tools
             foreach (Monster m in monsters)
             {
                 m.Buffs.Clear();
+                // ⚠️ 这里**故意不**跟着重算怪物属性（对称起来看像是漏了一行，其实不是）：
+                // 怪物完全不读 Buff.StrBonus / AtkBonus / DefBonus，它的 Atk/Def/Str
+                // 就是字段本身、没有「基础值 + 修正」这层结构，所以清了 buff 也没有可回退的东西。
+                // 详见 Monster.AddBuff 的说明（用户裁定：明确写死怪物不吃属性修正，
+                // 而不是给 Monster 也建一套 RecomputeStats）。
             }
         }
 
