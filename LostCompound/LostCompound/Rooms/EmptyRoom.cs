@@ -36,21 +36,14 @@ namespace LostCompound.Rooms
                 Environment.DrainWater(40);
                 Console.WriteLine("山壁涌下的岩浆蒸干了 40 点水！");
 
-                // 基础材料 ID 1-9（ItemIds 里的 1~9 段），随机给一种
-                int id = Random.Shared.Next(1, 10);
-                Item reward = id switch
-                {
-                    1 => new Sulphur(1),
-                    2 => new Wood(1),
-                    3 => new Charcoal(1),
-                    4 => new FushionSluphur(1),
-                    5 => new WhitePhosphorus(1),
-                    6 => new Sand(1),
-                    7 => new GlassJar(1),
-                    8 => new WaterBottle(1),
-                    9 => new Metal(1),
-                    _ => null,
-                };
+                // 基础材料 ID 1-9（ItemIds 里的 1~9 段），随机给一种。
+                // 候选集从 ItemFactory.All 按 ID 段筛出来，不再手抄一份「1..9 → 道具」的 switch：
+                // 那份 switch 与 ItemIds/ItemFactory 三处重复维护，改一处忘一处编译器还不报错。
+                // 顺序即 ItemFactory.All 的顺序，候选集与原先逐条一致（1..9 全部，无权重差异）。
+                var basics = ItemFactory.All
+                    .Where(entry => entry.Id >= ItemIds.Sulphur && entry.Id <= ItemIds.Metal)
+                    .ToList();
+                Item reward = basics.Count > 0 ? basics[Random.Shared.Next(basics.Count)].Create(1) : null;
                 if (reward != null)
                 {
                     p.AddItem(reward);
