@@ -27,8 +27,16 @@ namespace LostCompound.Monsters
         /// </summary>
         private double _highTempImmunity;
 
-        /// <summary>战斗开始时按环境写入高温免疫比例（0~1）。</summary>
+        /// <summary>战斗开始时按环境写入高温免疫比例（0~1）。保留原名，作为岩浆怪自己的写入口。</summary>
         public void SetHighTempImmunity(double ratio) => _highTempImmunity = ratio;
+
+        /// <summary>
+        /// 基类的统一入口：战斗循环把「当前环境算出的免疫比例」（见
+        /// <see cref="LostCompound.MapEnvironment.Environment.GetDamageImmunity"/>）写进来，
+        /// 本类把它接到自己的高温免疫槽位上。
+        /// 这样循环不需要认识 LavaSlime 这个类型。
+        /// </summary>
+        public override void ApplyDamageImmunity(double ratio) => SetHighTempImmunity(ratio);
 
         // 构造方法：初始化岩浆怪的基础属性
         public LavaSlime()

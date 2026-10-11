@@ -1,4 +1,5 @@
 using LostCompound.Items;
+using LostCompound.Monsters;   // GetDamageImmunity(Monster m)
 using LostCompound.Tools;   // Player：环境直接改玩家（见 Environment 类注释的「方案 A」）
 
 namespace LostCompound.MapEnvironment
@@ -77,6 +78,15 @@ namespace LostCompound.MapEnvironment
             Water -= amount;
             if (Water < 0) Water = 0;
         }
+
+        /// <summary>
+        /// 「环境 × 怪物」规则：熔岩瀑布是高温环境 → 岩浆怪免疫 30% 高温伤害（设计文档六）。
+        /// 规则内容（哪个怪、免疫多少）只有本环境知道，所以判定写在这里；
+        /// 战斗循环只把返回值写进怪物（见 Tools.ApplyEnvironmentMonsterTraits）。
+        /// 别的怪一律 0 —— 与改造前「只有岩浆怪被写入 30%」完全一致。
+        /// </summary>
+        public override double GetDamageImmunity(Monster m)
+            => m is LavaSlime ? LavaSlime.HighTempImmunityInLavaWaterfall : 0.0;
 
         public override string DescribeStatus()
         {

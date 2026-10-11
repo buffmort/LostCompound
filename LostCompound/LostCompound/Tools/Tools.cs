@@ -111,19 +111,21 @@ namespace LostCompound.Tools
         /**
          * 战斗开始前按当前环境初始化怪物特性。
          *
-         * 目前只有一条规则：熔岩瀑布是高温环境 → 岩浆怪免疫 30% 高温伤害（设计文档六）。
-         * 之所以集中在这一个方法里，是为了以后再有「环境 × 怪物」的规则时只改这一处，
-         * 而不是往每个怪物的 TakeDamage 里塞 if（见 CONVENTIONS 2.5）。
+         * 「环境 × 怪物」的规则写在环境那一侧（Environment.GetDamageImmunity，
+         * 如熔岩瀑布对岩浆怪的高温免疫 30%，设计文档六）；这里只做搬运：
+         * 逐只怪问当前环境「你对它给多少免疫比例」，再交给怪物自己收下
+         * （Monster.ApplyDamageImmunity，没有免疫机制的怪默认忽略）。
+         *
+         * 为什么这么分（见 CONVENTIONS 2.5）：规则内容属于环境，本方法属于通用流程。
+         * 原先这里是 `if (env is not LavaWaterfall) return;` + `if (m is LavaSlime slime)`，
+         * 每加一条环境×怪物规则就要在通用循环里再写一个 is。
          */
         private static void ApplyEnvironmentMonsterTraits(Environment env, List<Monster> monsters)
         {
-            if (env is not LavaWaterfall) return;
+            if (env == null) return;
             foreach (Monster m in monsters)
             {
-                if (m is LavaSlime slime)
-                {
-                    slime.SetHighTempImmunity(LavaSlime.HighTempImmunityInLavaWaterfall);
-                }
+                m.ApplyDamageImmunity(env.GetDamageImmunity(m));
             }
         }
 

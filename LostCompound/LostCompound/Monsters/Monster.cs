@@ -43,6 +43,18 @@ namespace LostCompound.Monsters
         public abstract void OnMonsterTurn(Player p);
         protected abstract int RollIndex(int count);
 
+        /// <summary>
+        /// 写入「环境赋予本怪物的伤害免疫比例」（0~1），战斗开始时由
+        /// <see cref="Tools.ApplyEnvironmentMonsterTraits"/> 按当前环境调用一次。
+        ///
+        /// 默认什么也不做：只有具备免疫机制的怪物才需要这个槽位。
+        /// 为什么把它做成基类上的虚方法、而不是让战斗循环去判断怪物类型：
+        ///   原先循环里写的是 `if (m is LavaSlime slime) slime.SetHighTempImmunity(...)`，
+        ///   以后每多一种「按环境改抗性」的怪，通用循环就要多一个 is。
+        ///   现在循环只负责「把环境算出来的比例交给怪物」，怪物自己决定要不要收。
+        /// </summary>
+        public virtual void ApplyDamageImmunity(double ratio) { }
+
         // 原 6 个子类各自重写的 isAlive() 实现完全相同（都是 hp > 0），
         // 故合并为基类上的一个计算属性，子类不再重写。
         public bool IsAlive => Hp > 0;

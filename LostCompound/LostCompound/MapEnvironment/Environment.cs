@@ -1,4 +1,5 @@
 using LostCompound.Items;
+using LostCompound.Monsters;   // GetDamageImmunity(Monster)：环境声明「本环境对某只怪的免疫比例」
 using LostCompound.Tools;
 
 namespace LostCompound.MapEnvironment
@@ -82,6 +83,16 @@ namespace LostCompound.MapEnvironment
 
         /// <summary>判负时打印的那句话。默认给一句通用的，特殊环境可覆写。</summary>
         public virtual string FatalMessage => "环境已然失控——你失去了意识……";
+
+        /// <summary>
+        /// 本环境给某个怪物的伤害免疫比例（0 = 不免疫，0.3 = 减伤 30%）。
+        /// 默认 0。由有此类规则的环境覆写 —— 例如熔岩瀑布对岩浆怪的高温免疫。
+        ///
+        /// 为什么放这里而不是在 RunBattle 里判断类型：以后每加一条「环境 × 怪物」规则，
+        /// 那种写法就要多一个 is（还要同时认出是哪个环境、哪只怪），
+        /// 而这里只是多一个 override；战斗循环只负责把结果写进怪物。
+        /// </summary>
+        public virtual double GetDamageImmunity(Monster m) => 0.0;
 
         /// <summary>拼进玩家状态栏的一行环境状态。</summary>
         public abstract string DescribeStatus();
