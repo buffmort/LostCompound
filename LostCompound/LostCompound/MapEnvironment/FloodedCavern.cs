@@ -20,6 +20,20 @@ namespace LostCompound.MapEnvironment
         /// </summary>
         public override bool CanMineOre => true;
 
+        /// <summary>硫酸在水淹洞穴腐蚀出的金属数量区间（含两端）。文档只写「开采金属矿」，未给数量，沿用 1-3。</summary>
+        private const int MinAcidMetal = 1;
+        private const int MaxAcidMetal = 3;
+
+        /// <summary>
+        /// 硫酸在水淹洞穴的产出：一块金属矿脉（数量 1-3）。
+        ///
+        /// 这条规则原先写在 SulfuricAcid.Use 里（`new Metal(Random.Shared.Next(MinMetal, MaxMetal))`），
+        /// 也就是「环境决定能不能挖、道具决定挖出什么」—— 等放射性区域（5.6）覆写
+        /// `CanMineOre => true` 时，硫酸会静默产出金属矿。现在产物归环境：
+        /// 水淹洞穴给金属，放射性区域自己给放射矿，硫酸只负责搬运。
+        /// </summary>
+        public override Item MineOreWithAcid() => new Metal(Random.Shared.Next(MinAcidMetal, MaxAcidMetal + 1));
+
         /// <summary>水位上限。到 15 就是设计文档 5.2 的「15 计数」。</summary>
         public const int MaxWaterLevel = 15;
 
