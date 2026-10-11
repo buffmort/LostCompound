@@ -39,6 +39,16 @@ namespace LostCompound.MapEnvironment
         /// </summary>
         public override bool CanMine => true;
 
+        /// <summary>
+        /// 水位满 = 玩家必败（设计文档 5.2 的「15 计数」）。
+        /// 判定条件留在环境自己身上：战斗循环只问 <see cref="Environment.IsFatalToPlayer"/>，
+        /// 不需要知道「水淹洞穴」这个具体类型，也不需要知道阈值是 15。
+        /// </summary>
+        public override bool IsFatalToPlayer => WaterLevel >= MaxWaterLevel;
+
+        /// <summary>判负文案：与原先写死在战斗循环里的那句逐字一致。</summary>
+        public override string FatalMessage => "水位涨到了极限，整个洞穴被淹没——你失去了意识……";
+
         public override void OnBattleTurn()
         {
             // 被堵住时只走倒计时，且完全不掷随机数 —— 设计文档说「堵住后水位不再上涨」，

@@ -67,6 +67,22 @@ namespace LostCompound.MapEnvironment
         /// </summary>
         public virtual bool CanMine => false;
 
+        /// <summary>
+        /// 本环境是否已到「玩家必败」的条件（如水淹洞穴水位满）。
+        /// 由环境自己判定，战斗循环只问结果 —— 这样以后再加有死亡条件的环境
+        /// （如熔岩瀑布被岩浆淹没）不用回头改 RunBattle。
+        ///
+        /// 为什么放在基类、而不是在 Tools.RunBattle 里判断具体类型：
+        ///   写死的写法只有在一个环境有「判负条件」时看不出问题，
+        ///   第二个这样的环境（岩浆淹上来、毒气充满……）一出现，
+        ///   战斗循环里就会多一个 is，而且每加一种失败条件就得再改一次通用循环。
+        ///   现在循环只认「这个环境是不是已经必败了」这一个问题。
+        /// </summary>
+        public virtual bool IsFatalToPlayer => false;
+
+        /// <summary>判负时打印的那句话。默认给一句通用的，特殊环境可覆写。</summary>
+        public virtual string FatalMessage => "环境已然失控——你失去了意识……";
+
         /// <summary>拼进玩家状态栏的一行环境状态。</summary>
         public abstract string DescribeStatus();
     }

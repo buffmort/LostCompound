@@ -50,13 +50,18 @@ namespace LostCompound.Tools
                     // 环境只推进自己；它对玩家的影响（如缺水扣 STR）由 Player 重算时读取
                     env?.OnBattleTurn();
 
-                    // 水淹洞穴：水位涨到极限 → 全部对象死亡，玩家直接算输
-                    if (env is FloodedCavern flooded && flooded.WaterLevel >= FloodedCavern.MaxWaterLevel)
+                    // 环境自己声明的「玩家必败」条件（如水淹洞穴水位满）→ 全部对象死亡，玩家直接算输。
+                    // 为什么改成问能力：原先这里写的是 `env is FloodedCavern`，等于把某个环境的具体
+                    // 判负规则搬进了通用战斗循环；以后再加一个会淹死人的环境，就得回来改 RunBattle。
+                    if (env?.IsFatalToPlayer == true)
                     {
-                        Console.WriteLine("水位涨到了极限，整个洞穴被淹没——你失去了意识……");
+                        Console.WriteLine(env.FatalMessage);
                         p.Hp = 0;
                         foreach (Monster m in monsters)
                         {
+                            // 这里写 0.01 而不是 0 是刻意的：0.01 让 IsAlive（Hp > 0）为 false，
+                            // 怪物仍走 RemoveDeadMonsters 的统一收尸出口（发掉落 + 移除），
+                            // 直接写 0 会跳过 Die() 的幂等判断路径、漏掉落。
                             m.Hp = 0.01;
                         }
                         break;
