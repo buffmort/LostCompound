@@ -291,6 +291,12 @@ namespace LostCompound.Tools
         public void OnTurnStart(EnvType envType)
         {
             Console.WriteLine("=====你的回合=====");
+
+            // 护盾是「本回合」的资源，不跨回合累积 —— 回合一开始先清空，
+            // 再由装备被动（盾牌 +5）和本回合的「防御」动作重新攒。
+            // 放在 RefreshStatus 之前，状态栏显示的才是重置后的值，而不是上回合残留。
+            ResetShieldForTurn();
+
             RefreshStatus();               // 战斗中让状态栏显示血量/防御/护盾
             // 环境状态（水量、水位）每回合都在变，所以每回合都要重算 STR，
             // 不能只在进战斗时算一次 —— 否则缺水削弱要等到下一场战斗才生效。
@@ -1201,6 +1207,21 @@ namespace LostCompound.Tools
             RecomputeStr();
             RefreshStatus();
         }
+
+        /// <summary>
+        /// 回合开始的护盾重置：护盾是「本回合」的资源，不跨回合累积。
+        ///
+        /// 为什么复用 ApplyEquipmentPassives 而不是直接写 Shield = 0：
+        ///   那个方法本身就是「先把 Atk/Def/Shield 还原成基础值，再让每件装备各加一次」，
+        ///   所以顺带让「盾」这件道具（+5）每回合重新生效。
+        ///   直接清零的话，盾牌只在开战那一回合有用，之后永远为 0，等于把道具废掉。
+        ///
+        /// 它会连带重算 Atk/Def —— 那两步同样是「先还原再加」，幂等，每回合跑一次无副作用。
+        ///
+        /// 语义变化：以前护盾跨回合累积（连续防御两次能攒到 10 盾），
+        ///   现在防御给的 5 点只在「本回合内」有效 —— 挡怪物回合那一刀，回合结束就没了。
+        /// </summary>
+        private void ResetShieldForTurn() => ApplyEquipmentPassives();
 
         /// <summary>
         /// 把背包里所有被动装备（Equippable）的加成应用到玩家身上。
