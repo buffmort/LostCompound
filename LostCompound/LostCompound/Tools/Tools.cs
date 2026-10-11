@@ -55,6 +55,10 @@ namespace LostCompound.Tools
                     {
                         Console.WriteLine("水位涨到了极限，整个洞穴被淹没——你失去了意识……");
                         p.Hp = 0;
+                        foreach (Monster m in monsters)
+                        {
+                            m.Hp = 0.01;
+                        }
                         break;
                     }
 
