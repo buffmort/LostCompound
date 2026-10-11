@@ -186,6 +186,9 @@ namespace LostCompound.Tools
         /// 区别只有一处：**选 ID 这一步未登记时会重问**（129 是直接返回）。
         /// 理由：buff 清单只有个位数行，手上多半就是照着清单敲的，
         /// 敲错一个数字就把整条指令退出去、要重新从菜单走一遍，不好用。
+        ///
+        /// 「剩余回合」这一步可以输入 <see cref="Buff.Permanent"/>（-1）表示**永久**
+        /// —— 值直接复用 Buff 的哨兵，不在这里另定一套暗号，免得两边对不上。
         /// </summary>
         public static void AddBuffTo(Player player)
         {
@@ -226,9 +229,12 @@ namespace LostCompound.Tools
                 return;
             }
 
-            // ── 4. 剩余回合：同上 ──
-            int? turns = ReadIntOrCancel("请输入剩余回合（空行取消）: ");
-            if (turns == null || turns.Value <= 0)
+            // ── 4. 剩余回合：-1 = 永久（就是 Buff.Permanent 这个值，不另设一套暗号）──
+            // 为什么不像上面的「效果量」那样「<= 0 一律取消」：永久是挂 buff 时真正想测的一种情况
+            // （例如「永久 +1000 STR」），而 0 已经是「已到期」的含义、不能复用，
+            // 所以复用 Buff 自己的哨兵 -1，并在提示里写清楚。
+            int? turns = ReadIntOrCancel("请输入剩余回合（-1 = 永久，空行取消）: ");
+            if (turns == null || (turns.Value <= 0 && turns.Value != Buff.Permanent))
             {
                 Console.WriteLine("已取消。\n");
                 return;
@@ -247,8 +253,10 @@ namespace LostCompound.Tools
             // 注意：AddBuff 对「同类 buff」走的是 MergeFrom 叠加，不是替换 ——
             // 所以玩家身上已经有一个同类 buff 时，这里报的是**本次提交的量**，
             // 而不是叠加后的实际总量（那要读 player.Buffs 里那个对象，属于显示层的事）。
-            Console.WriteLine("已添加 " + buff.Name + "（效果量 " + stacks.Value
-                              + "，剩余 " + turns.Value + " 回合）。\n");
+            // 时长这里同样不能直接印 turns.Value：永久时它是哨兵 -1，会印出「持续-1」。
+            string turnsText = turns.Value == Buff.Permanent ? "永久" : turns.Value.ToString();
+            Console.WriteLine("已添加 " + buff.Name + "（lvl." + stacks.Value
+                              + "，持续" + turnsText + "）。\n");
         }
 
         /// <summary>
@@ -359,12 +367,19 @@ namespace LostCompound.Tools
         /// 以及调用方约定的非法值。
         /// 非法输入（非数字 / 超出 int 范围）不取消，只提示后重问 —— 与 GameLobby.ReadChoice、
         /// Player.ReadInt 同一种写法：TryParse 而不是 Parse，绝不抛异常。
+        ///
+        /// ⚠️ 提示用 <c>WriteLine</c> 而不是 <c>Write</c>（**本方法是调试菜单专用**，
+        /// 与 GameLobby / Player.ReadInt 无关，那两处仍走 <c>_screen.SetPrompt</c>）：
+        ///   带换行的输出会经 LogRegionWriter 走 <c>AppendLog</c> 进**日志区**，
+        ///   而不带换行的会经 <c>SetPartial</c> 进**输入框**（见 ConsoleScreen.SetPartial 的注释）。
+        ///   调试菜单要的是提示留在日志里可回看，所以这里明确选择「进日志」。
+        ///   顺带一个好处：AppendLog 会清掉未完成行，输入框只剩「> 」，不会把提示重复显示一遍。
         /// </summary>
         private static int? ReadIntOrCancel(string prompt)
         {
             while (true)
             {
-                Console.Write(prompt);
+                Console.WriteLine(prompt);
                 string line = Console.ReadLine();
                 if (line == null)
                 {
