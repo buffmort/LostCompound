@@ -26,8 +26,17 @@ namespace LostCompound.Tools
             while (_running)
             {
                 PrintMenu();
-                int choice = ReadChoice();
-                HandleChoice(choice);
+                int? choice = ReadChoice();
+                if (choice == null)
+                {
+                    // 输入流结束（EOF）：输入已经没有了，再刷一遍主菜单毫无意义 ——
+                    // 直接结束主菜单循环，等价于玩家选了「2. 退出游戏」。
+                    // 注意不能改成 continue：ReadChoice 会立刻再返回 null，主菜单变成不读输入的空转刷屏。
+                    Console.WriteLine();
+                    _running = false;
+                    break;
+                }
+                HandleChoice(choice.Value);
             }
         }
 
@@ -92,10 +101,18 @@ namespace LostCompound.Tools
             Console.WriteLine();
             Console.WriteLine();
             // 先让玩家挑本层环境，再用挑到的环境建图。
-            // 注意：必须写 EnvType.LavaWaterfall。简单名 LavaWaterfall 现在与环境类
-            // LostCompound.MapEnvironment.LavaWaterfall 同名，会产生二义性（CS0229）。
-            EnvType envType = SelectEnvironment();
-            TreeMazeGenerator tmg = new TreeMazeGenerator(10, 10, envType);
+            // 注意：类型名必须写全 EnvType —— 环境类 LostCompound.MapEnvironment.LavaWaterfall
+            // 与枚举成员同名，用简单名会产生二义性（CS0229）。
+            // SelectEnvironment 返回 null = 输入流结束、没得选（见下面的处理）。
+            EnvType? envType = SelectEnvironment();
+            if (envType == null)
+            {
+                // 输入流结束：环境没得选，这一层就不建了（主菜单随后会自己退出）。
+                // 这样 EOF 下不会先花时间建图、再进一局注定立刻退出的游戏。
+                Console.WriteLine("已取消开局。\n");
+                return;
+            }
+            TreeMazeGenerator tmg = new TreeMazeGenerator(10, 10, envType.Value);
             tmg.Generate();
             Room[][] map = tmg.Grid;
             Player p = new Player();
@@ -104,6 +121,7 @@ namespace LostCompound.Tools
 
         /// <summary>
         /// 让玩家选择本层环境，返回对应的 <see cref="EnvType"/>。
+        /// 返回 <c>null</c> = 输入流已结束（EOF），没能选出环境，由调用方取消这次开局。
         ///
         /// 清单来自 <see cref="EnvironmentCatalog"/>（只列**已实现**的环境：
         /// 未实现的环境会让 EnvironmentFactory.Create 返回 null，整层的环境机制
@@ -114,7 +132,7 @@ namespace LostCompound.Tools
         ///
         /// 输入沿用 <see cref="ReadChoice"/> 的容错写法（TryParse），不引入 int.Parse。
         /// </summary>
-        private EnvType SelectEnvironment()
+        private EnvType? SelectEnvironment()
         {
             while (true)
             {
@@ -125,15 +143,21 @@ namespace LostCompound.Tools
                 }
                 Console.WriteLine("--------------------------------------");
 
-                int choice = ReadChoice();
-                if (choice < 1 || choice > EnvironmentCatalog.All.Count)
+                int? choice = ReadChoice();
+                if (choice == null)
+                {
+                    // 输入流结束：这里永远选不出环境了，重问只会空转。交回 null 让调用方取消开局。
+                    Console.WriteLine();
+                    return null;
+                }
+                if (choice.Value < 1 || choice.Value > EnvironmentCatalog.All.Count)
                 {
                     // 越界就重问，和主菜单「没有这个选项。」保持同一套容错风格
                     Console.WriteLine("没有这个选项。\n");
                     continue;
                 }
 
-                (string Name, EnvType Type) pick = EnvironmentCatalog.All[choice - 1];
+                (string Name, EnvType Type) pick = EnvironmentCatalog.All[choice.Value - 1];
                 Console.WriteLine("你选择了：" + pick.Name);
                 return pick.Type;
             }
@@ -157,14 +181,28 @@ namespace LostCompound.Tools
 
         /// <summary>
         /// 读一个菜单选项：非数字与超出 int 范围的输入都不会崩，会一直重问。
+        /// 返回 <c>null</c> 表示**输入流已结束（EOF）**，调用方必须据此退出，不能再重问
+        /// （ReadLine 之后每次都返回 null，重问就是空转）。
+        ///
+        /// ⚠️ 空行（<c>""</c>）不是 EOF：空行是玩家有意「重问」的语义，仍然 continue。
+        /// 两者绝不能混为一谈 —— 见 <see cref="DebugMenu.ReadIntOrCancel"/>（那份把两者都当取消，
+        /// 是因为它所在菜单的约定不同；这里按主菜单原有语义，只把 EOF 当退出理由）。
         /// </summary>
-        private int ReadChoice()
+        private int? ReadChoice()
         {
             while (true)
             {
                 Console.Write("请选择: ");
-                // 同 ConfirmExit：ReadLine 在输入流结束时会返回 null，要先兜住
-                string line = (Console.ReadLine() ?? "").Trim();
+                // 同 ConfirmExit：ReadLine 在输入流结束时会返回 null，不能直接 .Trim()
+                string line = Console.ReadLine();
+                if (line == null)
+                {
+                    // EOF：把 null 交回调用方（Run / SelectEnvironment），由它决定怎么收场 ——
+                    // 在这里自设 _running = false 会让「选择本层环境」这条路径也悄悄退出主菜单，
+                    // 语义上说不通（那时玩家还没进游戏，取消的应该是开局）。
+                    return null;
+                }
+                line = line.Trim();
                 if (line.Length == 0)
                 {
                     continue;
