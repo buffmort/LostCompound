@@ -36,14 +36,14 @@ namespace LostCompound.Buffs
         /// 它是流血的语义，不是所有 buff 的语义，所以由本子类自己声明，
         /// 而不是让显示层（Player.RefreshBuffBox）替所有 buff 写死。
         ///
-        /// 时长段：永久（调试 130 传 <see cref="Buff.Permanent"/>）时走
-        /// <see cref="Buff.RemainingTurnsText"/> 显示「永久」，不再把哨兵 -1 印成「剩余-1」。
-        /// ⚠️ 非永久分支**原样保留**这里的 <c>"剩余" + RemainingTurns</c> 写法（不带「回合」）：
-        ///   这一处历来就没有单位（与基类默认的「剩余N回合」不同），属于既有文案，
-        ///   不属于本次改动，**逐字不变**（见报告里的待确认项）。
+        /// 时长段直接走 <see cref="Buff.RemainingTurnsText"/>（已含「剩余」前缀或「永久」），
+        /// 不要再自己拼「剩余」。
+        ///
+        /// 文案刻意压短：Buff 框只有 2 行、宽度跟地图框，写长了会被 Clamp 截掉。
+        /// 所以用「伤」而不是「伤害」，并用空格代替「 · 」分隔。
         /// </summary>
         public override string Describe() =>
-            "每回合" + Stacks + "伤害 · 剩余" + (IsPermanent ? RemainingTurnsText : RemainingTurns.ToString());
+            "每回合" + Stacks + "伤 " + RemainingTurnsText;
 
         /// <summary>每回合伤害上限 10（设计文档 3.2 技能 6 的「上限 10」）。</summary>
         public override int MaxStacks => MaxDamagePerTurn;

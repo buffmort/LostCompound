@@ -24,7 +24,7 @@ public class SuperMaleBuff : Buff
     /// 不把哨兵 -1 印出来。与流血同理，非永久分支保持原有的「剩余N」写法，逐字不变。
     /// </summary>
     public override string Describe() =>
-        "力量 +" + StrBonus + " · 剩余" + (IsPermanent ? RemainingTurnsText : RemainingTurns.ToString());
+        "力量+" + StrBonus + " " + RemainingTurnsText;
 
     public override void OnTurnTick(Player owner)
     {

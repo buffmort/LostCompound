@@ -223,10 +223,10 @@ namespace LostCompound.Buffs
         /// 显示层直接拼就会写出「剩余-1回合」。把「哨兵 → 人话」这一步收在这一个属性里，
         /// 各子类的 <see cref="Describe"/> 都走它，将来再加 buff 子类也不会有人漏判永久又写出 -1。
         ///
-        /// 非永久时它返回的就是 <c>RemainingTurns + "回合"</c>，与加永久之前的写法逐字一致
-        /// （例如仍是「2回合」）—— 这次只改永久那一种情况。
+        /// ⚠️ 直接返回「剩余N」/「永久」，调用方**不要再自己加「剩余」前缀**
+        ///    （永久时加前缀会写出「剩余永久」，那读起来是错的）。
         /// </summary>
-        protected string RemainingTurnsText => IsPermanent ? "永久" : RemainingTurns + "回合";
+        protected string RemainingTurnsText => IsPermanent ? "永久" : "剩余" + RemainingTurns;
 
         /// <summary>
         /// 状态栏「Buff 框」里显示的一行效果说明（不含显示名，名字由调用方拼在前面）。
@@ -245,10 +245,10 @@ namespace LostCompound.Buffs
         /// 默认实现刻意**只说通用事实**（剩余回合），不写任何单位 ——
         /// 基类不该猜子类的效果量是什么。子类若觉得不够显眼，覆写它即可。
         ///
-        /// 时长段走 <see cref="RemainingTurnsText"/>：永久 buff 显示「剩余永久」，
-        /// 而不是把哨兵 -1 直接印成「剩余-1回合」。
+        /// 时长段走 <see cref="RemainingTurnsText"/>（它已含「剩余」前缀 / 或「永久」），
+        /// 所以这里**不要**再拼「剩余」。
         /// </summary>
-        public virtual string Describe() => "剩余" + RemainingTurnsText;
+        public virtual string Describe() => RemainingTurnsText;
 
         /// <summary>
         /// 每回合结算一次。由战斗回合管线（Tools.ApplyBuffs）调用。
