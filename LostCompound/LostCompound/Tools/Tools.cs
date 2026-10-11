@@ -59,9 +59,14 @@ namespace LostCompound.Tools
                         p.Hp = 0;
                         foreach (Monster m in monsters)
                         {
-                            // 这里写 0.01 而不是 0 是刻意的：0.01 让 IsAlive（Hp > 0）为 false，
-                            // 怪物仍走 RemoveDeadMonsters 的统一收尸出口（发掉落 + 移除），
-                            // 直接写 0 会跳过 Die() 的幂等判断路径、漏掉落。
+                            // 这里写 0.01 而不是 0，是为了让 IsAlive（Hp > 0）判定为 false，
+                            // 顺带把「非整数血量」这件事显式化（Hp 是 double）。
+                            //
+                            // ⚠️ 上一版注释在这里写的是「仍走 RemoveDeadMonsters 的统一收尸（发掉落）」——
+                            //   那个**理由不成立**：紧接着就是 break，循环直接退出，
+                            //   RemoveDeadMonsters 根本不会执行，掉落自然也不会发。
+                            //   而「环境判负时不给怪物掉落」本身就是想要的行为（玩家已经被判定失败了，
+                            //   再按战利品发一份没有意义），所以行为保留，只把理由改对。
                             m.Hp = 0.01;
                         }
                         break;

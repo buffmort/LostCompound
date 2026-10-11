@@ -32,13 +32,6 @@ namespace LostCompound.Rooms
             // 可以在这里清理或触发离开事件
         }
 
-        // 统一进入流程：先标记已访问，再触发事件
-        public void EnterSetup(Player p)
-        {
-            MarkArrived();
-            OnEnter(p);
-        }
-
         /// <summary>
         /// 只做「玩家已到达」的标记（地图据此渲染 * 与已访问状态），<b>不</b>触发 OnEnter。
         /// 把「显示地图」与「房间事件」拆开，使输出顺序可以变成：地图 → 房间类型 → 事件。
@@ -62,16 +55,6 @@ namespace LostCompound.Rooms
             if (index >= 0 && index < _doors.Length)
             {
                 return _doors[index];
-            }
-            return false;
-        }
-
-        // 检查是否还有空闲门（供生成器使用，保留）
-        public bool HasFreeDoor()
-        {
-            foreach (bool d in _doors)
-            {
-                if (!d) return true;
             }
             return false;
         }

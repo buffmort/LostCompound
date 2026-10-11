@@ -133,7 +133,10 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 **如果同一段逻辑在 ≥2 个子类里各写一遍，就应该提到基类。**
 本项目出过的事故：
 - **跳过回合检查**散在 4 处（`Dragon`/`Zombie`/`Dummy`/`Player`），**第 5 处 `LavaSlime` 漏了** → 热硫对它无效
-- 项目里其实**提供了公共方法** `Monster.TryConsumeSkipTurn()`，但**零调用**（大家都内联重写了一遍）
+- 项目里其实**提供了公共方法** `Monster.TryConsumeSkipTurn()`，但**子类里零调用**（大家都内联重写了一遍）。
+  **⚠️ 更正（后来已改）**：`Tools.RunBattle` 现在统一调用双方的 `TryConsumeSkipTurn()`
+  （`m.TryConsumeSkipTurn()` 跳过怪物、`p.TryConsumeSkipTurn()` 跳过玩家），
+  所以它**不再是零调用** —— 勿照旧描述删除它。
 
 **结论**：每回合的通用结算（**流血 buff / 跳过 / 回合头 / 收尸**）**全部集中在 `Tools.RunBattle`**，
 子类只实现 `OnMonsterTurn`（自己的行为）。
@@ -145,7 +148,7 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 - **不要用 `\u001b[K`（清到行尾）** —— 左右分栏时它会擦掉右边邻居的边框。
   各框自己按外框宽度补齐空格即可
 - **框的位置都是计算属性**，改 `MapRows` / `StatusRows` / `LogRows` 会让下面自动跟随，
-  但**变了之后要重画**（参考 `RelayoutLeftColumn()`）
+  但**变了之后要重画**（参考 `Relayout()`）
 - **总高度不能超过终端高度** —— 一旦顶到最底行，终端会滚动，**所有绝对定位全废**
 - **输出文案尽量放在 `Player.RefreshStatus()` 里**，不要各房间自己拼状态栏
 

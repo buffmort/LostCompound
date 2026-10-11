@@ -12,12 +12,20 @@ namespace LostCompound.UI
     ///   ┌─ 日志 ──────────┐            └──────────────────────────┘
     ///   │ ...（滚动）      │            ┌─ 状态 ──────────────────┐
     ///   │ ...              │            │ 当前房间:Start           │
-    ///   └─────────────────┘            │ 熔岩瀑布水量：200/200    │
-    ///   ┌─ 输入 ──────────┐            └──────────────────────────┘
-    ///   │ > _              │            ┌─ Buff ──────────────────┐
-    ///   └─────────────────┘            │ 流血: 每回合7伤害 · 剩余2回合 │
+    ///   └─────────────────┘            │ 血量:.... 防御:.... 护盾: |
+    ///   ┌─ 输入 ──────────┐            │ 力量:....                │
+    ///   │ > _              │            │ 熔岩瀑布水量：200/200    │
+    ///   └─────────────────┘            │ （DescribeStatus 另有行  │
+    ///                                  │   时会顶掉上面某一行）   │
+    ///                                  └──────────────────────────┘
+    ///                                  ┌─ Buff ──────────────────┐
+    ///                                  │ 流血: 每回合7伤害 · 剩余2回合 │
     ///                                  │ （空）                   │
     ///                                  └──────────────────────────┘
+    ///
+    /// 状态框是 <see cref="StatusRows"/>（4）行，上面的示意图就是它的实际高度 ——
+    /// 注意它**并不**只有「当前房间 + 环境」两行：战斗时玩家自己的血量/防御/护盾/力量
+    /// 会插在房间行之后（见 Player.RefreshStatus），超出的行会被 DrawBox 丢掉。
     ///
     /// 为什么左右分栏？地图是宽而方的（10×10 地图 = 41 列 × 21 行），
     /// 状态/日志/输入本来就窄。上下堆叠时地图会吃掉纵向空间，日志被压到个位数；
@@ -82,9 +90,6 @@ namespace LostCompound.UI
 
         /// <summary>是否已经按「实际地图内容宽度」定过一次尺寸（首次绘制时允许收缩）。</summary>
         private bool _mapWidthReady;
-
-        /// <summary>日志区最少保留的行数。状态框固定 + 敌人框固定后，这里只在极端窄屏下兜底。</summary>
-        private const int MinimumLogRows = 1;
 
         /// <summary>
         /// 地图区最少保留的内容宽度（列）。41 列 ≈ 10 格地图（每格 4 字符 + 边框）。
@@ -323,8 +328,9 @@ namespace LostCompound.UI
 
         /// <summary>
         /// 重画状态区（右列、地图框正下方）。statusText 里用 \n 分行。
-        /// 行数固定 StatusRows（3）—— 原先的「按内容涨缩、从日志借行」会导致整列抖动，
+        /// 行数固定 <see cref="StatusRows"/>（**4**）—— 原先的「按内容涨缩、从日志借行」会导致整列抖动，
         /// 而且状态框现在跟地图同宽，高度再变会连带右列总高变化，风险更大。
+        /// （这份注释上一版写的是「固定 StatusRows（3）」，与常量的实际值 4 不符，已改对。）
         /// </summary>
         public void DrawStatus(string statusText)
         {
@@ -409,7 +415,11 @@ namespace LostCompound.UI
             int row = InputBoxTop + 1;
             DrawBoxContent(row, LeftBoxLeft, LeftWidth, PromptPrefix + _partial);
 
-            // 光标跑到提示文字之后，这样玩家敲的字回显在输入框里
+            // 光标跑到提示文字之后，这样玩家敲的字回显在输入框里。
+            // 列号 = 左边框（1 列）+ ContentOffset 格边距 + 提示文字宽度 —— 与 DrawBoxContent
+            // 实际写出的文字位置**逐字对应**（那边也是 │ + ContentOffset 格 + 文字）。
+            // 原先这里减 2、而 DrawBoxContent 只写 1 格边距时恰好蒙对；DrawBoxContent 补齐宽度后
+            // 两者统一成 ContentOffset，光标不再错位到文字前面。
             int col = LeftBoxLeft + ContentOffset + DisplayWidth(Clamp(PromptPrefix + _partial, LeftWidth));
             _raw.Write($"\u001b[{row};{col}H");
         }
@@ -455,14 +465,23 @@ namespace LostCompound.UI
             WriteRawAt(row, col, "└" + new string('─', Math.Max(0, width - 2)) + "┘");
         }
 
-        /// <summary>画一行框内内容：│ 文本…（补齐空格）│</summary>
+        /// <summary>
+        /// 画一行框内内容：│ 文本…（补齐空格）│
+        ///
+        /// ⚠️ 整行的**显示宽度必须正好等于 <paramref name="width"/>**，与上下边框（<see cref="DrawBoxTop"/> /
+        /// <see cref="DrawBoxBottom"/>，各为 width 列）逐列对齐 —— 否则右边框会比上下边框的 ┐ / ┘ 少一列，
+        /// 整个框的右边缘出现锯齿。
+        /// 原先这里写的是 <c>new string(' ', ContentOffset - 1)</c>（只有 1 格边距），
+        /// 而宽度预算是按 ContentOffset（2 格）扣的，于是每行实宽 = width - 1，正好差这一列。
+        /// 改成 ContentOffset 之后：1（│）+ 2（边距）+ clamped + pad + 1（│）= width。
+        /// </summary>
         private void DrawBoxContent(int row, int col, int width, string text)
         {
             string clamped = Clamp(text, width);
             int inner = width - 2 - ContentOffset;                 // 可用内容宽度
             int pad = Math.Max(0, inner - DisplayWidth(clamped));
 
-            WriteRawAt(row, col, "│" + new string(' ', ContentOffset - 1) + clamped + new string(' ', pad) + "│");
+            WriteRawAt(row, col, "│" + new string(' ', ContentOffset) + clamped + new string(' ', pad) + "│");
         }
 
         /// <summary>按显示宽度截断，避免撑破右边框。</summary>

@@ -134,65 +134,6 @@ namespace LostCompound.Maps
 
         public Room[][] Grid => _grid;
 
-        /**
-         * 打印地图（文字版），显示房间类型和门连接情况。
-         * 使用字符画： | 表示左右墙， - 表示上下墙， + 表示交叉点， * 表示房间。
-         */
-        public void PrintDebugMap()
-        {
-            for (int r = 0; r < _rows; r++)
-            {
-                // 打印上方墙壁
-                for (int c = 0; c < _cols; c++)
-                {
-                    Room room = _grid[r][c];
-                    Console.Write("+");
-                    if (room.HasDoor(Direction.Up))
-                    {
-                        Console.Write("   "); // 有门，通道
-                    }
-                    else
-                    {
-                        Console.Write("---");
-                    }
-                }
-                Console.WriteLine("+");
-
-                // 打印左墙和房间标记
-                for (int c = 0; c < _cols; c++)
-                {
-                    Room room = _grid[r][c];
-                    if (room.HasDoor(Direction.Left))
-                    {
-                        Console.Write(" "); // 有左门，通道
-                    }
-                    else
-                    {
-                        Console.Write("|");
-                    }
-                    // 房间类型简写
-                    Console.Write(GetRoomTypeLabel(room.Type));
-                }
-                // 最右侧墙壁
-                Console.WriteLine("|");
-            }
-            // 打印最下方墙壁
-            for (int c = 0; c < _cols; c++)
-            {
-                Console.Write("+---");
-            }
-            Console.WriteLine("+");
-        }
-
-        public Room GetRoom(int row, int col)
-        {
-            if (row >= 0 && row < _rows && col >= 0 && col < _cols)
-            {
-                return _grid[row][col];
-            }
-            return null;
-        }
-
         public string ToDisplayString()
         {
             int displayRows = _rows * 2 + 1;

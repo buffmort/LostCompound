@@ -1229,35 +1229,6 @@ namespace LostCompound.Tools
         /*
         * 后面是地图逻辑
         * */
-        // 手动指定起始坐标进入地图
-        // 注意：这里只定位并标记到达，不触发 OnEnter；房间事件由调用方（StartGame）在展示地图后触发。
-        public void EnterMap(Room[][] map, int startRow, int startCol)
-        {
-            _map = map;
-            PlayerRow = startRow;
-            PlayerCol = startCol;
-            map[PlayerRow][PlayerCol].MarkArrived();
-        }
-
-        // 自动寻找 StartRoom 进入地图
-        public void EnterMap(Room[][] map)
-        {
-            _map = map;
-            for (int y = 0; y < map.Length; y++)
-            {
-                for (int x = 0; x < map[0].Length; x++)
-                {
-                    if (map[y][x] is StartRoom)
-                    {
-                        PlayerRow = y;
-                        PlayerCol = x;
-                        map[y][x].MarkArrived();
-                        return;
-                    }
-                }
-            }
-            throw new InvalidOperationException("地图中没有起始房间！");
-        }
 
         public void ShowAvailableDirections()
         { //检查可以走的方向
