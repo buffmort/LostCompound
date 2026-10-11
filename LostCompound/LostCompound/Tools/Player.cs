@@ -1065,17 +1065,21 @@ namespace LostCompound.Tools
         public void AddDefaultRecipes()
         {
             Console.WriteLine("你成功添加了合成表0!");
+            // 产物一律传工厂 `() => new Xxx(1)` 而不是 `new Xxx(1)` 实例 ——
+            // 配方如果持有实例，那个实例会被 AddItem 直接放进背包，配方与背包同指一个对象，
+            // 于是「合成翻倍」「产物被打光后材料照扣」两种坏法都会出现。
+            // 详见 Items\ICraftable.CreateProduct 与 Tools\Recipe 构造函数的注释。
             Recipes.Add(new Recipe("热硫",
                 [[ItemIds.WhitePhosphorus, 1], [ItemIds.Charcoal, 1], [ItemIds.Sulphur, 1]],
-                new FushionSluphur(1)));
+                () => new FushionSluphur(1)));
             Recipes.Add(new Recipe("玻璃罐",
                 [ [ItemIds.Sand, 3]],
-                new GlassJar(1)));
+                () => new GlassJar(1)));
 
             // 水瓶：1 玻璃罐（按你的决定，文档原本写的是「水淹洞穴空房间掉落」）
             Recipes.Add(new Recipe("水瓶",
                 [[ItemIds.GlassJar, 1]],
-                new WaterBottle(1)));
+                () => new WaterBottle(1)));
         }
 
         /// <summary>
@@ -1090,49 +1094,49 @@ namespace LostCompound.Tools
             // 镐子：5 金属 + 3 木头
             Recipes.Add(new Recipe("镐子",
                 [[ItemIds.Metal, 5], [ItemIds.Wood, 3]],
-                new Pickaxe(1)));
+                () => new Pickaxe(1)));
 
             // 碘片：碘 + 红磷 + 水瓶
             Recipes.Add(new Recipe("碘片",
                 [[ItemIds.Iodine, 1], [ItemIds.RedPhosphorus, 1], [ItemIds.WaterBottle, 1]],
-                new IodineTablet(1)));
+                () => new IodineTablet(1)));
 
             // 金属罐：金属 + 白磷
             Recipes.Add(new Recipe("金属罐",
                 [[ItemIds.Metal, 1], [ItemIds.WhitePhosphorus, 1]],
-                new MetalCan(1)));
+                () => new MetalCan(1)));
 
             // 铁剑：2 木头 + 2 金属
             Recipes.Add(new Recipe("铁剑",
                 [[ItemIds.Wood, 2], [ItemIds.Metal, 2]],
-                new IronSword(1)));
+                () => new IronSword(1)));
 
             // 磷化剑：铁剑 + 2 白磷 + 2 红磷
             Recipes.Add(new Recipe("磷化剑",
                 [[ItemIds.IronSword, 1], [ItemIds.WhitePhosphorus, 2], [ItemIds.RedPhosphorus, 2]],
-                new PhosphorusSword(1)));
+                () => new PhosphorusSword(1)));
 
             // 盔甲：3 金属 + 1 白磷
             Recipes.Add(new Recipe("盔甲",
                 [[ItemIds.Metal, 3], [ItemIds.WhitePhosphorus, 1]],
-                new Armor(1)));
+                () => new Armor(1)));
 
             // 盾：3 金属
             Recipes.Add(new Recipe("盾",
                 [[ItemIds.Metal, 3]],
-                new Shield(1)));
+                () => new Shield(1)));
 
             // 硫酸：水瓶 + 热硫（文档第九章配方 1；开采效果仍是占位）
             Recipes.Add(new Recipe("硫酸",
                 [[ItemIds.WaterBottle, 1], [ItemIds.FushionSluphur, 1]],
-                new SulfuricAcid(1)));
+                () => new SulfuricAcid(1)));
 
             // 放射金属罐：2 放射矿 + 金属罐
             // 注意：放射性矿物（ID 11）目前没有获取途径（Mine / 放射性区域都没做），
             // 所以这条配方现在只能靠调试拿到材料才合得出来。
             Recipes.Add(new Recipe("放射金属罐",
                 [[ItemIds.RadioactiveOre, 2], [ItemIds.MetalCan, 1]],
-                new RadioactiveMetalCan(1)));
+                () => new RadioactiveMetalCan(1)));
         }
 
         public void HandCraft()
