@@ -1,3 +1,5 @@
+using LostCompound.Buffs;
+using LostCompound.Monsters;
 using LostCompound.Tools;
 
 namespace LostCompound.Items
@@ -5,13 +7,13 @@ namespace LostCompound.Items
     /// <summary>
     /// 磷化剑（配方 1，ID 22）：武器。背包时 +15 ATK，攻击挂 1 流血。
     /// 合成材料：铁剑 + 2 白磷 + 2 红磷。
-    /// 「攻击挂 1 流血」的挂载点在 Player.Attack：命中且目标还活着时
+    /// 「攻击挂 1 流血」由本类实现 <see cref="IOnHit"/> 声明：命中且目标还活着时
     /// AddBuff(new BleedBuff(每回合伤害, 持续回合))，流血本身由 Buffs\BleedBuff 实现、
     /// 由战斗回合管线 Tools.ApplyBuffs 每大回合结算。
     /// 本项目没有「装备中的武器」概念（IEquippable 在背包/饰品栏都生效），
     /// 所以「是否在用磷化剑」的判定 = 身上有没有磷化剑。
     /// </summary>
-    public sealed class PhosphorusSword(int count) : Item(ItemIds.PhosphorusSword, "磷化剑", 1, false, count), IEquippable
+    public sealed class PhosphorusSword(int count) : Item(ItemIds.PhosphorusSword, "磷化剑", 1, false, count), IEquippable, IOnHit
     {
         public override ItemType? Type => ItemType.PhosphorusSword;
 
@@ -30,6 +32,17 @@ namespace LostCompound.Items
         public const int BleedTurnsPerHit = 3;
 
         public void ApplyPassive(Player p) => p.Atk += AtkBonus;
+
+        /// <summary>
+        /// 命中特效：给目标挂一次流血（设计文档第九章配方 1 / 3.2 技能 6）。
+        /// 数值与文案与改造前 Player.Attack 里那段逐字一致；「目标已经死了就不挂」
+        /// 由调用方（Player.Attack）判断 —— 那条规则属于战斗流程，不属于某件武器。
+        /// </summary>
+        public void OnHit(Player attacker, Monster target)
+        {
+            target.AddBuff(new BleedBuff(BleedDamagePerHit, BleedTurnsPerHit));
+            Console.WriteLine("磷化剑的磷毒让" + target + "开始流血！");
+        }
 
         public string DescribePassive() => "背包 +" + AtkBonus + " ATK，攻击挂 " + BleedDamagePerHit + " 流血";
     }

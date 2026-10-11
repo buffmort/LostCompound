@@ -486,23 +486,36 @@ namespace LostCompound.Tools
             target.TakeDamage(dmg);
             Console.WriteLine("你攻击了" + target + "!");
 
-            // 磷化剑：命中时给目标挂 1 层流血（设计文档第九章配方 1 / 3.2 技能 6）。
-            // 「怎么知道在用这把剑」：本项目没有「装备中的武器」这个概念 ——
-            // IEquippable 的被动在背包或饰品栏里都生效（见 ApplyEquipmentPassives），
-            // 所以这里用同一套判定：身上有磷化剑，攻击就带流血。
+            // 武器命中特效：遍历身上（背包 + 饰品栏）所有 IOnHit 各触发一次。
+            // 原先这里是 `if (target.IsAlive && HasPhosphorusSword()) { AddBuff(BleedBuff) + 播报 }`
+            // —— 通用攻击流程里写着具体武器（磷化剑）的名字、数值和文案，加第二把带特效的
+            // 武器就得再改这里。现在 Attack 只问「谁有命中特效」，对武器种类一无所知。
             // 目标已被这一击打死就不用挂了（挂上去也没人结算）。
-            if (target.IsAlive && HasPhosphorusSword())
+            // 同一个类型只触发一次：原先的判定是「身上有没有这把剑」（HasPhosphorusSword），
+            // 那是「有无」判断 —— 身上有两把磷化剑也只挂一次流血，这里保持同一口径。
+            if (target.IsAlive)
             {
-                target.AddBuff(new BleedBuff(PhosphorusSword.BleedDamagePerHit, PhosphorusSword.BleedTurnsPerHit));
-                Console.WriteLine("磷化剑的磷毒让" + target + "开始流血！");
+                List<Type> triggered = [];
+                foreach (Item item in Inventory)
+                {
+                    TriggerOnHit(item, target, triggered);
+                }
+                foreach (Item item in Accessories)
+                {
+                    TriggerOnHit(item, target, triggered);
+                }
             }
         }
 
-        /// <summary>身上（背包或饰品栏）是否有磷化剑 —— 判定口径与 ApplyEquipmentPassives 一致。</summary>
-        private bool HasPhosphorusSword()
+        /// <summary>
+        /// 让一件道具的命中特效触发一次（若它有），并保证同一个道具类型在本回合只触发一次。
+        /// </summary>
+        private void TriggerOnHit(Item item, Monster target, List<Type> triggered)
         {
-            return Inventory.Any(item => item is PhosphorusSword)
-                || Accessories.Any(item => item is PhosphorusSword);
+            if (item is not IOnHit onHit) return;
+            if (triggered.Contains(item.GetType())) return;
+            triggered.Add(item.GetType());
+            onHit.OnHit(this, target);
         }
 
         /// <summary>
