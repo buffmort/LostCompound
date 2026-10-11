@@ -73,18 +73,42 @@ namespace LostCompound.Maps
             }
 
             // 4. 50% 概率生成一个 CraftRoom，随机替换掉一个普通房间
+            //    taken 记下已被替换的格子坐标：步骤 5 必须避开它们。
+            List<int[]> taken = [];
             if (Random.Shared.Next(2) == 0) // 50% true / 50% false
             {
                 int index = Random.Shared.Next(normalPositions.Count);
                 int[] pos = normalPositions[index];
                 _grid[pos[0]][pos[1]] = new CraftRoom(env);
+                taken.Add(pos);
             }
 
             // 5. 50% 概率生成一个 TreasureRoom，随机替换掉一个普通房间（全图最多一个）
+            //
+            // ⚠️ 这里从「还没被步骤 4 替换过的格子」里挑，而不是再裸掷一次 normalPositions：
+            //   原先两次都从同一个 normalPositions 取随机 index，取到同一格时
+            //   TreasureRoom 会**覆盖** CraftRoom —— 合成台不是消失，而是整张地图直接没有合成台，
+            //   而且没有任何提示（10×10 时概率约 0.26%）。
+            //   现在第二次的取值域排除了已占用的格子，两者必然落在不同格。
+            // 概率不变：本步仍然是独立的 50% 掷骰（掷骰在前、挑格子在后），
+            //   只是「掷中时挑哪一格」的分布变成了在剩余格子上均匀。
+            // 候选非空的前提：normalPositions.Count ≥ 2（10×10 时是 98），
+            // 先被占掉的至多 1 格，所以 count - 1 ≥ 1，Random.Shared.Next 不会收到 0/负数。
             if (Random.Shared.Next(2) == 0)
             {
-                int index = Random.Shared.Next(normalPositions.Count);
-                int[] pos = normalPositions[index];
+                List<int[]> available = new List<int[]>(normalPositions.Count);
+                foreach (int[] p in normalPositions)
+                {
+                    // 同一个位置对象只可能被 taken 记一次（两处都从 normalPositions 取），
+                    // 所以按坐标比较即可 —— 用引用比较会在将来有人换成 new int[] 时静默失效。
+                    if (!taken.Any(t => t[0] == p[0] && t[1] == p[1]))
+                    {
+                        available.Add(p);
+                    }
+                }
+
+                int index = Random.Shared.Next(available.Count);
+                int[] pos = available[index];
                 _grid[pos[0]][pos[1]] = new TreasureRoom(env);
             }
         }
