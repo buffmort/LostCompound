@@ -159,7 +159,9 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 | `DrainWater(int)` | 空房事件扣水（不涉及水的环境是 no-op） |
 | `DescribeStatus()` | 拼进状态栏的一行或多行（`\n` 分行，**高度会自适应**） |
 | `CanMine` | 镐子的「采掘」能否在此生效（水淹洞穴为 true） |
-| `CanMineOre` | 硫酸能否开采金属矿。**与 `CanMine` 分开**：镐子挖随机矿脉、硫酸腐蚀指定金属脉，语义不同 |
+| `CanMineOre` | 硫酸能否开采金属矿。**与 `CanMine` 分开**：镐子挖随机矿脉、硫酸腐蚀指定金属脉，语义不同。⚠️ 硫酸已改问 `MineOreWithAcid()`（产物归环境），本属性**目前没有道具在读**，保留作声明（删除 public API 要先问）——**不要再用它决定产物** |
+| `MineOreWithAcid()` | 硫酸在本环境腐蚀出的**产物**（`null` = 没有可腐蚀的矿脉，硫酸不消耗）。水淹洞穴给 1-3 金属；放射性区域将来给放射矿。产物必须由环境交出 —— 只问 `CanMineOre` 布尔值会让放射性区域静默产出金属矿 |
+| `BurnsWood` | 本环境的高温是否把木头烤成炭（熔岩瀑布为 **true**）。木头道具每回合据此 `Change -= 1` |
 | `CanRefillWater` / `RefillWater()` | 水瓶能否在此生效 / 把水回满 |
 | `OnFusionSulphurUsed()` | 热硫在此环境的额外效果（水淹洞穴 → 堵出水口 3 回合） |
 | `IsFatalToPlayer` / `FatalMessage` | 本环境是否已到「玩家必败」（水淹洞穴水位满）/ 判负时打印的那句话 |
