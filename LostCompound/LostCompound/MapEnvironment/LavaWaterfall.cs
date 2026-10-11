@@ -8,7 +8,7 @@ namespace LostCompound.MapEnvironment
     /// 熔岩瀑布（设计文档 5.1）——固定第一层。
     ///
     /// 水量：满 200，战斗中每回合降 5-10（普通模式；困难模式的 15-20 等困难模式做出来再接）。
-    /// 影响：水量越低玩家越弱 —— 每损失 1 点水，有效 STR -0.002（动态计算，不改 Player.Str）。
+    /// 影响：水量越低玩家越弱 —— 每损失 1 点水，有效 STR -0.01（动态计算，不改 Player.Str）。
     /// 水到 0 不死亡，只是 STR 被扣到底。
     /// 掉落：每个战斗房间必掉硫磺，数量 2-5 随机。
     /// </summary>
@@ -45,7 +45,7 @@ namespace LostCompound.MapEnvironment
             Water -= drop;
             if (Water < 0) Water = 0;
             // 这里不再直接改玩家：STR 的削弱由 StrModifier 暴露出去，
-            // 玩家每次重算 STR 时自己来读（见 Player.RecomputeStr）。
+            // 玩家每次重算派生值时自己来读（见 Player.RecomputeStats）。
         }
 
         /// <summary>

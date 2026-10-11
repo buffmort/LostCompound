@@ -197,9 +197,9 @@ namespace LostCompound.Tools
                 }
             }
 
-            // 有 buff 消失就要重算 STR —— 否则「某 buff 提供 +1 STR」会在它到期后
+            // 有 buff 消失就要重算派生值 —— 否则「某 buff 提供 +1 STR」会在它到期后
             // 一直留着那 1 点，因为没有任何地方会去「还原」它（现算机制的意义就在这）。
-            if (removedAny) p.RecomputeStr();
+            if (removedAny) p.RecomputeStats();
         }
 
         /**
@@ -212,7 +212,7 @@ namespace LostCompound.Tools
         private static void ClearBuffs(Player p, List<Monster> monsters)
         {
             p.Buffs.Clear();
-            p.RecomputeStr();      // buff 全清了，STR 要跟着回到「基础 + 环境修正」
+            p.RecomputeStats();    // buff 全清了，派生值要跟着回到「基础 + 环境修正」
             foreach (Monster m in monsters)
             {
                 m.Buffs.Clear();

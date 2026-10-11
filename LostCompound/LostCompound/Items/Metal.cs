@@ -14,7 +14,10 @@ namespace LostCompound.Items
 
         public void Use(Player p, List<Monster> m)
         {
-            p.Def += 1;
+            // 改的是**基础值**，不是派生的 p.Def —— 改造前写的是 `p.Def += 1`，
+            // 而每回合开头的护盾重置会顺带把 Def 还原成基础值，于是这 1 点 DEF 在下一回合
+            // 开头就没了（不报错、不崩溃，只是静默失效）。走 GrowBaseDef 才是真的永久 +1。
+            p.GrowBaseDef(1);
             Count -= 1;
             Console.WriteLine("你消耗了一块金属，DEF +1（当前 DEF: " + p.Def + "）");
         }

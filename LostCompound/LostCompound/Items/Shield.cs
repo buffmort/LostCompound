@@ -15,17 +15,33 @@ namespace LostCompound.Items
     ///   2. 玩家面对的单次最高伤害是龙的 10 点、双子技能的 5 点 —— 5 点盾 ≈ 挡掉半刀，
     ///      明显弱于旧机制（一回合/一格装备白吃一整刀），符合「削弱超模机制」的意图；
     ///   3. 合成成本是 3 金属，换算下来 1 金属 = 1.67 点盾，不至于让盾变成废品。
-    /// 注意它是 IEquippable（被动），加成走 ApplyEquipmentPassives 的「重算」路径：
-    /// 一旦盾离开背包/饰品栏，下一场战斗开始时护盾会回到 0。
+    /// 注意它仍然是被动物件（IEquippable：放背包或饰品栏就生效），但**护盾加成**走
+    /// ApplyEquipmentPassives → ResetShieldForTurn 这条「重置后再发一次」的路径：
+    /// 一旦盾离开背包/饰品栏，下一次重置（开战 / 换装 / 下一回合开头）护盾就回到 0。
+    ///
+    /// 实现两个接口，分工必须看清（这是「护盾与 Atk/Def 解耦」的一部分）：
+    ///   - IShieldSource → ApplyShield：真正加盾这一步。只在「重置护盾」的时机被调用
+    ///     （每回合开头 / 换装 / 开战），所以盾能被消耗、也能每回合重新长出来；
+    ///   - IEquippable   → ApplyPassive：**空实现**。盾是资源不是派生值，一旦把它写进
+    ///     ApplyPassive（改造前就是 `p.AddShield(5)` 写在那里），每次重算派生值都会再补一次盾，
+    ///     而重算在一场战斗里会被调用很多次（buff 变化、环境变化、回合开头……）= 无限补盾。
+    ///     实现 IEquippable 只是为了让盾能放进饰品栏（饰品栏只收被动物件，见 Player.EquipAccessory）。
     /// </summary>
-    public sealed class Shield(int count) : Item(ItemIds.Shield, "盾", 1, false, count), IEquippable
+    public sealed class Shield(int count) : Item(ItemIds.Shield, "盾", 1, false, count), IEquippable, IShieldSource
     {
         public override ItemType? Type => ItemType.Shield;
 
         /// <summary>背包/饰品栏时提供的护盾值加成。</summary>
         public const double ShieldBonus = 5;
 
-        public void ApplyPassive(Player p) => p.AddShield(ShieldBonus);
+        /// <summary>
+        /// 派生属性加成为 0（护盾走 <see cref="ApplyShield"/>）。
+        /// 不能写成 p.AddShield(ShieldBonus) —— 那样每次重算派生值都会补一次盾。
+        /// </summary>
+        public void ApplyPassive(Player p) { }
+
+        /// <summary>加 5 点护盾（每回合开头由 Player.ResetShieldForTurn 调用一次）。</summary>
+        public void ApplyShield(Player p) => p.AddShield(ShieldBonus);
 
         public string DescribePassive() => "护盾 +" + ShieldBonus;
     }

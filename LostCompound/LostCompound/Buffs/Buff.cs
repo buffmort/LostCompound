@@ -127,10 +127,25 @@ namespace LostCompound.Buffs
         ///   直接改要么互相覆盖（环境和 buff 各写一次 Str），要么累加、
         ///   然后得在 buff 消失时再加回来 —— 而 buff 有三条移除路径
         ///   （到期 / ClearBuffs / 将来的驱散），漏一条就永久偏移。
-        ///   做成修正量之后，Player.RecomputeStr 每次从基础值重算，
+        ///   做成修正量之后，Player.RecomputeStats 每次从基础值重算，
         ///   挂上自动生效、消失自动恢复，不需要任何「还原」代码。
         /// </summary>
         public virtual double StrBonus => 0.0;
+
+        /// <summary>
+        /// 本 buff 对 ATK 的修正量（负数为削弱），默认 0。
+        ///
+        /// 与 <see cref="StrBonus"/> 是同一套做法：只暴露修正量，由
+        /// <see cref="Player.RecomputeStats"/> 统一相加。这样 Atk / Def 也走得通
+        /// 「基础值 + 环境 + buff + 装备」这条路，不再只有 STR 一种属性支持 buff。
+        /// 目前没有 buff 覆写它（流血扣血、超雄加 STR），加它是为了让三条修正通道
+        /// 对三个派生属性都成立 —— 否则将来做「+ATK 的药」时，写 buff 的人只能
+        /// 回到「结算时直接改 owner.Atk」那种会被下次重算冲掉的写法。
+        /// </summary>
+        public virtual double AtkBonus => 0.0;
+
+        /// <summary>本 buff 对 DEF 的修正量（正数加强、负数削弱），默认 0。见 <see cref="AtkBonus"/>。</summary>
+        public virtual double DefBonus => 0.0;
 
         /// <summary>
         /// 状态栏「Buff 框」里显示的一行效果说明（不含显示名，名字由调用方拼在前面）。

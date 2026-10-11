@@ -87,6 +87,16 @@
 
 **绝不能**把累加语义的方法改成属性 —— 编译会通过、运行不报错、**数值静默全错**。
 
+**派生值 vs 资源（把 STR 那套推广到 ATK/DEF 时定下的一条口径）：**
+
+| 类别 | 例子 | 存放与改写方式 |
+|---|---|---|
+| **派生值** | `Str` / `Atk` / `Def` | 永远等于「`BaseXxx` + 环境修正 + buff 修正 + 装备加成」，由 `Player.RecomputeStats()` 一处重算。想**永久**变强只能改基础值（`GrowBaseStr` / `GrowBaseAtk` / `GrowBaseDef`），想**临时**变强只能提供修正量（`Environment.StrModifier` / `Buff.StrBonus`、`AtkBonus`、`DefBonus`）。直接写派生值会被下次重算冲掉（金属的 `p.Def += 1` 就是这么静默失效的） |
+| **资源** | `Hp` / `Shield` | 会被消耗（掉血 / 吃盾），**绝不能进重算通路**（重算 = 静默回满）。`Shield` 由 `ResetShieldForTurn()` 在每回合开头单独重置（走 `IShieldSource` 这条只算盾的通道），`Hp` 从不重置 |
+
+**`RecomputeStats()` 的叠加顺序不能改**：环境 → buff → **装备放最后**。
+原因：装备的通道 `IEquippable.ApplyPassive(p)` 是 `+=` 累加式，必须在重新赋值成基础值之后才能加（`CONVENTIONS 2.3`），否则打第二场会再叠一次。
+
 ## 2.4 道具类
 
 **所有道具继承 `Item`（主构造器）：**
@@ -189,8 +199,8 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 | 药(20) / 咖啡(30) 不在起始道具池 | 这两个道具**尚未实现** |
 | 岩浆怪身上的流血也被削 30% | **已知精度损失**：高温免疫在 `TakeDamage` 上生效，无法区分伤害来源。要精确区分需给伤害带来源标记（大改，未做） |
 | `DOT` 字样还出现在若干 `.cs` 注释里 | **历史说明注释**（解释「DOT 机制已删除、改走流血 buff」），不是残留代码 |
-| **换装备 / 开战时护盾清零** | **刻意的游戏设计**：换装等同重新整理防御姿态，战斗外攒的护盾随之失效。`ApplyEquipmentPassives` 里的 `Shield = 0` 是有意为之，**不要当 bug 挪走** |
-| `Str` 会被 `RecomputeStr` 覆盖（如 debug 的 `127` 设 100 只生效一回合） | 现算机制的**预期代价**：`Str` 永远等于「基础 + 当前所有修正」，任何直接赋值都会被下次重算冲掉。要「永久改」得走修正量（`env.StrModifier` / `buff.StrBonus`） |
+| **换装备 / 开战时护盾清零** | **刻意的游戏设计**：换装等同重新整理防御姿态，战斗外攒的护盾随之失效。`Player.ResetShieldForTurn` 里的 `Shield = 0`（由 `ApplyEquipmentPassives` 在换装/开战时一并调用）是有意为之，**不要当 bug 挪走** |
+| `Str` / `Atk` / `Def` 会被 `RecomputeStats` 覆盖（任何直接赋派生值的改动都只活到下一次重算） | 现算机制的**预期代价**：它们永远等于「基础值 + 当前所有修正」，任何直接赋值都会被下次重算冲掉。要「永久改」得走基础值（`GrowBaseStr` / `GrowBaseAtk` / `GrowBaseDef`），要「临时改」得走修正量（`env.StrModifier` / `buff.StrBonus` 等）—— 见 2.3 的「派生值 vs 资源」 |
 
 **已不是问题（曾经列在这里）：**
 - ~~岩浆怪 HP 15~~ → **已按文档改为 80**，并接上「熔岩瀑布高温免疫 30%」「水瓶扣当前 70% 血」
@@ -202,7 +212,7 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 
 | 项目 | 值 | 依据 |
 |---|---|---|
-| 玩家初始 STR / ATK / DEF / HP | **3 / 20 / 5 / 200** | DESIGN 7.3 |
+| 玩家初始 STR / ATK / DEF / HP | **3 / 20 / 5 / 200** | DESIGN 7.3（实现：`Player` 的 `BaseStr` / `BaseAtk` / `BaseDef` / `BaseHp`） |
 | 攻击力公式 | `2 + STR × √ATK` | DESIGN 7.3 |
 | 背包容量 | 初始 **15**，上限 **22** | DESIGN 8.1 |
 | 饰品栏 | 初始 **5**，上限 **15** | DESIGN 8.2 |

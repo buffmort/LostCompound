@@ -12,10 +12,24 @@ namespace LostCompound.Tools
     public class Player
     {
 
-        public double Hp { get; set; } = 200;
-        // 设计文档 7.3：基础 ATK = 2 + STR × √ATK，STR 基础 = 3，ATK = 20
-        // 初值用常量而不是字面量，避免「改了一处忘了另一处」
-        public double Atk { get; set; } = BaseAtk;
+        // ==================== 基础值（永久成长的载体） ====================
+        // 本项目把「会变的数值」分成两类，存放与改写方式完全不同（CONVENTIONS 2.3）：
+        //   派生值 Str / Atk / Def —— 由来源决定，永远等于「基础值 + 环境 + buff + 装备」，
+        //                             任何时刻都能从基础值重算（RecomputeStats），
+        //                             所以**直接改它们没有意义**（下次重算就没了）；
+        //   资源   Hp / Shield     —— 会被消耗（掉血 / 吃盾），**绝不能进重算通路**
+        //                             （重算等于回满，是静默的无限治疗）。
+        // 于是每个派生属性配一个 BaseXxx：想永久变强就改基础值（GrowBaseXxx），
+        // 想临时变强就提供修正量（环境 StrModifier / Buff.StrBonus 等）。
+        // 基础值一律 private set，出口只有下面那几个 Grow 方法 ——「直接改派生值」这种写法
+        // 编译得过、运行不报错，只会静默失效（金属的 +1 DEF 原先就是这么被冲掉的）。
+
+        /// <summary>
+        /// 基础 HP（设计文档 7.3：200）。它是**资源的上限**而不是派生值 ——
+        /// 不参与 <see cref="RecomputeStats"/>（那会把已经掉掉的血回满）。
+        /// 永久加生命值走 <see cref="GrowBaseHp"/>。
+        /// </summary>
+        public double BaseHp { get; private set; } = 200;
 
         /// <summary>
         /// 基础 STR（设计文档 7.3：3）。这是角色的**固有属性**，是「永久成长」的载体
@@ -28,13 +42,27 @@ namespace LostCompound.Tools
         /// </summary>
         public double BaseStr { get; private set; } = 3.0;
 
+        /// <summary>基础 ATK（设计文档 7.3：20；攻击力公式 2 + STR × √ATK 里的 ATK）。</summary>
+        public double BaseAtk { get; private set; } = 20;
+
+        /// <summary>基础 DEF（设计文档 7.3：5；伤害减免 RealDmg = Basic - 1 × DEF 里的 DEF）。</summary>
+        public double BaseDef { get; private set; } = 5;
+
+        // 派生值：由 RecomputeStats 一处写入。
+        // Str 连 setter 都不对外开放；Atk / Def 的 setter 仍是 public —— 因为装备的被动加成
+        // 走 IEquippable.ApplyPassive(Player p)（道具自己 p.Atk += 加成），收窄成 internal
+        // 在同一程序集里也挡不住误用，而改那个接口签名属于「改 public API」，
+        // 按 CONVENTIONS 1.2 要先问。真正的纪律写在 RecomputeStats 的注释里。
+        public double Atk { get; set; }
+        public double Def { get; set; }
+
         /// <summary>
-        /// 当前有效 STR = 基础 STR + 环境修正 + buff 修正。
+        /// 当前有效 STR = 基础 STR + 环境修正 + buff 修正（由 <see cref="RecomputeStats"/> 写入）。
         ///
         /// 只读（private set）：外部想改 STR 必须二选一 ——
         ///   临时效果 → 走环境 StrModifier / buff StrBonus；
         ///   永久成长 → 走 GrowBaseStr。
-        /// 直接把 Str 设成某个值没有意义：下一次 RecomputeStr 就会把它冲掉
+        /// 直接把 Str 设成某个值没有意义：下一次 RecomputeStats 就会把它冲掉
         /// （debug 的 127 曾因此只能生效一回合）。
         ///
         /// 伤害计算读的是这个值，不是 BaseStr。
@@ -42,25 +70,83 @@ namespace LostCompound.Tools
         public double Str { get; private set; }
 
         /// <summary>
-        /// 永久提升基础 STR（通关奖励 / 永久强化道具用），并立刻重算当前值。
+        /// 当前血量（**资源**：会被扣，不参与重算 —— 见本区块开头的说明）。
+        /// </summary>
+        public double Hp { get; set; }
+
+        /// <summary>
+        /// 构造函数：给出资源与派生值的初值。
+        ///
+        /// 为什么不能写成 `public double Hp { get; set; } = BaseHp;`：
+        ///   C# 的属性初始化器不能引用同一个实例上的非静态成员（已实测报 CS0236
+        ///   「字段初始值设定项无法引用非静态字段、方法或属性」）。原来能写
+        ///   `= BaseAtk` 只是因为那时 BaseAtk 还是 const（编译期常量）。
+        ///   基础值改成「可变的实例属性」之后，初值只能改在这里给。
+        /// </summary>
+        public Player()
+        {
+            Hp = BaseHp;
+            // 派生值先算一次：此时没有装备、没有 buff、环境为 null，
+            // 结果就是设计文档的初始值 STR 3 / ATK 20 / DEF 5。
+            // （改造前 Str 的初值是 0，要等进战斗第一次重算才变成 3；
+            //   0 从来没有被任何显示或计算读到过 —— 状态栏的「力量」只在战斗中显示 ——
+            //   所以这次顺手改成了正确的初值，不改变任何可观察行为。）
+            RecomputeStats();
+        }
+
+        /// <summary>
+        /// 永久提升基础 STR（通关奖励 / 永久强化道具用），并立刻重算派生值。
         /// 这是「永久成长」的唯一入口 —— 直接写 Str 会在下次重算时被冲掉。
         /// 传负数即为永久降低。
         /// </summary>
         public void GrowBaseStr(double amount)
         {
             BaseStr += amount;
-            RecomputeStr();
+            RecomputeStats();
+        }
+
+        /// <summary>
+        /// 永久提升基础 ATK（同 <see cref="GrowBaseStr"/>：改的是基础值，不是派生的 Atk）。
+        /// 目前没有调用者（还没有「永久 +ATK」的道具/奖励），与 GrowAccessorySlots 一样
+        /// 先把「永久成长」的出口留好，免得将来又有人去直接改 Atk。
+        /// </summary>
+        public void GrowBaseAtk(double amount)
+        {
+            BaseAtk += amount;
+            RecomputeStats();
+        }
+
+        /// <summary>
+        /// 永久提升基础 DEF。金属的「消耗 1 块永久 +1 DEF」走这条路（见 <see cref="Items.Metal"/>）——
+        /// 改造前它直接写 p.Def += 1，而每回合开头的护盾重置会顺带把 Def 还原成基础值，
+        /// 于是那 1 点 DEF 在下一回合开头就没了：不报错、不崩溃，只是静默失效。
+        /// </summary>
+        public void GrowBaseDef(double amount)
+        {
+            BaseDef += amount;
+            RecomputeStats();
+        }
+
+        /// <summary>
+        /// 永久提升基础 HP（将来「通关奖励 +生命值」用）。
+        /// 顺手把当前血量也抬同样多：BaseHp 是血量上限，只加上限不加当前血量，
+        /// 奖励看起来会像没生效（这与 Shield 是同一个「资源不能重算」的道理）。
+        /// 目前没有调用者；传负数即为降低上限（当前血量也会跟着降，调用方自己保证别把玩家扣死）。
+        /// </summary>
+        public void GrowBaseHp(double amount)
+        {
+            BaseHp += amount;
+            Hp += amount;
         }
 
         /// <summary>直接把基础 STR 设成某个值（调试用，避免写 GrowBaseStr(目标 - BaseStr) 这种别扭算式）。</summary>
         public void SetBaseStr(double value)
         {
             BaseStr = value;
-            RecomputeStr();
+            RecomputeStats();
         }
 
         public string Name { get; set; }
-        public double Def { get; set; } = BaseDef;
 
         /// <summary>
         /// 护盾值（本次改动：整套替换掉原来的 `public int Block` 次数制）。
@@ -193,41 +279,79 @@ namespace LostCompound.Tools
                 if (exist.GetType() == b.GetType())
                 {
                     exist.MergeFrom(b);
-                    RecomputeStr();        // buff 可能改 STR，立刻重算
+                    RecomputeStats();      // buff 可能改属性，立刻重算
                     RefreshBuffBox();      // 叠加会改伤害/剩余回合，框要立刻跟上
                     return;
                 }
             }
             Buffs.Add(b);
-            RecomputeStr();                // buff 可能改 STR，立刻重算
+            RecomputeStats();              // buff 可能改属性，立刻重算
             RefreshBuffBox();
         }
 
         /// <summary>
-        /// 重算当前 STR = 基础 STR + 环境修正 + 所有 buff 的修正。
+        /// 重算所有派生值：STR / ATK / DEF（CONVENTIONS 2.3 的「重算」语义）。
         ///
         /// 为什么必须「从基础值重算」，而不是谁想改就 -= / += ：
-        ///   改 STR 的来源有好几个（环境、buff、将来的装备）。用加减法的话，
+        ///   改这些值的来源有好几个（环境、buff、装备）。用加减法的话，
         ///   每个来源都得自己负责「什么时候加回来」—— buff 有三条移除路径
         ///   （自然到期 / 战斗结束 ClearBuffs / 将来的驱散），漏掉任何一条，
-        ///   STR 就永久偏移一点，而且不报错、不崩溃，只是「打着打着变弱了」。
+        ///   属性就永久偏移一点，而且不报错、不崩溃，只是「打着打着变弱了」。
         ///   重算没有这些问题：不管谁改了什么，值永远等于「基础 + 当前所有修正之和」。
+        ///
+        /// ⚠️ 三种修正的**叠加顺序不能改**：装备必须放最后。
+        ///   装备的通道是 IEquippable.ApplyPassive(p)，道具自己写 `p.Atk += 加成`
+        ///   —— 是累加式，必须在上面把 Atk/Def 赋成基础值**之后**才能加；
+        ///   否则打第二场会再叠一次，十场之后 ATK 就爆了。
+        ///   环境与 buff 提供的是「修正量」（返回增量，不写结果），谁先谁后只受加法交换律影响，
+        ///   放在前面读起来更接近「基础 + 各方修正」这句话。
+        ///
+        /// ⚠️ 这里**不碰** Hp / Shield：它们是资源，会被消耗（掉血 / 吃盾），
+        ///   进来重算等于回满 —— 那是静默的无限治疗。护盾的每回合重置是另一条通路
+        ///   （见 <see cref="ResetShieldForTurn"/>）。
         /// </summary>
-        public void RecomputeStr()
+        public void RecomputeStats()
         {
-            double str = BaseStr;
+            // 1. 从基础值重来（「先重置再应用」，见 CONVENTIONS 2.3）
+            Str = BaseStr;
+            Atk = BaseAtk;
+            Def = BaseDef;
 
-            // 环境修正（如熔岩瀑布缺水）
+            // 2. 环境修正（如熔岩瀑布缺水扣 STR）。
+            //    环境目前只声明 STR 的修正量；将来若有环境要改 ATK/DEF，
+            //    照 StrModifier 的样子加一个虚属性，在这里读一行即可。
             Environment env = CurrentEnvironment;
-            if (env != null) str += env.StrModifier;
+            if (env != null) Str += env.StrModifier;
 
-            // buff 修正（如某个增益 +1 STR）
+            // 3. buff 修正（如某个增益 +1 STR）。buff 消失时不需要谁去「加回来」：
+            //    下次重算就是「基础 + 当前还在的修正」。
             foreach (Buff b in Buffs)
             {
-                str += b.StrBonus;
+                Str += b.StrBonus;
+                Atk += b.AtkBonus;
+                Def += b.DefBonus;
             }
 
-            Str = str;
+            // 4. 装备加成 —— 必须是最后一步，理由见本方法注释
+            ForEachEquippedItem(item =>
+            {
+                if (item is IEquippable eq) eq.ApplyPassive(this);
+            });
+        }
+
+        /// <summary>
+        /// 遍历玩家身上所有「生效中的被动物件」：背包 + 饰品栏
+        /// （设计文档 7 节：放在背包或饰品栏里即生效）。
+        ///
+        /// 为什么抽成一个方法：派生属性加成（IEquippable.ApplyPassive）与护盾加成
+        /// （IShieldSource.ApplyShield）**两条通道必须扫同一批道具** —— 各写一遍遍历，
+        /// 早晚会漏掉一处（例如忘了饰品栏，那时「放进饰品栏的盔甲不加 DEF」不报错、
+        /// 不崩溃，只是安静地少一点属性）。
+        /// </summary>
+        private void ForEachEquippedItem(Action<Item> action)
+        {
+            foreach (Item item in Inventory) action(item);
+            foreach (Item item in Accessories) action(item);
         }
 
         /// <summary>跳过回合：返回"这次是否被跳过"，顺手扣一次计数。
@@ -317,9 +441,9 @@ namespace LostCompound.Tools
             ResetShieldForTurn();
 
             RefreshStatus();               // 战斗中让状态栏显示血量/防御/护盾
-            // 环境状态（水量、水位）每回合都在变，所以每回合都要重算 STR，
+            // 环境状态（水量、水位）每回合都在变，所以每回合都要重算派生值，
             // 不能只在进战斗时算一次 —— 否则缺水削弱要等到下一场战斗才生效。
-            RecomputeStr();
+            RecomputeStats();
             RefreshBuffBox();              // Buff 框：进新回合时剩余回合已经 -1，必须重画
             HandleChangeableItems(envType);
             Inventory.AddRange(PendingItems);
@@ -1290,70 +1414,54 @@ namespace LostCompound.Tools
                 _screen?.DrawEnemies("");         // 空串 = 敌人框回到 3 行空白
                 _screen?.DrawBuffs("");           // 同理清空 Buff 框（Tools.ClearBuffs 也会清掉 Buffs 列表）
             }
-            // 进/出战斗都要重算 STR：水量的修正、buff 的修正都得反映进来
-            RecomputeStr();
+            // 进/出战斗都要重算派生值：水量的修正、buff 的修正都得反映进来
+            RecomputeStats();
             RefreshStatus();
         }
 
         /// <summary>
         /// 回合开始的护盾重置：护盾是「本回合」的资源，不跨回合累积。
         ///
-        /// 为什么复用 ApplyEquipmentPassives 而不是直接写 Shield = 0：
-        ///   那个方法本身就是「先把 Atk/Def/Shield 还原成基础值，再让每件装备各加一次」，
-        ///   所以顺带让「盾」这件道具（+5）每回合重新生效。
-        ///   直接清零的话，盾牌只在开战那一回合有用，之后永远为 0，等于把道具废掉。
+        /// 为什么是「清零后让有盾的装备各加一次」而不是直接写 Shield = 0：
+        ///   否则盾牌（+5）只在开战那一回合有用，之后永远为 0，等于把道具废掉。
         ///
-        /// 它会连带重算 Atk/Def —— 那两步同样是「先还原再加」，幂等，每回合跑一次无副作用。
+        /// 为什么**不再**复用 ApplyEquipmentPassives（改造前就是那么写的，那是个真 bug）：
+        ///   那个方法在「先把 Atk/Def 还原成基础值」的同时会把 Def 也还原掉，于是金属的
+        ///   「消耗 1 块永久 +1 DEF」（Items\Metal.cs）会在下一回合开头被**静默**冲掉。
+        ///   根因是两类东西被混在了一条通道里：护盾是**资源**（每回合重置，用户明确要的），
+        ///   Atk/Def 是**派生值**（只在装备变化 / 开战 / 修正量变化时重算）。
+        ///   现在拆开：这里只走 IShieldSource 这条「只算盾」的通道，不碰派生值。
         ///
-        /// 语义变化：以前护盾跨回合累积（连续防御两次能攒到 10 盾），
+        /// 语义（与改造前一致）：以前护盾跨回合累积（连续防御两次能攒到 10 盾），
         ///   现在防御给的 5 点只在「本回合内」有效 —— 挡怪物回合那一刀，回合结束就没了。
         /// </summary>
-        private void ResetShieldForTurn() => ApplyEquipmentPassives();
+        private void ResetShieldForTurn()
+        {
+            Shield = 0;
+            ForEachEquippedItem(item =>
+            {
+                if (item is IShieldSource shieldSource) shieldSource.ApplyShield(this);
+            });
+        }
 
         /// <summary>
-        /// 把背包里所有被动装备（Equippable）的加成应用到玩家身上。
+        /// 让「当前装备」的被动效果在玩家身上重新生效一次（开战 / 换装 / 卸装时调用）。
         ///
-        /// 关键：先从基础值重算，再加装备加成。
+        /// 关键：先重算派生值（从基础值来），再加装备加成。
         /// 如果直接 Atk += 加成，打第二场战斗时会再叠一次，10 场之后 ATK 就爆了。
-        /// 所以这里先还原成「基础值」，再让每件装备各加一次。
+        /// 所以第一步就是 RecomputeStats 里的「先还原成基础值」。
+        /// 顺序也不能反：RecomputeStats 里的装备加成是 `+=`，必须在赋值之后（见其注释）。
+        ///
+        /// 第二步把护盾也重来一遍（清零 + 装备的护盾加成）：
+        ///   ⚠️ 「换装备 / 开战时护盾清零」是**刻意的游戏设计**（CONVENTIONS 三），
+        ///   不是重算派生值的副作用 —— 换装等同重新整理防御姿态，战斗外攒的盾随之失效。
+        ///   这条不能挪走。
         /// </summary>
         private void ApplyEquipmentPassives()
         {
-            // 还原基础值（这些是 Player 的初始属性，见字段声明处）
-            Atk = BaseAtk;
-            Def = BaseDef;
-
-            // ⚠️ Shield = 0 是**刻意的游戏设计**，不是"重算派生值"的副作用 ——
-            //    换了装备就等同于重新整理自己的防御姿态，战斗外攒下的护盾随之失效。
-            //    因此这个方法在「换/卸装备」和「开战」时都会清空护盾，是有意为之。
-            //    （别把它当成 bug 挪走：曾有过「换装备把攒的盾清掉不合理」的怀疑，
-            //      已确认是设计意图。）
-            Shield = 0;
-
-            // 背包里的被动道具
-            foreach (Item item in Inventory)
-            {
-                if (item is IEquippable eq)
-                {
-                    eq.ApplyPassive(this);
-                }
-            }
-
-            // 饰品栏里的被动道具（设计文档 7 节：放在背包或饰品栏中即可生效）
-            foreach (Item item in Accessories)
-            {
-                if (item is IEquippable eq)
-                {
-                    eq.ApplyPassive(this);
-                }
-            }
+            RecomputeStats();
+            ResetShieldForTurn();
         }
-
-        /// <summary>玩家基础攻击力（不含装备加成）。</summary>
-        private const double BaseAtk = 20;
-
-        /// <summary>玩家基础防御力（不含装备加成）。</summary>
-        private const double BaseDef = 5;
 
         /// <summary>
         /// 用分区布局重画「地图」与「状态」两块固定区域。

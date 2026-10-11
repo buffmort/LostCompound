@@ -22,7 +22,7 @@ public class SuperMaleBuff : Buff
     public override void OnTurnTick(Player owner)
     {
       if(IsExpired) return;
-        owner.RecomputeStr();
+        owner.RecomputeStats();
         ConsumeTurn();
     }
 

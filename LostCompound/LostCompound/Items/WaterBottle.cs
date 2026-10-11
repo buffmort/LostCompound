@@ -35,9 +35,9 @@ namespace LostCompound.Items
                 PourWater(m);
 
                 env.RefillWater();
-                // 回水后必须重算 STR：StrModifier 是按当前水量现算的，水量变了，
+                // 回水后必须重算派生值：StrModifier 是按当前水量现算的，水量变了，
                 // 玩家的 STR 也得跟着回到「基础 + 新修正」，否则要等到下一回合才恢复。
-                p.RecomputeStr();
+                p.RecomputeStats();
                 Console.WriteLine("你把水喝了，水量回满！");
                 Count -= 1;
             }
