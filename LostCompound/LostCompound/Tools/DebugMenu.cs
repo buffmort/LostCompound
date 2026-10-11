@@ -1,6 +1,7 @@
 // 与 Tools.cs 同样的别名：不加这行时 Environment 会同时命中
 // System.Environment（隐式 using）与 LostCompound.MapEnvironment.Environment，产生 CS0104。
 using Environment = LostCompound.MapEnvironment.Environment;
+using LostCompound.Buffs;   // BuffFactory / Buff：debug 130 的按 ID 挂 buff
 using LostCompound.Items;
 using LostCompound.MapEnvironment;
 using LostCompound.Monsters;
@@ -10,7 +11,10 @@ namespace LostCompound.Tools
 {
     /// <summary>
     /// 调试菜单。只在主菜单输入 255 后可用。
-    /// 目前提供两件事：按序号挑怪物 + 地形开一场战斗；按 ID 定量发放道具。
+    /// 目前提供三件事：按序号挑怪物 + 地形开一场战斗；按 ID 定量发放道具；按 ID 给玩家挂 buff。
+    ///
+    /// 战斗中的「发道具 / 挂 buff」还有第二个入口（debug 模式的 129 / 130），
+    /// 那两个入口把正在战斗的玩家直接传进来，逻辑都收在本类里，不在 Player 里另写一份。
     ///
     /// 怪物和地形都做成可选，所以不用改代码就能复现任意一场战斗。
     ///
@@ -169,6 +173,82 @@ namespace LostCompound.Tools
             }
             player.AddItem(item);
             Console.WriteLine();
+        }
+
+        /// <summary>
+        /// 按 ID 给指定玩家挂一个 buff（debug 指令 130）。
+        ///
+        /// 为什么收一个 <see cref="Player"/> 参数而不是自己凭空造一个：
+        /// 与 <see cref="GiveItems(Player)"/> 同理 ——「给谁挂」是这个方法的唯一语义，
+        /// 只有调用方知道当前那个玩家是谁（战斗中就是正在战斗的那个）。
+        ///
+        /// 交互顺序与 129 一致：列清单 → 选 ID → 收参数 → 生效。
+        /// 区别只有一处：**选 ID 这一步未登记时会重问**（129 是直接返回）。
+        /// 理由：buff 清单只有个位数行，手上多半就是照着清单敲的，
+        /// 敲错一个数字就把整条指令退出去、要重新从菜单走一遍，不好用。
+        /// </summary>
+        public static void AddBuffTo(Player player)
+        {
+            if (player == null) return;
+
+            // ── 1. 列出所有 buff：ID + 名称，按 ID 升序 ──
+            // 序号直接用 ID（与 129 同一口径）：多一套 0,1,2… 只会让「选第 3 个」和「ID 3」对不上。
+            Console.WriteLine("------------ 添加 Buff ------------");
+            foreach ((int Id, string Name, Func<int, int, Buff> Create) entry in BuffFactory.All)
+            {
+                Console.WriteLine("  " + entry.Id + ". " + entry.Name);
+            }
+            Console.WriteLine("----------------------------------");
+
+            // ── 2. 选 ID：未登记就重问（空行 / 输入流结束仍然取消）──
+            int id;
+            while (true)
+            {
+                int? choice = ReadIntOrCancel("请输入 Buff ID（空行取消）: ");
+                if (choice == null)
+                {
+                    Console.WriteLine("已取消。\n");
+                    return;
+                }
+                if (BuffFactory.IsKnown(choice.Value))
+                {
+                    id = choice.Value;
+                    break;
+                }
+                Console.WriteLine("没有这个 Buff ID。");
+            }
+
+            // ── 3. 效果量：<= 0 视为取消（与 129 的数量同一口径）──
+            int? stacks = ReadIntOrCancel("请输入效果量（空行取消）: ");
+            if (stacks == null || stacks.Value <= 0)
+            {
+                Console.WriteLine("已取消。\n");
+                return;
+            }
+
+            // ── 4. 剩余回合：同上 ──
+            int? turns = ReadIntOrCancel("请输入剩余回合（空行取消）: ");
+            if (turns == null || turns.Value <= 0)
+            {
+                Console.WriteLine("已取消。\n");
+                return;
+            }
+
+            // ── 5. 造出来挂上去 ──
+            Buff buff = BuffFactory.Create(id, stacks.Value, turns.Value);
+            if (buff == null)
+            {
+                // 理论上到不了（上面 IsKnown 已经查过），留着防御「表里有 ID 但工厂返回 null」的将来改动
+                Console.WriteLine("这个 buff 无法创建。\n");
+                return;
+            }
+            player.AddBuff(buff);
+
+            // 注意：AddBuff 对「同类 buff」走的是 MergeFrom 叠加，不是替换 ——
+            // 所以玩家身上已经有一个同类 buff 时，这里报的是**本次提交的量**，
+            // 而不是叠加后的实际总量（那要读 player.Buffs 里那个对象，属于显示层的事）。
+            Console.WriteLine("已添加 " + buff.Name + "（效果量 " + stacks.Value
+                              + "，剩余 " + turns.Value + " 回合）。\n");
         }
 
         /// <summary>

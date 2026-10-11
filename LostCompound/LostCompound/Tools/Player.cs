@@ -518,6 +518,8 @@ namespace LostCompound.Tools
                 // 129 是新增的：战斗中当场拿道具（主菜单的「4. 获取道具」发到常驻调试玩家身上，
                 // 战斗中由这里拿到正在战斗的这个玩家身上）。编号避开 127/128/255。
                 Console.WriteLine("129, 获取道具");
+                // 130 同理：战斗中当场挂 buff（ID → 效果量 → 剩余回合），逻辑见 DebugMenu.AddBuffTo。
+                Console.WriteLine("130, 添加buff");
             }
             int option = ReadInt("请选择操作");
             if (option == -1 && _inputClosed)
@@ -549,7 +551,7 @@ namespace LostCompound.Tools
                 case 5:
                     OpenAccessoryMenu();
                     break;
-                // 127 / 128 / 129 是调试指令，必须**先开开关**（255）才可用。
+                // 127 / 128 / 129 / 130 是调试指令，必须**先开开关**（255）才可用。
                 //
                 // 为什么写成 case ... when 而不是在 case 里 if：
                 //   守卫不成立时这条 case 标签就不匹配，switch 会继续往下找，
@@ -569,9 +571,15 @@ namespace LostCompound.Tools
                     // 复用 DebugMenu 的那张 ItemFactory 表，不在这里再抄一份 ID 列表。
                     DebugMenu.GiveItems(this);
                     break;
+                case 130 when DebugState.Enabled:
+                    // 战斗内挂任意 buff（ID → 效果量 → 剩余回合）。
+                    // 与 129 同一结构：清单、选择、容错全在 DebugMenu 里，这里只转发一行，
+                    // 免得「主菜单能挂、战斗中不能挂」两套逻辑各写一遍（CONVENTIONS 2.5）。
+                    DebugMenu.AddBuffTo(this);
+                    break;
                 case 255:
                     // 255 只负责开开关（并打印提示）—— 现在它真的有意义了：
-                    // 127/128/129 与主菜单的调试项都读同一个 DebugState。
+                    // 127/128/129/130 与主菜单的调试项都读同一个 DebugState。
                     DebugState.Enable();
                     Console.WriteLine("你已进入debug模式!");
                     break;
