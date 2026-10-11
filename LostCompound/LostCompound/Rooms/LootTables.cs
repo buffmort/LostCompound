@@ -165,6 +165,7 @@ namespace LostCompound.Rooms
         /// <summary>
         /// 基础池的权重 —— 设计文档 2.2 的表，顺序与 <see cref="BuildBasicStartPool"/> 一一对应。
         /// 药 / 咖啡两项尚未实现，见 <see cref="BuildBasicStartPool"/> 里的 TODO。
+        /// 熔岩瀑布的权重就是这一份（<see cref="LavaWaterfallStartWeights"/> 是它的别名）。
         /// </summary>
         private static readonly int[] BasicStartWeights = [10, 10, 8, 8, 5, 5, 5, 5];
 
@@ -180,9 +181,19 @@ namespace LostCompound.Rooms
         }
 
         /// <summary>熔岩瀑布的起始权重（= 基础权重）。</summary>
-        private static readonly int[] LavaWaterfallStartWeights = [10, 10, 8, 8, 5, 5, 5, 5];
+        private static int[] LavaWaterfallStartWeights => BasicStartWeights;
         // ↑ 熔岩瀑布池的长度检查：BuildLavaWaterfallStartPool 委托给基础池（8 项），
         //   权重也是 8 项，两边一致。将来若让熔岩瀑布用自己的池子，别忘了同步这一行。
+        //
+        // 为什么写成「别名」而不是再抄一份 [10, 10, 8, 8, 5, 5, 5, 5]：
+        //   那份数组原先在这里和 BasicStartWeights 各存了一份**完全相同**的常量，
+        //   而本文件的维护须知（见上面「⚠️ 维护须知」）要求池子与权重严格逐位对应 ——
+        //   同一个池子配两份权重，将来改池子时只要漏改一份，其中一条通路就会静默地用错权重。
+        //   池子那边已经是委托写法（BuildLavaWaterfallStartPool => BuildBasicStartPool），
+        //   权重这边统一成同一份，两个环境的配对关系就只由一处决定。
+        //   用属性而不是 `static readonly int[] = BasicStartWeights`：后者在字段初始化顺序上
+        //   依赖声明先后（同类的静态字段初始化按书写顺序执行），属性则在每次读取时才求值，
+        //   不存在这个隐蔽的顺序陷阱。调用方 GetStartWeights 只 AddRange 复制、不改数组。
 
         /// <summary>
         /// 水淹洞穴的起始池（用户要求自定，数量与权重的设计理由见 <see cref="FloodedCavernStartWeights"/>）。
