@@ -57,6 +57,12 @@ namespace LostCompound.MapEnvironment
         public override double StrModifier => -(MaxWater - Water) * StrPenaltyPerWater;
 
         /// <summary>
+        /// 熔岩瀑布是高温环境 → 木头在这里每回合被烤掉 1 点倒计时，烧完变木炭。
+        /// 覆写基类的 false：能力位由环境自己声明（原先写在 Wood 里比 EnvType）。
+        /// </summary>
+        public override bool BurnsWood => true;
+
+        /// <summary>
         /// 熔岩瀑布有水源（满 200），所以水瓶在这里生效。
         /// 覆写基类的 false：这是本属性存在的意义 —— 环境自己声明「我能回水」。
         /// </summary>

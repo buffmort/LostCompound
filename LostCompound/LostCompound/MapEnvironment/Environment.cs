@@ -145,6 +145,18 @@ namespace LostCompound.MapEnvironment
         public virtual Item MineOreWithAcid() => null;
 
         /// <summary>
+        /// 本环境的高温是否会把木头烤成炭（木头道具的倒计时只在这样的环境里推进）。
+        /// 默认 false，熔岩瀑布覆写为 true。
+        ///
+        /// 为什么放在基类、而不是在 <see cref="Items.Wood"/> 里判断具体类型：
+        ///   原先木头写的是 `if (envType == EnvType.LavaWaterfall) Change -= 1;` ——
+        ///   每加一个高温环境（岩浆池、火山区、着火的房间……）都要回来改这个道具，
+        ///   而且它比的是**环境枚举**，与「环境对象自己声明能力」这套做法不一致
+        ///   （见 CanMine / CanRefillWater / IsFatalToPlayer）。
+        /// </summary>
+        public virtual bool BurnsWood => false;
+
+        /// <summary>
         /// 热硫在本环境被使用时的额外环境效果（设计文档 5.2：堵住水淹洞穴的出水口）。
         /// 默认什么也不做 —— 没有这类规则的环境不受影响。
         ///
