@@ -204,17 +204,21 @@ namespace LostCompound.Tools
         /// <summary>
         /// 让玩家选战斗地形，返回环境对象；取消时返回 <c>null</c>。
         ///
-        /// 这里只列**已实现**的环境：EnvironmentFactory.Create 会为其它的返回 null，
-        /// 列出来只会得到一个「没有环境」的战斗。这份列表是 GameLobby.SelectEnvironment 的副本
-        /// （那个方法是 private，且主流程的文案不能改），新增环境时**两处都要补**。
+        /// 清单来自 <see cref="EnvironmentCatalog"/>（只列**已实现**的环境：
+        /// EnvironmentFactory.Create 会为其它的返回 null，列出来只会得到一个「没有环境」的战斗）。
+        /// 原先这里手抄了一份与 GameLobby.SelectEnvironment 相同的列表，
+        /// 现在两处共用一份数据，新增环境只改 EnvironmentCatalog。
+        /// 文案与交互完全不变：编号从 1 开始、越界重问、空行取消。
         /// </summary>
         private static Environment SelectEnvironment()
         {
             while (true)
             {
                 Console.WriteLine("------------ 选择战斗地形 ------------");
-                Console.WriteLine("  1. 熔岩瀑布");
-                Console.WriteLine("  2. 水淹洞穴");
+                for (int i = 0; i < EnvironmentCatalog.All.Count; i++)
+                {
+                    Console.WriteLine("  " + (i + 1) + ". " + EnvironmentCatalog.All[i].Name);
+                }
                 Console.WriteLine("  （空行取消）");
                 Console.WriteLine("--------------------------------------");
 
@@ -224,23 +228,16 @@ namespace LostCompound.Tools
                     return null;
                 }
 
-                EnvType envType;
-                switch (choice.Value)
+                if (choice.Value < 1 || choice.Value > EnvironmentCatalog.All.Count)
                 {
-                    case 1:
-                        Console.WriteLine("你选择了：熔岩瀑布");
-                        envType = EnvType.LavaWaterfall;
-                        break;
-                    case 2:
-                        Console.WriteLine("你选择了：水淹洞穴");
-                        envType = EnvType.FloodedCavern;
-                        break;
-                    default:
-                        Console.WriteLine("没有这个选项。\n");
-                        continue;
+                    Console.WriteLine("没有这个选项。\n");
+                    continue;
                 }
 
-                Environment env = EnvironmentFactory.Create(envType);
+                (string Name, EnvType Type) pick = EnvironmentCatalog.All[choice.Value - 1];
+                Console.WriteLine("你选择了：" + pick.Name);
+
+                Environment env = EnvironmentFactory.Create(pick.Type);
                 if (env != null)
                 {
                     return env;
