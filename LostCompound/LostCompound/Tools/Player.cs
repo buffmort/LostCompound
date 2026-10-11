@@ -84,7 +84,10 @@ namespace LostCompound.Tools
         private Room[][] _map;      // 当前地图
         public int PlayerRow { get; private set; }     // 玩家所在行
         public int PlayerCol { get; private set; }     // 玩家所在列
-        private bool _debug;
+
+        // 这里原先有一个 private bool _debug —— 它只在 255 里被写、只有 UnlockAllRecipes 读，
+        // 与主菜单（GameLobby）里那个同名字段是两份互不相通的状态。
+        // 现在调试开关统一为 DebugState.Enabled（见 DebugState 的说明）。
 
         /// <summary>
         /// 输入流是否已经结束（EOF）。
@@ -364,7 +367,7 @@ namespace LostCompound.Tools
             Console.WriteLine("请选择操作");
             Calculator.Delay(250);
             Console.WriteLine("1.攻击  2.防御  3.使用背包道具  4.徒手合成  5.饰品栏");
-            if (_debug)
+            if (DebugState.Enabled)
             {
                 Console.WriteLine("debug模式操作:");
                 Console.WriteLine("127, 超雄模式");
@@ -392,7 +395,7 @@ namespace LostCompound.Tools
                     // 最高伤害是龙的 10 点、双子技能的 5 点 —— 5 点盾大致等于「挡掉半刀」，
                     // 一回合换半刀比旧机制「一回合换一整刀」弱得多，符合「旧机制太超模」的裁定。
                     AddShield(5);
-                    Console.WriteLine("你举起了护盾！（护盾 +5）");
+                    Console.WriteLine("你进行了防御!");
                     break;
                 case 3:
                     OpenItems(monsters);
@@ -403,20 +406,30 @@ namespace LostCompound.Tools
                 case 5:
                     OpenAccessoryMenu();
                     break;
-                case 127:
+                // 127 / 128 / 129 是调试指令，必须**先开开关**（255）才可用。
+                //
+                // 为什么写成 case ... when 而不是在 case 里 if：
+                //   守卫不成立时这条 case 标签就不匹配，switch 会继续往下找，
+                //   最后落到 default —— 也就是和「乱输一个数字」走**完全相同**的分支
+                //   （同一句「你输入的类型不正确！ 已自动跳过回合」，同样不消耗额外的东西）。
+                //   刻意不为这种情况新增任何提示：否则玩家一乱按就能发现「这里藏着东西」，
+                //   而改造前它们是无条件生效的（127/128/129 一个守卫生效都没有）。
+                case 127 when DebugState.Enabled:
                     AddBuff(new SuperMaleBuff(1,int.MaxValue));
                     Console.WriteLine($"超雄模式：基础 STR 已设为 {BaseStr}（当前 STR {Str}）");
                     break;
-                case 128:
+                case 128 when DebugState.Enabled:
                     UnlockAllRecipes();
                     break;
-                case 129:
+                case 129 when DebugState.Enabled:
                     // 定量发放任意道具（ID → 名称 → 数量）。
                     // 复用 DebugMenu 的那张 ItemFactory 表，不在这里再抄一份 ID 列表。
                     DebugMenu.GiveItems(this);
                     break;
                 case 255:
-                    _debug = true;
+                    // 255 只负责开开关（并打印提示）—— 现在它真的有意义了：
+                    // 127/128/129 与主菜单的调试项都读同一个 DebugState。
+                    DebugState.Enable();
                     Console.WriteLine("你已进入debug模式!");
                     break;
                 default:
@@ -910,7 +923,13 @@ namespace LostCompound.Tools
 
         public void UnlockAllRecipes()
         {
-            if (!_debug)
+            // 这道守卫现在**不可达**：唯一的调用点（OnPlayerTurn 的 case 128）自己带了
+            // DebugState.Enabled 守卫，未开 debug 时根本走不到这里（会落到 default，
+            // 提示与乱输完全一致 —— 不能在这里另打一句「你不能使用这个命令!」，
+            // 那句话等于告诉玩家「存在一个隐藏指令」）。
+            // 之所以保留：它是 public 方法，删/改 public API 要先问（CONVENTIONS 1.2）；
+            // 留着作为第二道防线，将来若有别的调用点也不会绕过开关。
+            if (!DebugState.Enabled)
             {
                 Console.WriteLine("你不能使用这个命令!");
                 return;

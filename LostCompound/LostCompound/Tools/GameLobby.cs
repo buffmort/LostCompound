@@ -15,11 +15,9 @@ namespace LostCompound.Tools
 
         private bool _running = true;
 
-        /// <summary>
-        /// debug 模式开关。在主菜单输入 255 打开（见 HandleChoice）。
-        /// 打开后主菜单多出「调试战斗」「获取道具」两项；关闭时菜单与以前逐字一致。
-        /// </summary>
-        private bool _debug;
+        // 这里原先有一个 private bool _debug —— 与 Player 里那个同名字段是**两份状态**，
+        // 必然不一致（主菜单开了调试、战斗里读不到，反之亦然）。现已整体换成
+        // 全局的 DebugState.Enabled（见 DebugState 的说明），两边读的是同一个开关。
 
         public void Run()
         {
@@ -47,7 +45,7 @@ namespace LostCompound.Tools
             Console.WriteLine("  2. 退出游戏");
             // 只有 debug 模式才多出这两行：非 debug 时菜单文本与以前逐字一致
             // （1/2 的编号绝不能被挤动，所以新项一律往后排 3/4）。
-            if (_debug)
+            if (DebugState.Enabled)
             {
                 Console.WriteLine("  3. 调试战斗");
                 Console.WriteLine("  4. 获取道具");
@@ -68,11 +66,13 @@ namespace LostCompound.Tools
                 case 255:
                     // 255 是「开启 debug 模式」而不是菜单项，所以它不出现在菜单里。
                     // 这里仅开开关，不做别的：主菜单 1/2 的行为完全不变。
-                    _debug = true;
+                    // 开的是全局开关（DebugState），所以战斗中输 255 也开的是同一个，
+                    // 两处不会再各开一份、各看一份。
+                    DebugState.Enable();
                     Console.WriteLine("已进入 debug 模式！\n");
                     break;
                 case 3:
-                    if (!_debug)
+                    if (!DebugState.Enabled)
                     {
                         // 非 debug 时 3 依旧是「没有这个选项。」，与以前一致
                         Console.WriteLine("没有这个选项。\n");
@@ -81,7 +81,7 @@ namespace LostCompound.Tools
                     DebugMenu.RunDebugBattle();
                     break;
                 case 4:
-                    if (!_debug)
+                    if (!DebugState.Enabled)
                     {
                         Console.WriteLine("没有这个选项。\n");
                         break;
