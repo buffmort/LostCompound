@@ -17,9 +17,12 @@ namespace LostCompound.Buffs
     /// 例（你给的验收例子）：现在 7 点、剩 2 回合，再挂「5 点、3 回合」
     ///   → 伤害 min(7+5,10) = 10；剩余回合 2 + 3 = 5。
     ///
-    /// 为什么伤害走 TakeDamage 而不是直接 Hp -= X：这是上一轮定下的口径，保持不变 ——
-    /// 护盾吸收、防御减免、状态栏刷新都在 TakeDamage 里，绕开它就会出现
-    /// 「同样是每回合扣血、行为却不一致」的静默偏差。
+    /// 为什么伤害走玩家受伤管线（玩家侧 <c>TakeDotDamage</c> → <c>TakeDamage</c>）而不是直接 Hp -= X：
+    /// 这是上一轮定下的口径，保持不变 —— 护盾吸收、防御减免、状态栏刷新都在 TakeDamage 里，
+    /// 绕开它就会出现「同样是每回合扣血、行为却不一致」的静默偏差。
+    /// （后来玩家侧多了一层 <c>TakeDotDamage</c>：它只是先问装备要不要吸收这一跳
+    ///   —— 斗篷的「吸收 20 点 DOT 后破损」—— 剩下的残量照旧走 TakeDamage，口径不变。
+    ///   之所以要分入口，是因为「这一跳是 DOT」的信息只有本类知道，见该方法注释。）
     ///
     /// 待确认项：困难模式的「每回合扣 2」需要难度系统，目前项目还没有难度概念，
     ///   所以这里只按存进来的伤害值结算，困难难度做出来后按难度对伤害乘 2。
@@ -58,14 +61,17 @@ namespace LostCompound.Buffs
         public int TickDamage => Stacks;
 
         /// <summary>
-        /// 玩家身上的结算。走 TakeDamage 的原因见类注释。
-        /// 顺序：先扣血、再走剩余回合 -1 —— 这样最后 1 回合也会真的结算一次。
+        /// 玩家身上的结算。走 TakeDotDamage 的原因见该方法注释（它需要知道「这一跳是 DOT」），
+        /// 而 TakeDotDamage 内部最终仍然调 <see cref="Player.TakeDamage"/> ——
+        /// 「护盾吸收、防御减免、状态栏刷新都走 TakeDamage」这条口径没有变，只是多了一层
+        /// 「先问装备要不要吸收」的入口。顺序：先扣血、再走剩余回合 -1 ——
+        /// 这样最后 1 回合也会真的结算一次。
         /// </summary>
         public override void OnTurnTick(Player owner)
         {
             if (IsExpired) return;
             Console.WriteLine(" 你受到 " + TickDamage + " 点流血伤害(流血 x" + Stacks + ")");
-            owner.TakeDamage(TickDamage);
+            owner.TakeDotDamage(TickDamage);
             ConsumeTurn();
         }
 

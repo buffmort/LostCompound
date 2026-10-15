@@ -673,6 +673,52 @@ namespace LostCompound.Tools
         }
 
         /// <summary>
+        /// 周期性伤害（DOT）的受伤入口 —— **只有明确的「每回合持续扣血」结算才走这里**。
+        /// 目前唯一的调用点是 <see cref="LostCompound.Buffs.BleedBuff"/> 的玩家侧 OnTurnTick。
+        ///
+        /// 「怎么区分 DOT 和普通攻击伤害」就是本方法存在的全部理由，三种做法的取舍：
+        ///   · **另开入口（本做法）**：信息由结算点自己声明 —— 流血知道自己是一跳 DOT。
+        ///     普通攻击那条路一个字都不用改；将来漏了某条 DOT，最坏结果是「那个效果没被吸收」，
+        ///     不会反过来污染普通伤害的判定。
+        ///   · `TakeDamage(dmg, bool isDot = false)`：默认 false 意味着**任何漏改的调用点都静默
+        ///     变成「非 DOT」**。现在 p.TakeDamage 有二十来处（6 只怪物的攻击、环境判负、
+        ///     毒气弹自伤、放射性矿物…），而且怪物侧还得跟着改签名 —— 风险明显更大。
+        ///   · 在 Player 上放「正在结算 DOT」的开关：隐式状态，嵌套调用
+        ///     （如放射性矿物在回合头扣血）会把标记串台，事后极难查。
+        ///
+        /// 结算顺序：**先由 IDotAbsorber 吃，剩下的才走 <see cref="TakeDamage"/>**
+        /// （DEF → 装备减伤 → 盾 → 血）。被吸收掉的部分不过 DEF、不动盾 ——
+        /// 「吸收」的语义就是这些伤害根本没打到身上。
+        /// 吸收判定用的是**原始 DOT 值**（还没过 DEF），理由：
+        ///   DEF / 盾都在 TakeDamage 内部，想先算最终伤害就得把它整套拆出来；
+        ///   而斗篷的账本记的是「DOT 这一跳打来多少点」，这个口径最直观、也最好向玩家解释。
+        /// </summary>
+        public void TakeDotDamage(double dmg)
+        {
+            double remaining = dmg;
+            bool absorberBroke = false;
+
+            ForEachEquippedItem(item =>
+            {
+                if (remaining <= 0) return;                       // 已经被前面的吸收者吃光
+                if (item is not IDotAbsorber absorber) return;
+
+                // 夹进 [0, remaining]：道具误返回越界值时既不会凭空多吸收、也不会把伤害变成负数
+                double absorbed = Math.Clamp(absorber.AbsorbDot(this, remaining), 0.0, remaining);
+                remaining -= absorbed;
+
+                // 吸收过程中可能把自己用坏（斗篷累计满 20 点即破损）。
+                // 这里只记录、遍历结束再收走 —— 边遍历边改 Inventory / Accessories 会漏项。
+                if (item is IChangeable c && c.ShouldRemove()) absorberBroke = true;
+            });
+
+            if (absorberBroke) RemoveBrokenEquippedItems();
+
+            // 全被吸收时不用再走受伤管线：不扣血、不弹「你受到 X 点伤害」
+            if (remaining > 0) TakeDamage(remaining);
+        }
+
+        /// <summary>
         /// 玩家当前所在房间的环境对象（可能为 null：没进地图、或该层没有环境）。
         /// 用 internal 而不是 public：只给同一程序集内的道具（水瓶）读取，不扩大对外公开 API。
         /// </summary>
@@ -1096,7 +1142,7 @@ namespace LostCompound.Tools
                     turnCount.OnBattleStart(this, envType);
                 }
                 // 收尸后 i-- 让本次循环重看同一个下标（列表左移了一格）—— 与原先一致
-                if (TryRemoveIfConsumed(i, toAdd)) i--;
+                if (TryRemoveIfConsumed(Inventory, i, toAdd)) i--;
             }
             foreach (Item newItem in toAdd)
             {
@@ -1105,18 +1151,23 @@ namespace LostCompound.Tools
         }
 
         /// <summary>
-        /// 若 <paramref name="index"/> 处的道具满足 <see cref="IChangeable.ShouldRemove"/>
-        /// （「数量归零后移出背包 / 变成别的」，判定归各道具自己声明），就把它移出背包，
+        /// 若 <paramref name="list"/> 的 <paramref name="index"/> 处道具满足
+        /// <see cref="IChangeable.ShouldRemove"/>（「数量归零后移出 / 变成别的」，
+        /// 判定归各道具自己声明），就把它移出该列表，
         /// 产物（<see cref="IChangeable.Become"/>）收进 <paramref name="toAdd"/> 由调用方统一入包。
         /// 返回是否发生了移除（调用方据此决定要不要 `i--`）。
         ///
+        /// 为什么收列表参数而不是写死 Inventory：收尸通路后来多了一条
+        /// （饰品栏里的斗篷破损，见 <see cref="RemoveBrokenEquippedItems"/>），
+        /// 而「怎么判断该走、走到哪去」只应该有一处实现 —— 抄第二份早晚会分叉。
+        ///
         /// 为什么判定必须走 ShouldRemove()：不能写 `if (item.Count == 0)` —— 那会漏掉
         /// 「还没用光但应该移除」的道具，等于在使用路径上另立一套与回合末不同的规则。
-        /// 两条收尸通路（回合末 / 用完一次）走同一个判定，正是因为收尸条件只有一处定义。
+        /// 三条收尸通路（回合末 / 用完一次 / DOT 结算）走同一个判定，正是因为收尸条件只有一处定义。
         /// </summary>
-        private bool TryRemoveIfConsumed(int index, List<Item> toAdd)
+        private static bool TryRemoveIfConsumed(List<Item> list, int index, List<Item> toAdd)
         {
-            Item item = Inventory[index];
+            Item item = list[index];
             if (item is not IChangeable c || !c.ShouldRemove()) return false;
 
             Item replacement = c.Become();
@@ -1124,8 +1175,58 @@ namespace LostCompound.Tools
             {
                 toAdd.Add(replacement);
             }
-            Inventory.RemoveAt(index);
+            list.RemoveAt(index);
             return true;
+        }
+
+        /// <summary>
+        /// 扫一个道具列表，收走所有满足 <see cref="IChangeable.ShouldRemove"/> 的道具。
+        /// 产物（<c>Become()</c>）只收集、不入包 —— 由调用方在遍历结束后统一处理，
+        /// 免得边遍历边改列表。返回是否收过东西（调用方据此决定要不要重算派生值）。
+        /// </summary>
+        private static bool SweepConsumed(List<Item> list, List<Item> toAdd)
+        {
+            bool removed = false;
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (TryRemoveIfConsumed(list, i, toAdd))
+                {
+                    removed = true;
+                    i--;   // 列表左移了一格，重看同一个下标
+                }
+            }
+            return removed;
+        }
+
+        /// <summary>
+        /// 收走「身上已经用坏」的被动道具 —— **背包 + 饰品栏都扫**。
+        /// 由 <see cref="TakeDotDamage"/> 在 DOT 结算后被通知者用坏自己时调用
+        /// （斗篷累计吸收满 20 点 DOT 伤害即破损）。
+        ///
+        /// 为什么需要这条独立通路：既有的 IChangeable 收尸（<see cref="HandleChangeableItems"/> /
+        /// <see cref="RemoveConsumedItems"/>）**只遍历 Inventory**，饰品栏从来没有被扫过。
+        /// 对堆叠消耗品无所谓（它们进不了饰品栏），但斗篷是「饰品」，会待在饰品栏里 ——
+        /// 不扫饰品栏就会留下一个「已经破损、却还挂着 +5 DEF 与 20% 免伤」的幽灵道具，
+        /// 不报错、不崩溃，只是数值静默不符。
+        /// 判定依旧只走 IChangeable.ShouldRemove()，与另外两条收尸通路同源。
+        ///
+        /// 收完要 RecomputeStats()：装备少了一件，派生值必须立刻跟上
+        /// （这里**不**调 ApplyEquipmentPassives —— 那个会顺手把护盾清零，
+        ///   而「护盾清零」只在换装/开战时才是设计意图（CONVENTIONS 三），
+        ///   不该被一次 DOT 结算触发）。
+        /// </summary>
+        private void RemoveBrokenEquippedItems()
+        {
+            List<Item> toAdd = [];
+            bool removedFromInventory = SweepConsumed(Inventory, toAdd);
+            bool removedFromAccessories = SweepConsumed(Accessories, toAdd);
+
+            foreach (Item newItem in toAdd)
+            {
+                AddItem(newItem);
+            }
+
+            if (removedFromInventory || removedFromAccessories) RecomputeStats();
         }
 
         /// <summary>
@@ -1138,10 +1239,7 @@ namespace LostCompound.Tools
         private void RemoveConsumedItems()
         {
             List<Item> toAdd = [];
-            for (int i = 0; i < Inventory.Count; i++)
-            {
-                if (TryRemoveIfConsumed(i, toAdd)) i--;
-            }
+            SweepConsumed(Inventory, toAdd);
             foreach (Item newItem in toAdd)
             {
                 AddItem(newItem);
