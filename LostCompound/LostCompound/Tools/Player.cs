@@ -592,7 +592,9 @@ namespace LostCompound.Tools
         /// <summary>
         /// 玩家受伤。
         ///
-        /// 结算顺序（本次裁定）：**先 DEF 减免，再吃盾**。
+        /// 结算顺序（本次裁定）：**先 DEF 减免 →（装备减伤）→ 再吃盾**。
+        /// 括号里那一步是后加的 <see cref="IDamageReduction"/> 通道（斗篷 20% 免伤），
+        /// 为什么排在这里见方法体里的注释；**「DEF 先于盾」这条既有顺序没有改动**。
         /// 理由：若反过来「先吃盾再 DEF 减免」，盾会被防御白吃一部分 ——
         ///   例：打来 10 点、DEF = 5、盾 = 5。
         ///     先 DEF：10 - 5 = 5 最终伤害 → 盾抵 5 → 掉血 0（盾刚好用完）
@@ -608,6 +610,17 @@ namespace LostCompound.Tools
         public void TakeDamage(double dmg)
         {
             double realDmg = Calculator.ApplyDefense(Def, dmg);
+
+            // ── 装备减伤（IDamageReduction，如斗篷 20%）──
+            // 位置：**DEF 之后、盾之前**，即它是「算最终伤害」的最后一步，和 DEF 同一段。
+            // 为什么必须排在盾前面：§7.1 的口径是「盾按**最终伤害** 1:1 抵扣」——
+            //   盾的每一层都不该被别的减免再削一次。减伤既然也在减少最终伤害，
+            //   就必须和 DEF 一样排在盾之前，否则「打来 10 点、盾 20」时盾白丢 2 点价值。
+            // 为什么不能排在 DEF 之前：DEF 走的是减法公式（RealDmg = max(dmg - DEF, 1)）。
+            //   先乘 0.8 再减 DEF 会让 DEF 也少挨一份，而且小伤害会**完全失效**：
+            //   打来 5 点、DEF = 5、20% 减伤 → 先减伤得 4 → 再减 DEF 被最低值夹回 1，等于没减。
+            // 这一步只做乘法，不碰 Shield、不碰 DEF、不改「DEF 先于盾」的顺序。
+            realDmg *= DamageReductionMultiplier();
 
             if (Shield >= realDmg)
             {
@@ -628,6 +641,35 @@ namespace LostCompound.Tools
             // 玩家身上可能有 buff 在结算中（如流血每回合走 TakeDamage），
             // 这里顺手刷新一次 Buff 框，保证「结算完的那一跳」马上反映到框里。
             RefreshBuffBox();
+        }
+
+        /// <summary>
+        /// 玩家身上所有装备提供的**总减伤系数**（0.8 = 这一跳只吃 80%），
+        /// 由 <see cref="TakeDamage"/> 在 DEF 之后、盾之前乘上去。
+        ///
+        /// 遍历哪批道具：走 <see cref="ForEachEquippedItem"/>（**背包 + 饰品栏**）——
+        ///   与 IEquippable / IShieldSource 扫同一批。各写一遍遍历早晚会漏掉一处
+        ///   （漏了饰品栏时「放进饰品栏的斗篷不减免」不报错、不崩溃，只是安静地失效）。
+        ///
+        /// 多件怎么叠加：**连乘** —— 系数 = Π(1 - ratio)。
+        ///   项目里没有同类先例（怪物那边 <c>Monster.ApplyDamageImmunity</c> 是「开打前写进怪物的
+        ///   单个免疫比例」，环境只给一份，压根不存在叠加问题），所以这条是本次新定的：
+        ///     · 相加：2 件斗篷 = 40%，5 件 = 100% —— 直接无敌，一件饰品就能把数值打穿；
+        ///     · 连乘：2 件 = 36%，5 件 = 67%，永远到不了 100%，且「第二件收益递减」符合直觉，
+        ///       不必再额外加一个上限规则兜底。
+        /// 每件的比例先夹到 0..1：道具误写越界值只会被当作 0% / 100%，不会变成负系数（加伤）。
+        /// </summary>
+        private double DamageReductionMultiplier()
+        {
+            double multiplier = 1.0;
+            ForEachEquippedItem(item =>
+            {
+                if (item is IDamageReduction reduction)
+                {
+                    multiplier *= 1.0 - Math.Clamp(reduction.DamageReductionRatio, 0.0, 1.0);
+                }
+            });
+            return multiplier;
         }
 
         /// <summary>
