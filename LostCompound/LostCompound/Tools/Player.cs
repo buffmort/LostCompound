@@ -1206,6 +1206,11 @@ namespace LostCompound.Tools
             Recipes.Add(new Recipe("布料",
                 [[ItemIds.Wood, 5]],
                 () => new Cloth(1)));
+
+            // 热硫罐：热硫 + 玻璃罐（文档 ID 19）。数量文档没写，1+1 与其它配方 0 条目的口径一致。
+            Recipes.Add(new Recipe("热硫罐",
+                [[ItemIds.FushionSluphur, 1], [ItemIds.GlassJar, 1]],
+                () => new HeatSulphurCan(1)));
         }
 
         /// <summary>

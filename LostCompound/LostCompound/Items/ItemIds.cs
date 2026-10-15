@@ -72,6 +72,9 @@ namespace LostCompound.Items
         /// <summary>金属罐</summary>
         public const int MetalCan = 17;
 
+        /// <summary>热硫罐（容器：装起来的热硫不会 3 回合后消失）</summary>
+        public const int HeatSulphurCan = 19;
+
         /// <summary>放射金属罐</summary>
         public const int RadioactiveMetalCan = 18;
 

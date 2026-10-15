@@ -32,5 +32,8 @@ namespace LostCompound.Items
 
         // 配方 0 补全：布料（ID 41）
         Cloth,
+
+        // 配方 0 补全：热硫罐（ID 19）
+        HeatSulphurCan,
     }
 }
