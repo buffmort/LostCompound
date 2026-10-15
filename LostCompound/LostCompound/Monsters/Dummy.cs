@@ -4,6 +4,13 @@ namespace LostCompound.Monsters
 {
     public sealed class Dummy : Monster
     {
+        /// <summary>
+        /// 档位：**普通**。
+        /// 测试假人是调试/训练用的怪（§10 的 train 战斗），文档 §6 的怪物表里**没有**它，
+        /// 所以既不是精英也不是 Boss，按普通处理。
+        /// </summary>
+        public override MonsterRank Rank => MonsterRank.Normal;
+
         public Dummy()
         {
             Type = MonsterType.Dummy;

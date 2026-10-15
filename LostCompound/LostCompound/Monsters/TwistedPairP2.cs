@@ -15,6 +15,12 @@ namespace LostCompound.Monsters
         private readonly TwistedPairState _state;
         private readonly TwistedPairP1 _brother;
 
+        /// <summary>
+        /// 档位：**Boss**。依据：设计文档 §6.1「2. Twisted Pair 作孽双子 —— P2」，
+        /// 与 <see cref="TwistedPairP1"/> 同一口径（双子的两半都是 Boss）。
+        /// </summary>
+        public override MonsterRank Rank => MonsterRank.Boss;
+
         public TwistedPairP2(TwistedPairState state, TwistedPairP1 brother)
         {
             Name = "Twisted Pair P2";

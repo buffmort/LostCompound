@@ -15,6 +15,12 @@ namespace LostCompound.Monsters
     {
         private readonly TwistedPairState _state;
 
+        /// <summary>
+        /// 档位：**Boss**。依据：设计文档 §6.1「2. Twisted Pair 作孽双子 —— P1」，
+        /// 双子作为一个 Boss 战出现，两半都是 Boss（毒气弹的「非 Boss」判定不该对任何一半生效）。
+        /// </summary>
+        public override MonsterRank Rank => MonsterRank.Boss;
+
         public TwistedPairP1(TwistedPairState state)
         {
             Type = MonsterType.TwistedPair1;

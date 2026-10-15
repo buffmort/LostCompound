@@ -4,6 +4,18 @@ namespace LostCompound.Monsters
 {
     public sealed class Dragon : Monster
     {
+        /// <summary>
+        /// 档位：**Boss**。
+        ///
+        /// 依据：设计文档把龙写在 **§6.1 Boss** 这一节里（「LavaWaterfall —— 1. Dragon 龙」），
+        /// 所以取 Boss 而不是 Elite。
+        /// ⚠️ 保留意见（供复核）：§6.1 的小标题是「Boss」，但**正文没有逐字再说一遍「龙是 Boss」**；
+        ///   用户裁定里对这一只也留了问号（「Dragon=精英还是Boss?」）。本次按「§6.1 就是 Boss 节」判为 Boss。
+        ///   若用户裁定龙是「精英」，把这一行改成 <c>MonsterRank.Elite</c> 即可 ——
+        ///   唯一受影响的是「毒气弹 10% 秒杀非 Boss」是否对龙生效。
+        /// </summary>
+        public override MonsterRank Rank => MonsterRank.Boss;
+
         // 龙的护盾上限（原为 MaxBlock = 1 的「格挡次数上限」）。
         // 数值理由：旧机制下 1 层格挡相当于「完全免疫任意一击」，按 DESIGN 龙单次最多挨
         // 15.42 点（玩家满水攻击力）折算，保留 15 点盾最接近原来的生存时长，

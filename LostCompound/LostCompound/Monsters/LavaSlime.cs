@@ -10,6 +10,11 @@ namespace LostCompound.Monsters
 {
     public sealed class LavaSlime : Monster
     {
+        /// <summary>
+        /// 档位：**普通**。依据是设计文档 §6 的表 ——「1 | 岩浆怪 | 普通 | 30 | 免疫 30%…」。
+        /// </summary>
+        public override MonsterRank Rank => MonsterRank.Normal;
+
         /// <summary>熔岩瀑布（高温环境）里岩浆怪的高温伤害免疫比例（设计文档六：免疫 30%）。</summary>
         public const double HighTempImmunityInLavaWaterfall = 0.30;
 

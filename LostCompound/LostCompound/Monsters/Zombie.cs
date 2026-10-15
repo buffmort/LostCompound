@@ -4,6 +4,21 @@ namespace LostCompound.Monsters
 {
     public sealed class Zombie : Monster
     {
+        /// <summary>
+        /// 档位：**普通**。
+        ///
+        /// ⚠️ 这里是本次唯一「文档没有直接对应」的一只，理由与保留意见都写下来供复核：
+        ///   · 文档 §6 的表里标「精英」的是**洞潜僵尸**（100 血、每回合 10% 自动死亡、会上 4 种 debuff），
+        ///     而 §12.4 已经记着「代码里的 Zombie 是 30 血，与文档的洞潜僵尸不是同一只」；
+        ///     §6.2「普通怪物（全地图可出现）」里另有一只只有血量/掉落的**僵尸**（30 血）。
+        ///   · 本类的 30 血正好对上 §6.2 那只「僵尸」，也与 §12.4 的记载一致，
+        ///     所以按「§6.2 普通怪物」判为 **Normal**。
+        ///   · 若用户认为代码里的 Zombie 就是要当**洞潜僵尸**（精英）用，
+        ///     那么这一行改成 <c>MonsterRank.Elite</c> 即可，毒气弹的判定会自动跟着走
+        ///     （唯一受影响的是「毒气弹 10% 秒杀」对僵尸是否生效）。
+        /// </summary>
+        public override MonsterRank Rank => MonsterRank.Normal;
+
         public Zombie()
         {
             Atk = 20;

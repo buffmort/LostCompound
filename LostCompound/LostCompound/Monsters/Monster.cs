@@ -38,6 +38,24 @@ namespace LostCompound.Monsters
         // 现在所有怪物子类都在构造时显式赋了 Type，实际不会为 null。
         public MonsterType? Type { get; set; }
 
+        /// <summary>
+        /// 本怪物的档位（普通 / 精英 / Boss）。来源：设计文档 §6 的「类型」列 + §6.1 的 Boss，
+        /// 含义与设计理由见 <see cref="MonsterRank"/>。
+        ///
+        /// 为什么要给所有怪物引入这一个概念：「毒气弹(26) 10% 对非 Boss 敌人造成 int.MAX_VALUE 伤害」
+        /// 需要一个「是不是 Boss」的判据，而在此之前代码里**没有任何表达**
+        /// （<see cref="MonsterType"/> 只是种类、也没有 <c>IsBoss</c>、<c>RoomType.Boss</c> 只标房间
+        /// 且道具的 <c>Use(Player, List&lt;Monster&gt;)</c> 拿不到房间）。用户裁定：用 enum 表达。
+        ///
+        /// 为什么是 abstract 而不是「默认 Normal」：漏声明的后果不对称 —— 新怪忘了写档位，
+        /// 默认 Normal 会让上面的秒杀效果对一只 Boss 生效（不报错、只是数值不对）。
+        /// abstract 让漏声明变成**编译错误**。详见 <see cref="MonsterRank"/> 的注释。
+        ///
+        /// ⚠️ 注意：目前只加「档位」这一个概念，**不要**顺手给怪物加别的属性
+        /// （用户明确要求：用 enum 标记 Boss 时不要顺带给所有怪物加新属性）。
+        /// </summary>
+        public abstract MonsterRank Rank { get; }
+
         public abstract void Attack(Player p);
         public abstract void TakeDamage(double dmg);
         public abstract void OnMonsterTurn(Player p);
