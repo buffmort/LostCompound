@@ -1227,6 +1227,12 @@ namespace LostCompound.Tools
             Recipes.Add(new Recipe("毒气弹",
                 [[ItemIds.FushionSluphur, 1], [ItemIds.WhitePhosphorus, 1], [ItemIds.GlassJar, 1]],
                 () => new GasBomb(1)));
+
+            // 斗篷：3 木头 + 1 金属 + 1 布料（按本次任务书；文档给斗篷的获取是
+            // 「放射性区域低概率」，与该环境都还没实现 —— 这处偏离已记在 Items\Cloak.cs 的注释里）。
+            Recipes.Add(new Recipe("斗篷",
+                [[ItemIds.Wood, 3], [ItemIds.Metal, 1], [ItemIds.Cloth, 1]],
+                () => new Cloak(1)));
         }
 
         /// <summary>

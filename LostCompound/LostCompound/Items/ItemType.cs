@@ -41,5 +41,8 @@ namespace LostCompound.Items
 
         // 配方 0 补全：毒气弹（ID 26）
         GasBomb,
+
+        // 配方 0 补全：斗篷（ID 27）
+        Cloak,
     }
 }

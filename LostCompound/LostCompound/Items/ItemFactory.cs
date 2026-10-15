@@ -44,6 +44,7 @@ namespace LostCompound.Items
             (ItemIds.PhosphorusSword, "磷化剑", count => new PhosphorusSword(count)),
             (ItemIds.Armor, "盔甲", count => new Armor(count)),
             (ItemIds.GasBomb, "毒气弹", count => new GasBomb(count)),
+            (ItemIds.Cloak, "斗篷", count => new Cloak(count)),
             (ItemIds.Shield, "盾", count => new Shield(count)),
             (ItemIds.RedPhosphorus, "红磷", count => new RedPhosphorus(count)),
             (ItemIds.Cloth, "布料", count => new Cloth(count)),
