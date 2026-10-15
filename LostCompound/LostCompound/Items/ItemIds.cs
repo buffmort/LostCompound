@@ -90,6 +90,9 @@ namespace LostCompound.Items
         /// <summary>盔甲</summary>
         public const int Armor = 24;
 
+        /// <summary>毒气弹</summary>
+        public const int GasBomb = 26;
+
         /// <summary>盾</summary>
         public const int Shield = 28;
 

@@ -1220,6 +1220,13 @@ namespace LostCompound.Tools
             //       [[ItemIds.WhitePhosphorus /* 或 RedPhosphorus */, 1], [ItemIds.WaterBottle, 1]],
             //       () => new Medicine(1)));
             //   道具类本身已经做好：Items\Medicine.cs，能通过调试 129 发放并使用。
+
+            // 毒气弹：热硫 + 白磷 + 玻璃罐（文档 ID 26）。数量文档没写，各 1 与其余配方 0 条目同口径。
+            // 注意：材料里的热硫有 3 场战斗的保质期（FushionSluphur.Timer），
+            // 所以这条配方实际上要求玩家先合成热硫、再尽快用掉。
+            Recipes.Add(new Recipe("毒气弹",
+                [[ItemIds.FushionSluphur, 1], [ItemIds.WhitePhosphorus, 1], [ItemIds.GlassJar, 1]],
+                () => new GasBomb(1)));
         }
 
         /// <summary>

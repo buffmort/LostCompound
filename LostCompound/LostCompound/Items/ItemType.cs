@@ -38,5 +38,8 @@ namespace LostCompound.Items
 
         // 配方 0 补全：药（ID 20）
         Medicine,
+
+        // 配方 0 补全：毒气弹（ID 26）
+        GasBomb,
     }
 }
