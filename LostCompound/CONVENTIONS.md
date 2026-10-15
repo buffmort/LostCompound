@@ -207,7 +207,7 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 
 **已不是问题（曾经列在这里）：**
 - ~~岩浆怪 HP 15~~ → **已按文档改为 30**（中途一度写成 80，用户裁定 2 后已改回），并接上「熔岩瀑布高温免疫 30%」「水瓶扣当前 70% 血」
-- ~~防御公式不符~~ → **已反向修订文档**：`DESIGN.md` 7.2 定为 `RealDmg = Basic - 1 × def`，与 `Calculator.ApplyDefense` 一致
+- ~~防御公式不符~~ → **已按文档把代码改为系数 0.5**（`Calculator.DefCoefficient`，用户裁定 3）：`DESIGN.md` 7.2 与 `Calculator.ApplyDefense` 现在一致。**困难模式的 1 还没实现**（缺难度系统）—— 等难度系统做出来时只需把这个常量改成按难度取值，调用点不用动（见 DESIGN 12.5）
 
 ---
 
