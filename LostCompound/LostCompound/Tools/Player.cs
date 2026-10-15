@@ -1175,7 +1175,7 @@ namespace LostCompound.Tools
             // 于是「合成翻倍」「产物被打光后材料照扣」两种坏法都会出现。
             // 详见 Items\ICraftable.CreateProduct 与 Tools\Recipe 构造函数的注释。
             // 碳：白磷 + 木头（DESIGN 第九章 ID 3「白磷 + 木头」，效果「可点燃；点燃后清除背包 debuff」）。
-            // ⚠️ **文档没写数量**：白磷 1 + 木头 1 是本次替用户定的，待复核。
+            // 数量：文档没写 → 按 DESIGN 第九章的通用规则取 × 1（白磷 1 + 木头 1）。
             // 木炭类（Charcoal）本来只能靠「熔岩瀑布高温烤木头 3 回合」（Wood.Become）得到，
             // 这条配方给了玩家一条主动的、可预期的获取路径。
             // 注意：木炭的「点燃后清除背包 debuff」效果依赖背包 debuff 系统，尚未实现。
@@ -1201,13 +1201,13 @@ namespace LostCompound.Tools
                 [[ItemIds.GlassJar, 1]],
                 () => new WaterBottle(1)));
 
-            // 布料：5 木头。数量与配方出自本次任务的书面指示
-            // （⚠️ DESIGN.md 第九章目前没有 ID 41 布料这一行，文档待补，见 Items\Cloth.cs 的说明）。
+            // 布料：5 木头（文档 ID 41，第九章道具表「5 木头合成」）。
             Recipes.Add(new Recipe("布料",
                 [[ItemIds.Wood, 5]],
                 () => new Cloth(1)));
 
-            // 热硫罐：热硫 + 玻璃罐（文档 ID 19）。数量文档没写，1+1 与其它配方 0 条目的口径一致。
+            // 热硫罐：热硫 + 玻璃罐（文档 ID 19）。
+            // 数量：文档没写 → 按通用规则取 × 1（热硫 1 + 玻璃罐 1）。
             Recipes.Add(new Recipe("热硫罐",
                 [[ItemIds.FushionSluphur, 1], [ItemIds.GlassJar, 1]],
                 () => new HeatSulphurCan(1)));
@@ -1221,7 +1221,8 @@ namespace LostCompound.Tools
             //       () => new Medicine(1)));
             //   道具类本身已经做好：Items\Medicine.cs，能通过调试 129 发放并使用。
 
-            // 毒气弹：热硫 + 白磷 + 玻璃罐（文档 ID 26）。数量文档没写，各 1 与其余配方 0 条目同口径。
+            // 毒气弹：热硫 + 白磷 + 玻璃罐（文档 ID 26）。
+            // 数量：文档没写 → 按通用规则各取 × 1。
             // 注意：材料里的热硫有 3 场战斗的保质期（FushionSluphur.Timer），
             // 所以这条配方实际上要求玩家先合成热硫、再尽快用掉。
             Recipes.Add(new Recipe("毒气弹",
