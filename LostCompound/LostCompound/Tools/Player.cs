@@ -1174,11 +1174,26 @@ namespace LostCompound.Tools
             // 配方如果持有实例，那个实例会被 AddItem 直接放进背包，配方与背包同指一个对象，
             // 于是「合成翻倍」「产物被打光后材料照扣」两种坏法都会出现。
             // 详见 Items\ICraftable.CreateProduct 与 Tools\Recipe 构造函数的注释。
+            // 碳：白磷 + 木头（DESIGN 第九章 ID 3「白磷 + 木头」，效果「可点燃；点燃后清除背包 debuff」）。
+            // ⚠️ **文档没写数量**：白磷 1 + 木头 1 是本次替用户定的，待复核。
+            // 木炭类（Charcoal）本来只能靠「熔岩瀑布高温烤木头 3 回合」（Wood.Become）得到，
+            // 这条配方给了玩家一条主动的、可预期的获取路径。
+            // 注意：木炭的「点燃后清除背包 debuff」效果依赖背包 debuff 系统，尚未实现。
+            Recipes.Add(new Recipe("碳",
+                [[ItemIds.WhitePhosphorus, 1], [ItemIds.Wood, 1]],
+                () => new Charcoal(1)));
+
             Recipes.Add(new Recipe("热硫",
                 [[ItemIds.WhitePhosphorus, 1], [ItemIds.Charcoal, 1], [ItemIds.Sulphur, 1]],
                 () => new FushionSluphur(1)));
+            // 玻璃罐：白磷 + 沙子。
+            // ⚠️ 变更记录（用户裁定「按文档改」）：原实现是「沙子 × 3」，
+            //   而 DESIGN 第九章的玻璃罐条目与「变更记录」里都写着原始设计是「白磷 + 沙子」。
+            //   ⚠️ **文档没写数量**：白磷 1 + 沙子 1 是本次替用户定的，待复核。
+            //   平衡影响（刻意记下来）：沙子是纯掉落物（沙漠/宝箱），白磷要靠杀怪或 Mine 才有；
+            //   这一改会让玻璃罐变贵，进而抬高水瓶（1 玻璃罐）与后续容器的成本。
             Recipes.Add(new Recipe("玻璃罐",
-                [ [ItemIds.Sand, 3]],
+                [[ItemIds.WhitePhosphorus, 1], [ItemIds.Sand, 1]],
                 () => new GlassJar(1)));
 
             // 水瓶：1 玻璃罐（按你的决定，文档原本写的是「水淹洞穴空房间掉落」）
