@@ -1233,6 +1233,12 @@ namespace LostCompound.Tools
             Recipes.Add(new Recipe("斗篷",
                 [[ItemIds.Wood, 3], [ItemIds.Metal, 1], [ItemIds.Cloth, 1]],
                 () => new Cloak(1)));
+
+            // 压缩沙瓶：20 沙子 + 玻璃罐（文档 ID 29）。
+            // 文档写的「玻璃瓶」项目里不存在，玻璃容器只有玻璃罐（ID 7），故按 7 处理 —— 待复核。
+            Recipes.Add(new Recipe("压缩沙瓶",
+                [[ItemIds.Sand, 20], [ItemIds.GlassJar, 1]],
+                () => new CompressedSandBottle(1)));
         }
 
         /// <summary>

@@ -96,6 +96,9 @@ namespace LostCompound.Items
         /// <summary>斗篷</summary>
         public const int Cloak = 27;
 
+        /// <summary>压缩沙瓶</summary>
+        public const int CompressedSandBottle = 29;
+
         /// <summary>盾</summary>
         public const int Shield = 28;
 

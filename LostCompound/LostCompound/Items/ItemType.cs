@@ -44,5 +44,8 @@ namespace LostCompound.Items
 
         // 配方 0 补全：斗篷（ID 27）
         Cloak,
+
+        // 配方 0 补全：压缩沙瓶（ID 29）
+        CompressedSandBottle,
     }
 }
