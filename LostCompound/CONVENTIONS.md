@@ -47,6 +47,28 @@
 - **跑之前先 `Get-Process LostCompound | Stop-Process -Force`**，否则文件被锁导致编译失败
 - **游戏每局地图是随机的** —— 需要特定条件（遇到某种怪）时，说明「这次没测到」
 
+## 1.6 构建环境（⚠️ 新代理/新环境必看）
+
+**本机 .NET SDK 装在用户目录，不在 `C:\Program Files\dotnet`：**
+
+```
+本机 .NET SDK 装在用户目录：`C:\Users\dayli\.dotnet\dotnet.exe`
+（`C:\Program Files\dotnet` 下只有运行时，`sdk` 目录为空 —— 用裸 `dotnet` 可能报 "No .NET SDKs were found"）
+所有构建命令请用全路径。
+```
+
+- **构建命令（用全路径）：**
+
+  ```powershell
+  & "C:\Users\dayli\.dotnet\dotnet.exe" build "C:\Users\dayli\RiderProjects\LostCompound"
+  ```
+
+- **⚠️ 不要把「No .NET SDKs were found」当成环境坏了** —— 那只是裸 `dotnet` 落到了
+  `C:\Program Files\dotnet`（只有运行时）。换全路径即可，**不要因此跳过编译或改用别的 SDK**。
+- 已核实（本次）：`C:\Users\dayli\.dotnet\dotnet.exe --list-sdks` 返回 **8.0.425 / 10.0.401**
+  （都在 `C:\Users\dayli\.dotnet\sdk`）；`C:\Program Files\dotnet` 下只有 `host` / `shared` / `swidtag`，
+  **没有 `sdk` 目录**。
+
 ---
 
 # 二、代码约定
@@ -236,4 +258,6 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 | 开局道具的数量 | 代码 = DESIGN 2.2 表的**原值 +1**（用户裁定 1：保留 +1，以代码为准）。<br>✅ 已跟进（本次）：DESIGN §2.2 表已改写成 +1 后的**最终值**；两行硫磺的权重按用户裁定**改代码**修回 —— **2 硫磺 = 10 / 3 硫磺 = 8**（`BasicStartWeights = [10, 8, 8, 10, 5, 5, 5, 5, 1]`），逐项核对表见 DESIGN 12.4 末 | DESIGN 2.2 / 12.4 |
 | 开局道具池 · 药 | 药(20) **已进池**：**2 药**，权重 **1** | DESIGN 2.2（用户裁定 6） |
 | DEF 减免系数 | **0.5**（困难 1 待难度系统）；`Calculator.DefCoefficient`，最低取 1 仍生效 | DESIGN 7.2 / 12.5（用户裁定 3） |
+| **困难值默认翻倍（兜底规则）** | 文档里**只写了普通值、未标注困难值**的地方，困难模式下**一律取该值的 2 倍**。⚠️ 这是**兜底不是覆盖** —— **已标注困难值的以标注为准**（文档里确实有非 2 倍的：§5.1 水量 5-10→困难 15-20、§5.5 恐惧 +2→困难 +5、§5.2 堵出水口 3→困难 **2**（变小）、§9 白磷 DOT 30→困难 **20**（变小））。**碰到未标注处翻倍后明显荒谬的，先问用户，不要自行补标注** | DESIGN §2 开头「通用规则（兜底）：困难值默认翻倍」 |
+| 放射金属罐(18) 每次扣血 | 普通 **2 血 / 10 回合**，困难 **4 血 / 10 回合** —— 「困难 4」是**按上一条规则推导出来的**（原文未标困难值 → ×2），不是新裁定。<br>推论结果：困难下 11（2 血/5 回合）与 18（4 血/10 回合）仍等强（各 0.4 血/回合）。推导与反证见 DESIGN §7.4「取值来源」 | DESIGN 7.4 / §9 配方 1（18 行） |
 | 岩浆怪血量 | **30** | DESIGN 六（用户裁定 2） |
