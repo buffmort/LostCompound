@@ -188,10 +188,11 @@ namespace LostCompound.Rooms
 
         /// <summary>熔岩瀑布的起始权重（= 基础权重）。</summary>
         private static int[] LavaWaterfallStartWeights => BasicStartWeights;
-        // ↑ 熔岩瀑布池的长度检查：BuildLavaWaterfallStartPool 委托给基础池（8 项），
-        //   权重也是 8 项，两边一致。将来若让熔岩瀑布用自己的池子，别忘了同步这一行。
+        // ↑ 熔岩瀑布池的长度检查：BuildLavaWaterfallStartPool 委托给基础池（9 项 ——
+        //   文档 2.2 表的 8 项材料 + 药，见 BuildBasicStartPool），
+        //   权重也是 9 项，两边一致。将来若让熔岩瀑布用自己的池子，别忘了同步这一行。
         //
-        // 为什么写成「别名」而不是再抄一份 [10, 10, 8, 8, 5, 5, 5, 5]：
+        // 为什么写成「别名」而不是再抄一份 [10, 10, 8, 8, 5, 5, 5, 5, 1]：
         //   那份数组原先在这里和 BasicStartWeights 各存了一份**完全相同**的常量，
         //   而本文件的维护须知（见上面「⚠️ 维护须知」）要求池子与权重严格逐位对应 ——
         //   同一个池子配两份权重，将来改池子时只要漏改一份，其中一条通路就会静默地用错权重。
