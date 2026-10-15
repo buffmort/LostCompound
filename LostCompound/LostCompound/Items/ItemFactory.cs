@@ -38,6 +38,7 @@ namespace LostCompound.Items
             (ItemIds.IodineTablet, "碘片", count => new IodineTablet(count)),
             (ItemIds.MetalCan, "金属罐", count => new MetalCan(count)),
             (ItemIds.HeatSulphurCan, "热硫罐", count => new HeatSulphurCan(count)),
+            (ItemIds.Medicine, "药", count => new Medicine(count)),
             (ItemIds.RadioactiveMetalCan, "放射金属罐", count => new RadioactiveMetalCan(count)),
             (ItemIds.IronSword, "铁剑", count => new IronSword(count)),
             (ItemIds.PhosphorusSword, "磷化剑", count => new PhosphorusSword(count)),

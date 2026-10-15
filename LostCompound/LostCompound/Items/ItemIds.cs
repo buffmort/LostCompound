@@ -75,6 +75,9 @@ namespace LostCompound.Items
         /// <summary>热硫罐（容器：装起来的热硫不会 3 回合后消失）</summary>
         public const int HeatSulphurCan = 19;
 
+        /// <summary>药（+5 最大生命 +15 血，可用 3 次）</summary>
+        public const int Medicine = 20;
+
         /// <summary>放射金属罐</summary>
         public const int RadioactiveMetalCan = 18;
 

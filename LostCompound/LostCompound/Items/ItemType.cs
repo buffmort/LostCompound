@@ -35,5 +35,8 @@ namespace LostCompound.Items
 
         // 配方 0 补全：热硫罐（ID 19）
         HeatSulphurCan,
+
+        // 配方 0 补全：药（ID 20）
+        Medicine,
     }
 }
