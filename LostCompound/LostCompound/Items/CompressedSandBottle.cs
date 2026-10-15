@@ -6,7 +6,7 @@ namespace LostCompound.Items
     /// <summary>
     /// 压缩沙瓶（ID 29，消耗品，堆叠 1）。
     ///
-    /// 文档依据（DESIGN 第九章）：「29 压缩沙瓶 消耗品 1 20 沙子 + 玻璃瓶 |
+    /// 文档依据（DESIGN 第九章）：「29 压缩沙瓶 消耗品 1 20 沙子 + 玻璃罐 |
     ///   跳过 2 回合并且击杀血量 &lt; 玩家血量 × 0.5 的怪物」。
     ///
     /// 两条效果的对象都取**当前房间的全部怪物**（文档是一句话写的、没有「选一只」的动作，
@@ -22,8 +22,9 @@ namespace LostCompound.Items
     ///      变成「判定时低于阈值、结算后没死」。置 0 之后由战斗循环的
     ///      <c>Tools.RemoveDeadMonsters</c> 统一收尸（掉落照发），不会漏。
     ///
-    /// ⚠️ 文档里的「玻璃瓶」在项目里没有这个道具，玻璃容器只有**玻璃罐（ID 7）**，
-    ///   故配方按 <see cref="ItemIds.GlassJar"/> 写；这是替用户做的解释，待复核。
+    /// ⚠️ 关于材料名（已澄清）：「玻璃瓶」在项目里没有这个道具，玻璃容器只有**玻璃罐（ID 7）**，
+    ///   故配方按 <see cref="ItemIds.GlassJar"/> 写。DESIGN 第九章的道具表已同步写成「玻璃罐」，
+    ///   文档与代码一致，此前的「待复核」已不再是问题。
     /// </summary>
     public sealed class CompressedSandBottle(int count) : Item(ItemIds.CompressedSandBottle, "压缩沙瓶", 1, false, count), IUseable, IChangeable
     {
