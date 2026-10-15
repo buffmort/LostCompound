@@ -5,17 +5,22 @@ namespace LostCompound.Items
     /// <summary>
     /// 斗篷（ID 27，饰品，堆叠 1）：合成 = 3 木头 + 1 金属 + 1 布料（配方 0）。
     ///
-    /// 文档依据（DESIGN 第九章）：「+5 DEF，20% 免伤，累计吸收 20 点 DOT 伤害后破损」。
+    /// 文档依据（DESIGN 第九章）：「+5 DEF，20% 免伤，受伤 50 次后破损消失」。
     ///
     /// 三条效果各走一条通道，互不牵动：
-    ///   · +5 DEF    → <see cref="IEquippable"/>（派生值重算通路，背包 / 饰品栏都生效）；
-    ///   · 20% 免伤  → <see cref="IDamageReduction"/>（Player.TakeDamage 在 DEF 之后、盾之前乘 0.8）；
-    ///   · 吸收 DOT  → <see cref="IDotAbsorber"/>（Player.TakeDotDamage 每跳结算通知一次），
-    ///                 吸满 20 点后由 <see cref="ShouldRemove"/> 报告「该走了」，
+    ///   · +5 DEF     → <see cref="IEquippable"/>（派生值重算通路，背包 / 饰品栏都生效）；
+    ///   · 20% 免伤   → <see cref="IDamageReduction"/>（Player.TakeDamage 在 DEF 之后、盾之前乘 0.8）；
+    ///   · 受伤 50 次破损 → <see cref="IOnDamaged"/>（Player 每**真的扣到血**就通知一次），
+    ///                 记满 50 次后由 <see cref="ShouldRemove"/> 报告「该走了」，
     ///                 Player 把它从背包 / 饰品栏里收走 —— **破损 = 道具消失**，
     ///                 与镐子用完耐久（`Durability &lt;= 0` → `ShouldRemove`）是同一套机制。
     ///
-    /// ⚠️ 累计吸收值为什么是**实例字段**：每件斗篷各记各的账。
+    /// 计数口径（用户裁定「受伤 50 次后消失」的落地，**记次数、不记点数**）：
+    ///   1 次 = 「这一跳伤害真的打进了身体（Hp 被扣）」，打 1 点与打 10 点都只记 1 次；
+    ///   **被盾完全挡下、血一点没掉的那一跳不记** —— 那一跳没有伤到身体，
+    ///   斗篷的耐久不该因为盾厚而被消耗（判定落在 Player.TakeDamage 的两条分支上，见那里的注释）。
+    ///
+    /// ⚠️ 计数为什么是**实例字段**：每件斗篷各记各的账。
     ///   static 会让「打坏一件斗篷」把背包里另一件全新的斗篷一起变成破损；
     ///   记在 Player 上则反过来 —— 换一件新斗篷会继承旧斗篷的旧账。
     ///   本项目对**不可堆叠**道具（MaxStack 1）是「一格一件、不合堆」（Player.AddItem），
@@ -25,12 +30,18 @@ namespace LostCompound.Items
     ///
     /// 历史（已解决，保留供追溯）：
     ///   · 获取方式：文档原先写「放射性区域低概率」，用户裁定 6 改为「合成」，文档已对齐；
-    ///   · 「免疫 N 次」：文档写 3 次流血、任务书写 20 次 dot，用户裁定**改成按值表达** ——
-    ///     格挡那套「按次数完全免疫」早已整体删除（CONVENTIONS 三 / DESIGN 7.1），
-    ///     所以这里记的是**累计吸收的点数**，阈值沿用用户给的 20。
+    ///   · 「免疫 N 次」：文档写 3 次流血、任务书写 20 次 dot，用户裁定**改成按值表达** → 实现成
+    ///     「累计吸收 20 点 DOT 伤害后破损」（走 IDotAbsorber，见 Items\IDotAbsorber.cs）；
+    ///   · **本次（用户新裁定）**：去掉「吸收 DOT」这一条，改成**按次数**的「受伤 50 次后消失」。
+    ///     于是斗篷不再实现 <see cref="IDotAbsorber"/> —— 那条通道目前**没有任何实现者**
+    ///     （接口与 Player.TakeDotDamage 的去留待用户裁定，先保留不动）。
+    ///
+    /// 为什么新机制不能复用 IDotAbsorber：那条通道的口径是「DOT 这一跳打来多少点原始伤害」，
+    ///   它是**在 DEF / 盾之前**吃掉伤害的；而「受伤次数」的口径是**结算完之后血掉了没有**，
+    ///   两者连发生的位置都不同（一个改数值、一个收事件），硬揉在一起会让两个口径互相污染。
     /// </summary>
     public sealed class Cloak(int count)
-        : Item(ItemIds.Cloak, "斗篷", 1, false, count), IEquippable, IDamageReduction, IDotAbsorber, IChangeable
+        : Item(ItemIds.Cloak, "斗篷", 1, false, count), IEquippable, IDamageReduction, IOnDamaged, IChangeable
     {
         public override ItemType? Type => ItemType.Cloak;
 
@@ -40,21 +51,25 @@ namespace LostCompound.Items
         /// <summary>受伤减免比例（文档：20% 免伤）。</summary>
         public const double ReductionRatio = 0.20;
 
-        /// <summary>累计吸收多少点 DOT 伤害后破损（用户裁定：沿用 20）。</summary>
-        public const double DotAbsorbThreshold = 20;
+        /// <summary>
+        /// 挨过多少次伤害后破损（用户裁定：50 次）。
+        /// ⚠️ 这是**次数**不是点数额：一次打 1 点与一次打 10 点都只记 1 次
+        /// （旧机制记的是「累计吸收的点数」，口径完全不同，勿照旧理解）。
+        /// </summary>
+        public const int MaxDamageCount = 50;
 
         /// <summary>
-        /// 本件斗篷往后再吸收多少点才破 —— 这是**道具自己的账本**，与减伤无关，
+        /// 本件斗篷已记下的受伤次数 —— 这是**道具自己的账本**，与减伤无关，
         /// 所以不参与 <see cref="IEquippable.ApplyPassive"/> 那条「每次重算都从基础值来」的通路
         /// （写在那里会被回合开头 / 换装 / buff 变化反复清零或叠加，见 Player.RecomputeStats）。
         /// </summary>
-        private double _absorbedDot;
+        private int _damageTakenCount;
 
-        /// <summary>累计已吸收的 DOT 点数（供显示；每件实例各自一份）。</summary>
-        public double AbsorbedDot => _absorbedDot;
+        /// <summary>已记录在案的受伤次数（供显示；每件实例各自一份）。</summary>
+        public int DamageTakenCount => _damageTakenCount;
 
-        /// <summary>是否已经吸满、该破损了。</summary>
-        public bool IsBroken => _absorbedDot >= DotAbsorbThreshold;
+        /// <summary>是否已经记满、该破损了。</summary>
+        public bool IsBroken => _damageTakenCount >= MaxDamageCount;
 
         /// <summary>减伤比例（0.2 = 20%）。由 Player.DamageReductionMultiplier 与其它来源连乘。</summary>
         public double DamageReductionRatio => ReductionRatio;
@@ -68,27 +83,26 @@ namespace LostCompound.Items
         public void ApplyPassive(Player p) => p.Def += DefBonus;
 
         /// <summary>
-        /// 吸收这一跳 DOT 伤害，最多只吃到「还差多少点破」为止 —— 不会多吸、也不会溢出。
-        /// 硬吃一整个血量级别的伤害在这里是不可能的：上限就是阈值 20。
+        /// 记一次「受伤」。只有伤害真的打进身体（`Hp` 被扣）时才会被调用
+        /// （见 Player.TakeDamage 的扣血分支 → Player.NotifyDamaged）——
+        /// 被盾完全挡下的那一跳**不会**到这里，所以「盾厚 = 斗篷耐久被白吃」不会发生。
         /// </summary>
-        public double AbsorbDot(Player owner, double dotDamage)
+        public void OnDamaged(Player owner)
         {
-            if (IsBroken || dotDamage <= 0) return 0;
+            // 已经记满但还没被收走的空窗期（同一跳里多个通知者）不再重复记账
+            if (IsBroken) return;
 
-            double absorbed = Math.Min(DotAbsorbThreshold - _absorbedDot, dotDamage);
-            _absorbedDot += absorbed;
-
-            Console.WriteLine("斗篷吸收了" + absorbed + "点持续伤害（累计" + _absorbedDot + "/" + DotAbsorbThreshold + "）。");
+            _damageTakenCount++;
+            Console.WriteLine("斗篷破损进度（" + _damageTakenCount + "/" + MaxDamageCount + "）。");
             if (IsBroken)
             {
-                Console.WriteLine("斗篷吸满了，已经破损！");
+                Console.WriteLine("斗篷已经破损，消失了！");
             }
-            return absorbed;
         }
 
         /// <summary>
         /// 破损即移除。走 <see cref="IChangeable"/> 的既有判定（与镐子耐久归零同源），
-        /// 由 Player 在 DOT 结算后统一收走（背包与饰品栏都扫，见 Player.RemoveBrokenEquippedItems）。
+        /// 由 Player 在受伤通知后统一收走（背包与饰品栏都扫，见 Player.RemoveBrokenEquippedItems）。
         /// </summary>
         public bool ShouldRemove() => IsBroken;
 
@@ -96,7 +110,7 @@ namespace LostCompound.Items
         public Item Become() => null;
 
         public string DescribePassive() =>
-            "背包 +" + DefBonus + " DEF，受伤 -" + ReductionRatio * 100 + "%，DOT 吸收 " +
-            _absorbedDot + "/" + DotAbsorbThreshold;
+            "背包 +" + DefBonus + " DEF，受伤 -" + ReductionRatio * 100 + "%，已承伤 " +
+            _damageTakenCount + "/" + MaxDamageCount;
     }
 }

@@ -631,6 +631,9 @@ namespace LostCompound.Tools
                 // 盾够厚：完全挡住，血量一点不掉
                 Shield -= realDmg;
                 Console.WriteLine("你的护盾挡下了伤害!");
+                // ⚠️ 这条提前 return 上**不**通知装备「受伤了」（IOnDamaged）：本项目的口径是
+                //   「真的受伤 = 血被扣了」，被盾全挡下的一跳并没有打到身上，斗篷的耐久
+                //   （受伤 50 次后破损）不该因为盾厚而被消耗。realDmg 为 0（如 100% 减伤）也走这里。
                 RefreshStatus();           // 护盾变化后立刻更新状态栏
                 return;
             }
@@ -641,10 +644,52 @@ namespace LostCompound.Tools
             Hp -= remaining;
             Console.WriteLine("你受到{0:F1}点伤害!", remaining);
             Console.WriteLine();
+
+            // ── 装备的「受伤」通知（IOnDamaged，如斗篷按次数记耐久）──
+            // 为什么只写在这一条分支里：这是「血真的掉了」唯一的分支 ——
+            //   上面盾全挡下的那条提前 return 不发通知（口径见那里的注释）。
+            //   于是「受伤一次」= 「Hp 被扣一次」，与这一跳多少点、来源是什么
+            //   （普攻 / 流血 / 环境扣血 / 毒气弹自伤…）都无关：凡是最终扣到血的都算一次。
+            // 为什么走能力位接口而不是 `is Cloak`：与 IDamageReduction / IShieldSource 同一思路，
+            //   将来别的「挨打 N 次后爆掉 / 变身」的道具实现同一个接口即可，Player 不认识具体道具类。
+            // 为什么排在 RefreshStatus 之前：通知可能让斗篷破损并被收走（装备少一件、DEF 会变），
+            //   刷新放在它后面，状态栏显示的才是收走之后的防御值。
+            NotifyDamaged();
+
             RefreshStatus();               // 受伤后立刻更新状态栏
             // 玩家身上可能有 buff 在结算中（如流血每回合走 TakeDamage），
             // 这里顺手刷新一次 Buff 框，保证「结算完的那一跳」马上反映到框里。
             RefreshBuffBox();
+        }
+
+        /// <summary>
+        /// 通知所有生效中的装备「玩家这一跳真的受伤了（`Hp` 已被扣）」——
+        /// 由 <see cref="TakeDamage"/> 在扣血分支里调用一次；被盾全挡下的那一跳不调用。
+        ///
+        /// 为什么需要这条通道：另外两条装备通道都拿不到「又挨了一下」这个**事件** ——
+        ///   <see cref="IEquippable"/> 只在重算派生值时被调用（次数与挨打无关），
+        ///   <see cref="IDamageReduction"/> 只回答「这一跳打几折」（可以被读很多次却一次伤害都没发生）。
+        /// 斗篷(27) 的「受伤 50 次后破损」要的是次数，只能由受伤入口显式通知，见 <see cref="IOnDamaged"/>。
+        ///
+        /// 遍历哪批道具：走 <see cref="ForEachEquippedItem"/>（**背包 + 饰品栏**）——
+        ///   与 IEquippable / IShieldSource / IDamageReduction 扫同一批，各写一遍早晚漏一处。
+        ///
+        /// 通知与收尸分两步：通知可能让道具把自己用坏（斗篷记满 50 次），
+        ///   但**不能在遍历中改 Inventory / Accessories** —— 所以这里只记「有没有人坏掉」，
+        ///   遍历结束再统一走 <see cref="RemoveBrokenEquippedItems"/>
+        ///   （判定仍旧只走 IChangeable.ShouldRemove，与另外两条收尸通路同源）。
+        /// </summary>
+        private void NotifyDamaged()
+        {
+            bool broke = false;
+            ForEachEquippedItem(item =>
+            {
+                if (item is not IOnDamaged listener) return;
+                listener.OnDamaged(this);
+                if (item is IChangeable c && c.ShouldRemove()) broke = true;
+            });
+
+            if (broke) RemoveBrokenEquippedItems();
         }
 
         /// <summary>
@@ -695,7 +740,14 @@ namespace LostCompound.Tools
         /// 「吸收」的语义就是这些伤害根本没打到身上。
         /// 吸收判定用的是**原始 DOT 值**（还没过 DEF），理由：
         ///   DEF / 盾都在 TakeDamage 内部，想先算最终伤害就得把它整套拆出来；
-        ///   而斗篷的账本记的是「DOT 这一跳打来多少点」，这个口径最直观、也最好向玩家解释。
+        ///   而这条通道的账本记的是「DOT 这一跳打来多少点」，这个口径最直观、也最好向玩家解释。
+        ///
+        /// ⚠️ 现状：**目前没有任何道具实现 <see cref="IDotAbsorber"/>** ——
+        ///   斗篷(27) 的破损机制已按用户新裁定从「累计吸收 20 点 DOT」改成「受伤 50 次」
+        ///   （走 <see cref="IOnDamaged"/>，那是**结算完之后**的事件通道，与本方法
+        ///   「结算之前吃掉伤害」的口径正交，没有合并）。
+        ///   所以本方法现在是一条**纯转发**（没有吸收者时 remaining 恒等于 dmg）。
+        ///   它与 IDotAbsorber 的去留（保留作扩展点 / 整体删除）**待用户裁定，先原样保留**。
         /// </summary>
         public void TakeDotDamage(double dmg)
         {
@@ -711,7 +763,7 @@ namespace LostCompound.Tools
                 double absorbed = Math.Clamp(absorber.AbsorbDot(this, remaining), 0.0, remaining);
                 remaining -= absorbed;
 
-                // 吸收过程中可能把自己用坏（斗篷累计满 20 点即破损）。
+                // 吸收过程中可能把自己用坏（道具自己的 ShouldRemove 说了算）。
                 // 这里只记录、遍历结束再收走 —— 边遍历边改 Inventory / Accessories 会漏项。
                 if (item is IChangeable c && c.ShouldRemove()) absorberBroke = true;
             });
@@ -1167,7 +1219,8 @@ namespace LostCompound.Tools
         ///
         /// 为什么判定必须走 ShouldRemove()：不能写 `if (item.Count == 0)` —— 那会漏掉
         /// 「还没用光但应该移除」的道具，等于在使用路径上另立一套与回合末不同的规则。
-        /// 三条收尸通路（回合末 / 用完一次 / DOT 结算）走同一个判定，正是因为收尸条件只有一处定义。
+        /// 三条收尸通路（回合末 / 用完一次 / 装备在受伤通知里用坏自己）走同一个判定，
+        /// 正是因为收尸条件只有一处定义。
         /// </summary>
         private static bool TryRemoveIfConsumed(List<Item> list, int index, List<Item> toAdd)
         {
@@ -1204,20 +1257,21 @@ namespace LostCompound.Tools
 
         /// <summary>
         /// 收走「身上已经用坏」的被动道具 —— **背包 + 饰品栏都扫**。
-        /// 由 <see cref="TakeDotDamage"/> 在 DOT 结算后被通知者用坏自己时调用
-        /// （斗篷累计吸收满 20 点 DOT 伤害即破损）。
+        /// 两条装备通道在用坏自己后会走到这里：
+        ///   · <see cref="IOnDamaged"/> 的受伤通知（斗篷记满 50 次即破损，见 <see cref="NotifyDamaged"/>）；
+        ///   · <see cref="IDotAbsorber"/> 的吸收结算（<see cref="TakeDotDamage"/>；目前没有实现者）。
+        /// 判定仍旧只走 IChangeable.ShouldRemove()，谁都不在这里另立规则。
         ///
         /// 为什么需要这条独立通路：既有的 IChangeable 收尸（<see cref="HandleChangeableItems"/> /
         /// <see cref="RemoveConsumedItems"/>）**只遍历 Inventory**，饰品栏从来没有被扫过。
         /// 对堆叠消耗品无所谓（它们进不了饰品栏），但斗篷是「饰品」，会待在饰品栏里 ——
         /// 不扫饰品栏就会留下一个「已经破损、却还挂着 +5 DEF 与 20% 免伤」的幽灵道具，
         /// 不报错、不崩溃，只是数值静默不符。
-        /// 判定依旧只走 IChangeable.ShouldRemove()，与另外两条收尸通路同源。
         ///
         /// 收完要 RecomputeStats()：装备少了一件，派生值必须立刻跟上
         /// （这里**不**调 ApplyEquipmentPassives —— 那个会顺手把护盾清零，
         ///   而「护盾清零」只在换装/开战时才是设计意图（CONVENTIONS 三），
-        ///   不该被一次 DOT 结算触发）。
+        ///   不该被一次受伤结算触发）。
         /// </summary>
         private void RemoveBrokenEquippedItems()
         {

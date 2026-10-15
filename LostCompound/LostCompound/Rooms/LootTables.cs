@@ -144,6 +144,7 @@ namespace LostCompound.Rooms
 
         /// <summary>
         /// 基础池（熔岩瀑布用，也是尚未实现环境的兜底）—— 按设计文档 2.2 的表。
+        /// 共 9 项：文档表的 8 项材料 + 药(20)（用户裁定 6 加进池子）。
         /// </summary>
         private static List<Item> BuildBasicStartPool() =>
         [
@@ -156,24 +157,23 @@ namespace LostCompound.Rooms
             new RedPhosphorus(2),     // 权重 5
             new Sand(6),              // 权重 5
 
-            // TODO：设计文档 2.2 的池子里还有「1 药（权重 1）」「1 咖啡（权重 1）」，
-            // 但**两者都还没进这个池子**：
-            //   · 药(20) 现在**已经实现**（配方 0：红磷 + 水瓶，见 Player.AddDefaultRecipes），
-            //     缺的只是「要不要放进开局池」这一条 —— 加它会改变开局平衡，
-            //     按用户要求**先只报告、不自行加**（用户裁定见报告）。
-            //   · 咖啡(30) 完全未实现（依赖雾都城市）。
-            // 真要加的时候，池子与权重数组必须在**同一位置**各加一项（见本文件的维护须知）：
-            // new Medicine(1) → weights 1；new Coffee(1) → weights 1。
-            // （原注释写的是「2 药 / 2 咖啡」，与 DESIGN 2.2 表的「1 药 / 1 咖啡」不一致，
-            //   本次按文档改为 1 —— 这只是改注释里的示例，池子本身仍未动。）
+            // 药(20)：用户裁定 6 = 加进开局池（位置与权重照设计文档 2.2 的表，权重 1）。
+            // 数量 2 是按裁定 1「所有道具给的量 +1」的口径（文档 2.2 表写的是「1 药」）。
+            // 加这一项的理由：药的类与配方早就实现了（配方 0：红磷 + 水瓶，见
+            // Player.AddDefaultRecipes），只差「要不要放到开局」这一条 —— 原先这里只有
+            // 一句 TODO 占位。「要不要加」属于会改开局平衡的事，已由用户裁定，不再由代码自行决定。
+            new Medicine(2),          // 权重 1
+            // 咖啡(30) **仍然不进池**：它完全未实现（依赖雾都城市，见 DESIGN 12.3）。
+            // 将来真要做时按同一口径是「2 咖啡 / 权重 1」（裁定 1 的数量 +1），
+            // 且必须与本数组**同一位置**同步加权重（见上面「⚠️ 维护须知」）。
         ];
 
         /// <summary>
         /// 基础池的权重 —— 设计文档 2.2 的表，顺序与 <see cref="BuildBasicStartPool"/> 一一对应。
-        /// 药 / 咖啡两项尚未实现，见 <see cref="BuildBasicStartPool"/> 里的 TODO。
+        /// 末位那个 1 是药(20) 的权重；咖啡(30) 未实现，不在表里。
         /// 熔岩瀑布的权重就是这一份（<see cref="LavaWaterfallStartWeights"/> 是它的别名）。
         /// </summary>
-        private static readonly int[] BasicStartWeights = [10, 10, 8, 8, 5, 5, 5, 5];
+        private static readonly int[] BasicStartWeights = [10, 10, 8, 8, 5, 5, 5, 5, 1];
 
         /// <summary>
         /// 熔岩瀑布的起始池（语义别名，内容与基础池完全相同）：
