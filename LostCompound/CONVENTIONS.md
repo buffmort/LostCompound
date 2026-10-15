@@ -206,7 +206,7 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 | `Str` / `Atk` / `Def` 会被 `RecomputeStats` 覆盖（任何直接赋派生值的改动都只活到下一次重算） | 现算机制的**预期代价**：它们永远等于「基础值 + 当前所有修正」，任何直接赋值都会被下次重算冲掉。要「永久改」得走基础值（`GrowBaseStr` / `GrowBaseAtk` / `GrowBaseDef`），要「临时改」得走修正量（`env.StrModifier` / `buff.StrBonus` 等）—— 见 2.3 的「派生值 vs 资源」 |
 
 **已不是问题（曾经列在这里）：**
-- ~~岩浆怪 HP 15~~ → **已按文档改为 80**，并接上「熔岩瀑布高温免疫 30%」「水瓶扣当前 70% 血」
+- ~~岩浆怪 HP 15~~ → **已按文档改为 30**（中途一度写成 80，用户裁定 2 后已改回），并接上「熔岩瀑布高温免疫 30%」「水瓶扣当前 70% 血」
 - ~~防御公式不符~~ → **已反向修订文档**：`DESIGN.md` 7.2 定为 `RealDmg = Basic - 1 × def`，与 `Calculator.ApplyDefense` 一致
 
 ---

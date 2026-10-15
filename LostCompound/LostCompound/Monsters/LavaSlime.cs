@@ -74,7 +74,7 @@ namespace LostCompound.Monsters
         {
             Type = MonsterType.LavaSlime;
             Name = "岩浆怪";
-            Hp = 80;      // 生命值（设计文档六：80；此前误写为 15）
+            Hp = 30;      // 生命值（设计文档六：30；此前误写为 15、后又被误改成 80，现按文档改回 30）
             Atk = 5;      // 攻击力
             Str = 1;      // 力量（影响伤害）
             Def = 5;       // 防御（用于玩家攻击岩浆怪时的减伤）
