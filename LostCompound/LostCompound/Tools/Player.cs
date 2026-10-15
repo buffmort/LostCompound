@@ -1200,6 +1200,12 @@ namespace LostCompound.Tools
             Recipes.Add(new Recipe("水瓶",
                 [[ItemIds.GlassJar, 1]],
                 () => new WaterBottle(1)));
+
+            // 布料：5 木头。数量与配方出自本次任务的书面指示
+            // （⚠️ DESIGN.md 第九章目前没有 ID 41 布料这一行，文档待补，见 Items\Cloth.cs 的说明）。
+            Recipes.Add(new Recipe("布料",
+                [[ItemIds.Wood, 5]],
+                () => new Cloth(1)));
         }
 
         /// <summary>

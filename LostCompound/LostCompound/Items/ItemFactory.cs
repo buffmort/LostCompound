@@ -43,6 +43,7 @@ namespace LostCompound.Items
             (ItemIds.Armor, "盔甲", count => new Armor(count)),
             (ItemIds.Shield, "盾", count => new Shield(count)),
             (ItemIds.RedPhosphorus, "红磷", count => new RedPhosphorus(count)),
+            (ItemIds.Cloth, "布料", count => new Cloth(count)),
         ];
 
         /// <summary>

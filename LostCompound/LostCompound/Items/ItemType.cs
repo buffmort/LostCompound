@@ -29,5 +29,8 @@ namespace LostCompound.Items
         // 配方 0 补全（ID 11）与配方 1 补全（ID 18）时新增，按约定只追加在末尾
         RadioactiveOre,
         RadioactiveMetalCan,
+
+        // 配方 0 补全：布料（ID 41）
+        Cloth,
     }
 }
