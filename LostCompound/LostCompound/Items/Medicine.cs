@@ -8,12 +8,9 @@ namespace LostCompound.Items
     ///
     /// 文档依据：DESIGN 第九章「20 药 消耗品 5 磷 + 水瓶 | +5 最大生命 +15 血，可用 3 次」。
     ///
-    /// ⚠️ **配方没有接**（不在 <see cref="Player.AddDefaultRecipes"/> 里）：文档写的材料是「磷 + 水瓶」，
-    ///   而「磷」是歧义写法 —— 项目里同时存在白磷（ID 5）与红磷（ID 31）。
-    ///   查过文档其余各处：它写材料时一律写全（「白磷 + 木头」「碘 + 红磷 + 水瓶」「红磷 + 玻璃罐 + …」），
-    ///   **没有任何一处能确定这个单字「磷」指哪一个**。按「有歧义先问、不要自己设计」的约定，
-    ///   本次**不替用户选**，配方留待确认后补一行即可（材料表放在下面的注释里）。
-    ///   所以：本类能通过调试（129）发放、能进背包、能正常使用，但正常玩法暂时合不出来。
+    /// 配方：**红磷 × 1 + 水瓶 × 1**（配方 0，见 <see cref="Player.AddDefaultRecipes"/>）。
+    ///   文档写的单字「磷」已由用户裁定为**红磷（ID 31）**，歧义解除，配方已接上。
+    ///   数量文档没写，按 DESIGN 第九章的通用规则取 × 1。
     ///
     /// 耐久模型（与碘片一致，见 <see cref="IodineTablet"/> 的注释口径）：
     ///   **一颗药 = 3 次使用**（<see cref="Durability"/> 3、每次 -1），堆叠上限 5 指的是最多带 5 颗。
@@ -93,11 +90,5 @@ namespace LostCompound.Items
         public bool ShouldRemove() => Count == 0;
 
         public Item Become() => null;
-
-        // 待确认后补进 AddDefaultRecipes() 的配方（「磷」歧义解决后把 X 换成 ItemIds.WhitePhosphorus
-        // 或 ItemIds.RedPhosphorus 即可）：
-        //   Recipes.Add(new Recipe("药",
-        //       [[X, 1], [ItemIds.WaterBottle, 1]],
-        //       () => new Medicine(1)));
     }
 }

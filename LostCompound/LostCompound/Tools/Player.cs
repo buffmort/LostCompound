@@ -1212,14 +1212,12 @@ namespace LostCompound.Tools
                 [[ItemIds.FushionSluphur, 1], [ItemIds.GlassJar, 1]],
                 () => new HeatSulphurCan(1)));
 
-            // TODO：药（ID 20）的配方**故意不接** —— 文档写的材料是「磷 + 水瓶」，
-            //   而「磷」是歧义写法（项目里同时有白磷 ID 5 与红磷 ID 31），
-            //   文档其余各处写材料都写全（「白磷 + 木头」「碘 + 红磷 + 水瓶」…），查不到可判定的线索。
-            //   按「有歧义先问、不要自己设计」的约定留空，确认后补一行：
-            //   Recipes.Add(new Recipe("药",
-            //       [[ItemIds.WhitePhosphorus /* 或 RedPhosphorus */, 1], [ItemIds.WaterBottle, 1]],
-            //       () => new Medicine(1)));
-            //   道具类本身已经做好：Items\Medicine.cs，能通过调试 129 发放并使用。
+            // 药：红磷 + 水瓶（文档 ID 20）。
+            // 「磷 + 水瓶」里的单字「磷」已由用户裁定为**红磷（ID 31）**，歧义解除，配方接上。
+            // 数量：文档没写 → 按通用规则各取 × 1。
+            Recipes.Add(new Recipe("药",
+                [[ItemIds.RedPhosphorus, 1], [ItemIds.WaterBottle, 1]],
+                () => new Medicine(1)));
 
             // 毒气弹：热硫 + 白磷 + 玻璃罐（文档 ID 26）。
             // 数量：文档没写 → 按通用规则各取 × 1。
