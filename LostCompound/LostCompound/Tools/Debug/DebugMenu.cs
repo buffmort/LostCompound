@@ -42,7 +42,7 @@ namespace LostCompound.Tools.Debug
         /// 怪物清单：显示名 + 造怪方式。
         ///
         /// 凡继承 <see cref="Monster"/> 且非抽象的都是候选，见 Monsters 目录：
-        /// Zombie / Dragon / LavaSlime / Dummy / TwistedPairP1 / TwistedPairP2。
+        /// Zombie / Skeleton / Dragon / LavaSlime / Dummy / TwistedPairP1 / TwistedPairP2。
         ///
         /// 双子（P1/P2）做成**一个选项、两个一起上**，理由：
         ///   P2 的构造器就要求传 P1（共享 TwistedPairState），它的技能③会给「兄弟」加盾、
@@ -53,6 +53,7 @@ namespace LostCompound.Tools.Debug
         private static readonly (string Label, Func<List<Monster>> Build)[] MonsterCatalog =
         [
             ("僵尸", () => [new Zombie()]),
+            ("骷髅", () => [new Skeleton()]),
             ("龙", () => [new Dragon()]),
             ("岩浆怪", () => [new LavaSlime()]),
             ("测试假人", () => [new Dummy()]),
