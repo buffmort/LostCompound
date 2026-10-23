@@ -250,7 +250,8 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 | `Monsters\Boss\` | `LostCompound.Monsters.Boss` | Boss 与剧情怪（4） |
 | `Rooms\` | `LostCompound.Rooms` | `Room` / `RoomType` / `Direction` / `LootTables` / `MobSpawner` |
 | `Rooms\Types\` | `LostCompound.Rooms.Types` | 具体房间（7） |
-| `Tools\` | `LostCompound.Tools` | `Player.*`（8 个 partial）/ `Tools` / `Calculator` / `Recipe` / `Mining` |
+| `Tools\` | `LostCompound.Tools` | `Tools` / `Calculator` / `Recipe` / `Mining` |
+| `Tools\Players\` | `LostCompound.Tools.Players` | `Player`（8 个 partial） |
 | `Tools\Debug\` | `LostCompound.Tools.Debug` | `DebugMenu` / `DebugState` |
 | `Tools\Launch\` | `LostCompound.Tools.Launch` | `GameLauncher` / `GameLobby` |
 | `Buffs\` | `LostCompound.Buffs` | `Buff` / `BuffIds` / `BuffFactory` |
@@ -262,8 +263,8 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 
 ### `Player` 的拆分（partial class）
 
-`Player` 有 1900+ 行、86 个成员，按职责拆成 8 个 `partial` 文件，**全部在 `Tools\`、命名空间仍是
-`LostCompound.Tools`**（拆文件不改命名空间，否则调用点要全改）。找成员按上表第 1 列定位：
+`Player` 有 1900+ 行、86 个成员，按职责拆成 8 个 `partial` 文件，全部在 `Tools\Players\`，
+命名空间 `LostCompound.Tools.Players`。找成员按上表第 1 列定位：
 
 | 文件 | 职责 |
 |---|---|
@@ -279,6 +280,11 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 **新增成员时先想清楚属于哪个文件** —— 塞回 `Player.cs` 就等于把这 1900 行重新养回来。
 `partial` 只是分文件，**耦合没变**：任何一个 partial 里的 `private` 字段对另外 7 个都可见，
 所以「能乱摸」这件事靠自觉，不靠编译器。
+
+**⚠️ 包名不能叫 `Player`。** 命名空间和类型共用同一套名字查找：如果包是
+`LostCompound.Tools.Player`、类型也叫 `Player`，那么从外部写 `Player p` 时，编译器先找到
+**命名空间**，报 `CS0118`「命名空间不能当类型用」，而 `using` **修不好**这个问题。
+所以包名取复数 `Players`。（同理以后不要建 `Tool\...` 之外的「类名同名包」。）
 
 ---
 

@@ -15,7 +15,7 @@ using LostCompound.Rooms.Types;
 using LostCompound.Tools.Debug;
 using LostCompound.Buffs.Types;
 
-namespace LostCompound.Tools
+namespace LostCompound.Tools.Players
 {
     public partial class Player
     {

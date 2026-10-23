@@ -2,6 +2,8 @@ using System.Text;
 using LostCompound.Items;
 using LostCompound.Items.Capabilities;
 
+using LostCompound.Tools.Players;
+
 namespace LostCompound.Tools
 {
     public class Recipe : ICraftable

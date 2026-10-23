@@ -2,6 +2,8 @@ using Environment = LostCompound.MapEnvironment.Environment;
 using LostCompound.MapEnvironment;
 using LostCompound.Tools;
 
+using LostCompound.Tools.Players;
+
 namespace LostCompound.Rooms
 {
     public abstract class Room

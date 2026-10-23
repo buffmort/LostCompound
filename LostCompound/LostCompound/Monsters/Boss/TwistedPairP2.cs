@@ -9,6 +9,8 @@ using LostCompound.Monsters;
 /**
  * 作孽双子 - p2（4技能）
  */
+using LostCompound.Tools.Players;
+
 namespace LostCompound.Monsters.Boss
 {
     public sealed class TwistedPairP2 : Monster

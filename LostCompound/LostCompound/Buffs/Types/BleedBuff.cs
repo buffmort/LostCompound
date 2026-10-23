@@ -2,6 +2,8 @@ using LostCompound.Monsters;
 using LostCompound.Tools;
 using LostCompound.Buffs;
 
+using LostCompound.Tools.Players;
+
 namespace LostCompound.Buffs.Types
 {
     /// <summary>

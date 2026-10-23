@@ -2,6 +2,8 @@ using LostCompound.Items;
 using LostCompound.Tools;
 using LostCompound.Buffs;
 
+using LostCompound.Tools.Players;
+
 namespace LostCompound.Monsters
 {
     public abstract class Monster

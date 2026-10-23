@@ -7,6 +7,8 @@ using LostCompound.Tools;
 using LostCompound.Items;
 using LostCompound.Items.Capabilities;
 
+using LostCompound.Tools.Players;
+
 namespace LostCompound.Items.Consumables
 {
     /// <summary>

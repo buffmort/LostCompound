@@ -3,6 +3,8 @@ using LostCompound.Tools;
 using LostCompound.Items;
 using LostCompound.Items.Capabilities;
 
+using LostCompound.Tools.Players;
+
 namespace LostCompound.Items.Materials
 {
     public sealed class Wood(int count) : Item(ItemIds.Wood, "木头", 99, true, count), ITurnCount, IChangeable

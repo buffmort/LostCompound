@@ -5,6 +5,8 @@ using LostCompound.Tools;
 using LostCompound.Monsters.Boss;
 using LostCompound.Rooms;
 
+using LostCompound.Tools.Players;
+
 namespace LostCompound.Rooms.Types
 {
     public sealed class BossRoom : Room

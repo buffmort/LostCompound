@@ -5,6 +5,8 @@ using LostCompound.Items;
 using LostCompound.Items.Capabilities;
 using LostCompound.Buffs.Types;
 
+using LostCompound.Tools.Players;
+
 namespace LostCompound.Items.Consumables
 {
     public sealed class WhitePhosphorus(int count) : Item(ItemIds.WhitePhosphorus, "白磷", 99, true, count), IUseable, IChangeable

@@ -5,6 +5,8 @@ using LostCompound.Items;
 using LostCompound.Items.Consumables;
 using LostCompound.Rooms;
 
+using LostCompound.Tools.Players;
+
 namespace LostCompound.Rooms.Types
 {
     public sealed class EmptyRoom : Room

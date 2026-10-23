@@ -3,6 +3,8 @@ using LostCompound.MapEnvironment;
 using LostCompound.Monsters;
 using LostCompound.Buffs;
 
+using LostCompound.Tools.Players;
+
 namespace LostCompound.Tools
 {
     public static class Tools

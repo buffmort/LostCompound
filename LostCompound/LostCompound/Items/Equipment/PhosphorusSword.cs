@@ -5,6 +5,8 @@ using LostCompound.Items;
 using LostCompound.Items.Capabilities;
 using LostCompound.Buffs.Types;
 
+using LostCompound.Tools.Players;
+
 namespace LostCompound.Items.Equipment
 {
     /// <summary>

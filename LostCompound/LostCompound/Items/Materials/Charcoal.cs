@@ -3,6 +3,8 @@ using LostCompound.Tools;
 using LostCompound.Items;
 using LostCompound.Items.Capabilities;
 
+using LostCompound.Tools.Players;
+
 namespace LostCompound.Items.Materials
 {
     public sealed class Charcoal(int count) : Item(ItemIds.Charcoal, "木炭", 99, true, count), ITurnCount

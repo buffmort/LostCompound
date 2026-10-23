@@ -11,6 +11,8 @@ using LostCompound.Monsters.Boss;
 using LostCompound.Rooms.Types;
 using LostCompound.Tools;
 
+using LostCompound.Tools.Players;
+
 namespace LostCompound.Tools.Debug
 {
     /// <summary>

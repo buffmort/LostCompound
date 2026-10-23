@@ -1,4 +1,5 @@
 using LostCompound.Tools;
+using LostCompound.Tools.Players;
 
 namespace LostCompound.Items.Capabilities
 {

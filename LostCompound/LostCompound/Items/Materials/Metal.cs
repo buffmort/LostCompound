@@ -3,6 +3,8 @@ using LostCompound.Tools;
 using LostCompound.Items;
 using LostCompound.Items.Capabilities;
 
+using LostCompound.Tools.Players;
+
 namespace LostCompound.Items.Materials
 {
     /// <summary>金属：材料。消耗 1 个可永久 +1 DEF。</summary>

@@ -5,6 +5,8 @@ using LostCompound.Monsters;
 using LostCompound.Tools;
 using LostCompound.Rooms;
 
+using LostCompound.Tools.Players;
+
 namespace LostCompound.Rooms.Types
 {
     public sealed class FightRoom : Room

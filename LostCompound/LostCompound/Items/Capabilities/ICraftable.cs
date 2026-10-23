@@ -1,6 +1,8 @@
 using LostCompound.Tools;
 using LostCompound.Items;
 
+using LostCompound.Tools.Players;
+
 namespace LostCompound.Items.Capabilities
 {
     /// <summary>一条合成配方的抽象：材料表 + 产物 + 能否合成/执行的判定。</summary>

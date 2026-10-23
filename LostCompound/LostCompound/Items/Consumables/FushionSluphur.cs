@@ -4,6 +4,8 @@ using LostCompound.Tools;
 using LostCompound.Items;
 using LostCompound.Items.Capabilities;
 
+using LostCompound.Tools.Players;
+
 namespace LostCompound.Items.Consumables
 {
     public sealed class FushionSluphur(int count) : Item(ItemIds.FushionSluphur, "热硫", 99, true, count), IChangeable, IUseable, ITurnCount

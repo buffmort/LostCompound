@@ -11,6 +11,8 @@ using LostCompound.Buffs.Types;
 /**
  * 作孽双子 - p1（3技能）
  */
+using LostCompound.Tools.Players;
+
 namespace LostCompound.Monsters.Boss
 {
     public sealed class TwistedPairP1 : Monster

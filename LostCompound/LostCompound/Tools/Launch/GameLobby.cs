@@ -6,6 +6,8 @@ using static LostCompound.MapEnvironment.EnvType;
 using LostCompound.Tools;
 using LostCompound.Tools.Debug;
 
+using LostCompound.Tools.Players;
+
 namespace LostCompound.Tools.Launch
 {
     /**
