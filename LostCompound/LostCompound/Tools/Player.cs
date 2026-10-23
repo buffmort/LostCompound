@@ -176,6 +176,26 @@ namespace LostCompound.Tools
         public int SkipTurn { get; set; }
 
         /// <summary>
+        /// 本局累计的战斗次数（设计：每进入一场战斗 +1）。
+        ///
+        /// 用途：<see cref="Rooms.MobSpawner"/> 按它提高「这一战多出几只怪」的概率
+        /// （0.1 + 0.01 × FightCount，Boss 战再 ×0.5）。
+        ///
+        /// 语义与生命周期：
+        ///   · **累加**语义（CONVENTIONS 2.3），所以出口是 <see cref="AddFightCount"/>，
+        ///     不在外部直接赋值；
+        ///   · 每局新建 <see cref="Player"/> 时从 0 开始，**不持久化**（没有存档系统）；
+        ///   · 计数点在 <see cref="SetInBattle(bool)"/> 的 `true` 分支 ——
+        ///     Tools.RunBattle 每场战斗只调用一次 SetInBattle(true)（见那里的 try/finally），
+        ///     所以不会重复计数；调试战斗同样算一场。
+        ///   · 水淹洞穴的假人战斗也计数：它就是一场真实战斗，只是怪是占位实现。
+        /// </summary>
+        public int FightCount { get; private set; }
+
+        /// <summary>战斗计数 +1，见 <see cref="FightCount"/>（累加语义用方法，CONVENTIONS 2.3）。</summary>
+        public void AddFightCount() => FightCount++;
+
+        /// <summary>
         /// 累加跳过回合数（与 <see cref="Monsters.Monster.AddSkipTurn"/> 对称，见 CONVENTIONS 2.3）。
         /// 为什么要有这个方法：<c>SkipTurn</c> 是**累加语义**的量（连中两次「困住」就该被跳两回合），
         /// 而它原先只由调用点裸写 <c>p.SkipTurn = 1</c> —— 那种写法是**赋值**：连中两次也只剩 1，
@@ -1741,6 +1761,11 @@ namespace LostCompound.Tools
             _inBattle = v;
             if (v)
             {
+                // 战斗计数：Tools.RunBattle 在开战时调用一次 SetInBattle(true)、
+                // 在 finally 里调用一次 SetInBattle(false)，所以这里 +1 恰好是「每场战斗一次」。
+                // 不要挪到 RunBattle 的循环里（那会按回合累加），也不要挪到 OnEnter
+                // （调试战斗 / 将来的其它战斗入口会绕过房间）。
+                AddFightCount();
                 ApplyEquipmentPassives();
             }
             else

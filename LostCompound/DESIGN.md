@@ -341,6 +341,31 @@
 > 单个「层数上限」字段只能写 `[1, N]`，遇到「3-5 层」就得把数据结构和过滤逻辑推翻重写 —— 故一次到位。
 >
 > ⚠️ **层数系统还没做**（见 §12.3），调用方当前硬编码传 `1`，所以**今天的行为没有变化**。
+>
+> **战斗计数与多怪生成（`Player.FightCount` + `MobSpawner.Spawn`，本次新增）**：
+> 每进入一场战斗 `FightCount += 1`（`Player.SetInBattle(true)`，每场只调一次；
+> 每局新建 `Player` 从 0 开始，不持久化）。生成怪物时按下列公式决定**这一战总共出几只**：
+>
+> ```csharp
+> double chance = 0.1 + 0.01 * fightCount;       // Boss 战时再 × 0.5
+> int guaranteed = (int)Math.Floor(chance);      // 必然多出的只数
+> double remainder = chance - guaranteed;        // 余数 → 概率多出 1 只
+> int extra = guaranteed + (Random.Shared.NextDouble() < remainder ? 1 : 0);
+> int total = Math.Min(1 + extra, MaxMonsters);  // MaxMonsters = 7
+> ```
+>
+> | 战斗计数 | chance | 结果 |
+> |---|---|---|
+> | 0 | 0.10 | 1~2 只（10% 出第 2 只） |
+> | 90 | 1.00 | 必定 2 只 |
+> | 110 | 1.20 | 必定 2 只 + 20% 第 3 只 |
+> | 600 | 7.00 | 封顶 7 只 |
+>
+> 每多出的一只都**独立**从按层数过滤后的池里抽（可重复抽到同一种怪），
+> 所以僵尸 / 骷髅仍然只可能在 `[1, 3]` 层出现。
+> **Boss 战**概率 ×0.5，组合是 **[Boss] + 额外普通怪**：Boss 本身永远只有一只，
+> 额外小怪从同一层的普通池里抽，并再夹到 `MaxMonsters - 1 = 6` 只，
+> 保证「Boss + 小怪」总数不超过敌人框的 7 行。水淹洞穴的测试假人也走这套计数。
 
 ---
 
