@@ -1691,8 +1691,12 @@ namespace LostCompound.Tools
         /// <summary>
         /// 把战场上的敌人列表喂给左列顶部的「敌人框」。
         ///
-        /// 格式：每行 "[i] 僵尸(30.0)"，最多 <see cref="ConsoleScreen.EnemyRows"/> 行；
-        /// 不足的行由 DrawEnemies 自己补空，超出的行会被框裁掉（设计上最多同时 3 个敌人）。
+        /// 格式：每行 "[i] 僵尸(30.0)"，最多 <see cref="ConsoleScreen.MaxEnemyRows"/> 行；
+        /// 不足的行由 DrawEnemies 自己补空。
+        /// 先把实际怪物数交给 <see cref="ConsoleScreen.SetEnemyRows"/>：它会调整 EnemyRows
+        /// 并重排左列（日志框 / 输入框都会跟着上下移动），然后再画内容 ——
+        /// 顺序不能反，否则 SetEnemyRows 里的整屏重排会用「旧 EnemyRows」重画敌人框。
+        /// 0 只怪时 SetEnemyRows 会夹到 1 行（空框仍是「这里没有敌人」的提示）。
         /// 行尾的空格要 TrimEnd：Monster.ToString() 结尾自带一个空格（那是给
         /// SelectTarget 的 "0. 僵尸(30.0)   1. ..." 横向排列用的），框内显示不需要它。
         /// </summary>
@@ -1700,8 +1704,10 @@ namespace LostCompound.Tools
         {
             if (_screen == null) return;
 
+            _screen.SetEnemyRows(monsters.Count);
+
             List<string> lines = [];
-            for (int i = 0; i < monsters.Count && i < ConsoleScreen.EnemyRows; i++)
+            for (int i = 0; i < monsters.Count && i < ConsoleScreen.MaxEnemyRows; i++)
             {
                 lines.Add("[" + i + "] " + monsters[i].ToString().TrimEnd());
             }
@@ -1770,7 +1776,10 @@ namespace LostCompound.Tools
             }
             else
             {
-                _screen?.DrawEnemies("");         // 空串 = 敌人框回到 3 行空白
+                // 空战斗 = 0 只怪：敌人框缩回 1 行，把省下的纵向空间还给日志
+                // （上限与夹取见 ConsoleScreen.SetEnemyRows）。
+                _screen?.SetEnemyRows(0);
+                _screen?.DrawEnemies("");         // 空串 = 敌人框只剩 1 行空白
                 _screen?.DrawBuffs("");           // 同理清空 Buff 框（Tools.ClearBuffs 也会清掉 Buffs 列表）
             }
             // 进/出战斗都要重算派生值：水量的修正、buff 的修正都得反映进来

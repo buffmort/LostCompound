@@ -34,8 +34,9 @@ namespace LostCompound.UI
     /// 为什么敌人框在左列顶部？
     ///   「敌人」和「状态」原先都在左列顶部，只能有一个占着。敌人列表是战斗时每次决策
     ///   都要看的信息，而且 Attack / SelectTarget / OpenItems 的提示都写着「选择编号」——
-    ///   编号必须一直挂在眼前。所以把敌人框固定钉在左列顶部（恒定 3 行），
-    ///   状态框挪到地图框下方：状态只在「进新房间 / 受伤」时变，不需要头部位置。
+    ///   编号必须一直挂在眼前。所以把敌人框固定钉在左列顶部（默认 3 行、遇敌后按实际
+    ///   怪物数在 1~7 行之间自适应），状态框挪到地图框下方：状态只在「进新房间 / 受伤」时变，
+    ///   不需要头部位置。
     ///
     /// 光标定位用 ANSI 转义序列（\u001b[行;列H），而不是 Console.SetCursorPosition。
     /// 原因：ANSI 在「输出被重定向」时只是失效，不会抛异常；SetCursorPosition 会直接抛 IOException。
@@ -71,8 +72,28 @@ namespace LostCompound.UI
         public const int StatusRows = 4;
         /// <summary>日志区内容行数。两列分完剩下的纵向空间全归它，所以可写。</summary>
         public int LogRows { get; private set; }
-        /// <summary>敌人框的内容行数。固定 3 行 —— 足以放下三个敌人。</summary>
-        public const int EnemyRows = 3;
+
+        /// <summary>
+        /// 敌人框的**默认**内容行数（进游戏时、还没遇到敌人前）。
+        /// 遇到敌人后由 <see cref="SetEnemyRows"/> 按实际怪物数调整（1~<see cref="MaxEnemyRows"/>）。
+        /// </summary>
+        public const int DefaultEnemyRows = 3;
+
+        /// <summary>
+        /// 敌人框能长到的最大内容行数（用户要求：自适应、封顶 7）。
+        /// 与 <see cref="Rooms.MobSpawner.MaxMonsters"/> 是同一个数字的两端：生成侧封顶 7 只，
+        /// 显示侧封顶 7 行；两者必须一起改，否则会生成第 8 只、框里却只画 7 行（静默丢一行）。
+        /// </summary>
+        public const int MaxEnemyRows = 7;
+
+        /// <summary>日志区至少保留的行数。敌人框再长也不能把日志压到 0 行（见 <see cref="SetEnemyRows"/>）。</summary>
+        public const int MinimumLogRows = 1;
+
+        /// <summary>
+        /// 敌人框的内容行数（**可变**，1~<see cref="MaxEnemyRows"/>）。
+        /// 由 <see cref="SetEnemyRows"/> 按「本场实际怪物数」设置；0 只时缩到 1 行。
+        /// </summary>
+        public int EnemyRows { get; private set; } = DefaultEnemyRows;
         /// <summary>
         /// Buff 框的内容行数。固定 2 行 —— 够放满当前全部 buff 种类（现在只有流血一种）。
         /// 为什么取 2 而不是任务书建议的 3：右列纵向已经排了「地图 + 状态 + Buff」三个框，
@@ -110,7 +131,13 @@ namespace LostCompound.UI
         private const int LeftBoxLeft = 1;
         private int MapBoxLeft => LeftBoxLeft + LeftWidth + 1;   // 中间留 1 列空隙
 
-        // 左列：敌人（固定 3 行内容）→ 日志 → 输入
+        /// <summary>
+        /// 左列的固定开销（不含 EnemyRows / LogRows）：敌人框上下边框 2 + 输入框 3 + 日志框上下边框 2。
+        /// 左列总高 = EnemyRows + LogRows + 本常量（= EnemyRows + LogRows + 7）。
+        /// </summary>
+        private const int LeftColumnFixedHeight = 2 + 3 + 2;
+
+        // 左列：敌人（EnemyRows 行，随怪物数变化）→ 日志 → 输入
         private int EnemyBoxTop => 1;
         private int LogBoxTop => EnemyBoxTop + EnemyRows + 2;
         private int InputBoxTop => LogBoxTop + LogRows + 2;
@@ -122,24 +149,40 @@ namespace LostCompound.UI
         private int BuffBoxTop => StatusBoxTop + StatusRows + 2;
 
         /// <summary>
-        /// 整个布局占用的总行数（用于判断/恢复光标位置）。
+        /// 整个布局占用的总行数（= 最下面那条边框所在的行号，用于判断/恢复光标位置）。
         /// 左右两列各自占满纵向空间，所以取两者的最大值 —— 少算了矮的那列没关系，
         /// 但绝不能少算高的那列，否则 Uninstall 后光标会停在框中间。
+        ///
+        /// 两列各自的「最后一行」：
+        ///   左列 = 输入框顶行 + 2（顶边框 + 1 行内容 + 底边框）
+        ///   右列 = Buff 框顶行 + BuffRows + 1（顶边框 + 内容 + 底边框）
+        /// ⚠️ 右列原先写的是 `+ BuffRows + 2`，比实际多算 1 行 —— 框本身并没有多占那一行，
+        /// 只是 Uninstall 的光标会多下移一行。自适应敌人框上线后这个数要用于核对
+        /// 「是否超过终端高度」，所以按真实底边框改准。
         /// </summary>
-        public int TotalRows => Math.Max(InputBoxTop + 2, BuffBoxTop + BuffRows + 2);
+        public int TotalRows => Math.Max(InputBoxTop + 2, BuffBoxTop + BuffRows + 1);
 
         /// <summary>竖线之后、内容之前的边距（"│ " 两格）。</summary>
         private const int ContentOffset = 2;
 
+        /// <summary>
+        /// 游戏用构造：终端尺寸从控制台读取；读不到时用 100×40 兜底
+        /// （输出被重定向 / 没有真实控制台时 <see cref="Console.WindowWidth"/> 会抛异常）。
+        /// </summary>
         public ConsoleScreen(int mapRows, int mapColumns)
+            : this(mapRows, mapColumns, ReadWindowWidth(), ReadWindowHeight())
+        {
+        }
+
+        /// <summary>
+        /// 显式指定终端尺寸的构造：**给布局验证 / 渲染测试用**
+        /// （RenderScreen.ps1 无法控制子进程的 Console.WindowHeight，需要能模拟 15 / 20 行矮屏）。
+        /// 游戏代码不要用它 —— 用上面那个无尺寸版本。
+        /// </summary>
+        public ConsoleScreen(int mapRows, int mapColumns, int terminalWidth, int terminalHeight)
         {
             _raw = Console.Out;                    // ← 关键：先抓真实输出
             _writer = new LogRegionWriter(this);
-
-            int terminalWidth;
-            int terminalHeight;
-            try { terminalWidth = Console.WindowWidth; } catch { terminalWidth = 100; }
-            try { terminalHeight = Console.WindowHeight; } catch { terminalHeight = 40; }
 
             _terminalWidth = terminalWidth;
 
@@ -166,7 +209,7 @@ namespace LostCompound.UI
             // ---- 纵向分配 ----
             // 两列各自的总高（含边框）：
             //   左列 = 敌人框(EnemyRows + 2) + 日志框(LogRows + 2) + 输入框(3)
-            //        = EnemyRows + LogRows + 7 = LogRows + 10
+            //        = EnemyRows + LogRows + 7
             //   右列 = 地图框(MapRows + 2) + 状态框(StatusRows + 2) + Buff框(BuffRows + 2)
             //        = MapRows + StatusRows + BuffRows + 6 = MapRows + 12
             // 两者取最大不能超过终端高度，否则会触发终端滚动、绝对定位全废（见 CONVENTIONS 2.6）。
@@ -177,31 +220,43 @@ namespace LostCompound.UI
             int maxMapRows = terminalHeight - StatusRows - BuffRows - 6;
             MapRows = Math.Clamp(mapRows, 5, Math.Max(5, maxMapRows));
 
-            // 左列超高时压缩日志：已知「左列总高 = LogRows + 10」，
-            // 令其 ≤ terminalHeight 即得 LogRows ≤ terminalHeight - 10。
-            // 反推一遍：敌人框上下边框(2) + 输入框(3) + 日志框上下边框(2) 共 7 行是固定开销，
-            // 终端高度减去这 7 行就是日志内容能占的行数。
-            const int LeftColumnFixedHeight = 2 + 3 + 2;           // 敌人框边框 + 输入框 + 日志框边框
+            // 左列超高时压缩日志：已知「左列总高 = EnemyRows + LogRows + 7」，
+            // 令其 ≤ terminalHeight 即得 LogRows ≤ terminalHeight - 7 - EnemyRows。
+            // 先反过来夹 EnemyRows：日志至少留 MinimumLogRows 行，
+            // 所以 EnemyRows ≤ terminalHeight - 7 - MinimumLogRows。
+            // 这一步是新增的（EnemyRows 以前是 const 3，不需要夹）：
+            // 终端太矮时必须先把敌人框夹到放得下的高度，否则 7 行敌人框会把日志压成 0 行、
+            // 甚至把输入框顶出终端（CONVENTIONS 2.6：顶到最底行会触发滚动，绝对定位全废）。
+            int maxEnemyRowsFit = terminalHeight - LeftColumnFixedHeight - MinimumLogRows;
+            EnemyRows = Math.Clamp(EnemyRows, 1, Math.Max(1, Math.Min(MaxEnemyRows, maxEnemyRowsFit)));
+
             int logRowsFit = terminalHeight - LeftColumnFixedHeight - EnemyRows;
-            LogRows = Math.Max(1, logRowsFit);
+            LogRows = Math.Max(MinimumLogRows, logRowsFit);
 
             // 极端矮屏兜底：两列各有绕不开的硬下限 ——
-            //   左列 ≥ 敌人框(3+2) + 日志框(1+2) + 输入框(3) = 11 行
+            //   左列 ≥ 敌人框(1+2) + 日志框(1+2) + 输入框(3) = 9 行
             //   右列 ≥ 地图框(3+2) + 状态框(4+2) + Buff框(2+2) = 13 行
-            // 终端矮到 11 行以下时，任何排布都放不下；此时尽量贴近上限。
-            // 注意这里仍然只压地图：Buff 框是这一轮新增的常驻框，压它等于把功能压没了。
+            // 终端矮于这些值时，任何排布都不可能完全放下；这里仍只压地图
+            // （Buff 框是常驻框，压它等于把功能压没了）。
+            // 左列已经由上面的 maxEnemyRowsFit / MinimumLogRows 夹到最小 9 行，
+            // **不能**再用「压地图」来补左列的差 —— 地图在右列，改它不会让左列变矮。
             int overRight = (MapRows + StatusRows + BuffRows + 6) - terminalHeight;
             if (overRight > 0)
             {
                 MapRows = Math.Max(3, MapRows - overRight);
             }
+        }
 
-            // 左列压完（理论上已经被 logRowsFit 保证不超；这里只做最后一道防线）
-            int overLeft = (EnemyRows + LogRows + 7) - terminalHeight;
-            if (overLeft > 0)
-            {
-                MapRows = Math.Max(3, MapRows - overLeft);
-            }
+        /// <summary>读终端宽度；输出被重定向 / 没有控制台句柄时返回兜底值 100。</summary>
+        private static int ReadWindowWidth()
+        {
+            try { return Console.WindowWidth; } catch { return 100; }
+        }
+
+        /// <summary>读终端高度；输出被重定向 / 没有控制台句柄时返回兜底值 40。</summary>
+        private static int ReadWindowHeight()
+        {
+            try { return Console.WindowHeight; } catch { return 40; }
         }
 
         /// <summary>
@@ -221,7 +276,7 @@ namespace LostCompound.UI
             DrawBoxBottom(InputBoxTop + 2, LeftBoxLeft, LeftWidth);
             DrawBoxContent(InputBoxTop + 1, LeftBoxLeft, LeftWidth, "");
 
-            // 敌人框（左列顶部）：固定 3 行内容，先把空框画出来
+            // 敌人框（左列顶部）：内容行数可变（默认 3 行，遇敌后由 SetEnemyRows 调整）
             DrawBox(EnemyBoxTop, LeftBoxLeft, LeftWidth, "敌人", EnemyRows, SplitLines(""));
 
             // 状态框（右列、地图下方）：宽度跟着 MapWidth 走，所以必须等地图宽度定下来后再画。
@@ -313,7 +368,46 @@ namespace LostCompound.UI
         }
 
         /// <summary>
-        /// 重画敌人区（左列顶部）。enemyText 里用 \n 分行，最多 3 行（EnemyRows）。
+        /// 调整敌人框的行数（1~<see cref="MaxEnemyRows"/>），并**重排整个左列**。
+        ///
+        /// 调用时机：每回合把「本场实际怪物数」喂进来（Player.RefreshEnemyBox）；
+        /// 战斗结束时传 0（Player.SetInBattle(false)），这里会夹成 1 行。
+        ///
+        /// 两处夹取（都不可省）：
+        ///   1. 语义夹取：1..<see cref="MaxEnemyRows"/> —— 0 只怪时仍留 1 行空框，
+        ///      理由：把敌人框整个藏起来会让左列布局在「有没有敌人」之间反复跳变，
+        ///      而且 1 行空框就是「这里现在没有敌人」的明确提示；传 0 不会得到 0 行。
+        ///   2. 高度夹取：EnemyRows ≤ 终端高度 - 7 - <see cref="MinimumLogRows"/>，
+        ///      保证 LogRows 至少 1 行、左列总高 ≤ 终端高度（CONVENTIONS 2.6）。
+        ///      终端只有 15 行时上限正好 7；更矮时敌人框会先被压小，而不是顶破屏幕。
+        ///
+        /// 重排为什么必须**清屏再整屏重画**：LogBoxTop / InputBoxTop 都是按 EnemyRows 算的
+        /// 计算属性，EnemyRows 一变，日志框和输入框的上下边框位置全变；
+        /// 不清掉旧位置就会在屏幕上留下上一套边框。Relayout 会把两列所有框都重画一遍
+        /// （日志内容取自 _log 的**末尾**若干行，见下面的裁剪）。
+        /// </summary>
+        public void SetEnemyRows(int desiredRows)
+        {
+            int maxFit = Math.Max(1, Math.Min(MaxEnemyRows,
+                _terminalHeight - LeftColumnFixedHeight - MinimumLogRows));
+            int target = Math.Clamp(desiredRows, 1, maxFit);
+
+            if (target == EnemyRows) return;
+
+            EnemyRows = target;
+
+            // 日志变矮后只保留**最新的** LogRows 行（与 AppendLog 的滚动方向一致：
+            // 旧行被裁掉是可接受的，日志本来就是滚动的）。
+            LogRows = Math.Max(MinimumLogRows, _terminalHeight - LeftColumnFixedHeight - EnemyRows);
+            while (_log.Count > LogRows) _log.RemoveAt(0);
+
+            // 位置变了：清屏后重画两列所有框，避免旧边框残留。
+            _raw.Write("\u001b[2J");
+            Relayout();
+        }
+
+        /// <summary>
+        /// 重画敌人区（左列顶部）。enemyText 里用 \n 分行，最多 <see cref="MaxEnemyRows"/> 行。
         /// 不足的行会自动补空，超过的行由 DrawBox 忽略。
         /// </summary>
         public void DrawEnemies(string enemyText)
@@ -322,7 +416,8 @@ namespace LostCompound.UI
             _lastEnemies = enemyText;
 
             // 整个框重画一遍（含标题栏）：DrawBox 会按 EnemyRows 把不足的行补空、
-            // 把多余的行丢掉，正好满足「固定 3 行、不足补空」的语义，不需要单独维护边框。
+            // 把多余的行丢掉，正好满足「行数可变、不足补空」的语义，不需要单独维护边框。
+            // ⚠️ 只有在 EnemyRows 已经由 SetEnemyRows 设成实际怪物数之后，这里才不会丢行。
             DrawBox(EnemyBoxTop, LeftBoxLeft, LeftWidth, "敌人", EnemyRows, SplitLines(enemyText));
         }
 

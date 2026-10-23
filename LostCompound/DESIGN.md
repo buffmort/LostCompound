@@ -774,7 +774,7 @@
 | 属性机制 | `BaseStr/BaseAtk/BaseDef/BaseHp`（可成长）+ `RecomputeStats()` 统一重算派生值；`Shield`/`Hp` 是资源不参与重算 |
 | 环境能力位 | `CanMine` / `CanMineOre` / `MineOreWithAcid` / `CanRefillWater` / `OnFusionSulphurUsed` / `IsFatalToPlayer` / `GetDamageImmunity` / `BurnsWood` / `StrModifier` |
 | 道具工厂 | `ItemFactory`（ID → 名称 → 实例，登记 21 个道具）；`Recipe` 用产物工厂（不持有实例） |
-| TUI | 左右分栏 + 四个框（敌人 / 日志 / 输入 / 地图+状态+Buff）；分区定位 + 增量重绘；宽字符按 2 列计算 |
+| TUI | 左右分栏 + 四个框（敌人 / 日志 / 输入 / 地图+状态+Buff）；**敌人框按实际怪物数在 1~7 行自适应**（默认 3 行；0 只怪时缩到 1 行，不隐藏框）；`EnemyRows` 变化时整屏重排左列（日志框 / 输入框跟着移动），`LogRows` 至少留 1 行、总高夹到终端高度；分区定位 + 增量重绘；宽字符按 2 列计算 |
 | 战斗 | 战斗循环统一收尸 / 跳过检查 / buff 结算；状态栏显示血量/防御/护盾/力量；敌人列表编号；输错重问不浪费回合 |
 | 数值 | `BaseStr=3`、`BaseAtk=20`（与 7.3 一致）；攻击力 = `2 + STR×√ATK` |
 | 开采 | `Tools\Mining.cs`：一次 3-5 个矿物，全类别随机，10% 放射矿 |

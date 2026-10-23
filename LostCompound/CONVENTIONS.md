@@ -185,8 +185,10 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
   （`DisplayWidth()` + `IsWide()` 已实现，直接复用）
 - **不要用 `\u001b[K`（清到行尾）** —— 左右分栏时它会擦掉右边邻居的边框。
   各框自己按外框宽度补齐空格即可
-- **框的位置都是计算属性**，改 `MapRows` / `StatusRows` / `LogRows` 会让下面自动跟随，
-  但**变了之后要重画**（参考 `Relayout()`）
+- **框的位置都是计算属性**，改 `MapRows` / `StatusRows` / `LogRows` / `EnemyRows` 会让下面自动跟随，
+  但**变了之后要重画**（参考 `Relayout()`）。`EnemyRows` 只能走 `ConsoleScreen.SetEnemyRows()`：
+  它会同时重算 `LogRows`（至少 1 行）、把 `EnemyRows` 夹到终端高度放得下的上限，并整屏重排；
+  **不要**直接写 `EnemyRows`（会留下旧位置的边框、还可能顶破终端）。
 - **总高度不能超过终端高度** —— 一旦顶到最底行，终端会滚动，**所有绝对定位全废**
 - **输出文案尽量放在 `Player.RefreshStatus()` 里**，不要各房间自己拼状态栏
 
