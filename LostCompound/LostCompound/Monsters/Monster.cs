@@ -156,12 +156,10 @@ namespace LostCompound.Monsters
             if (hpLoss <= 0)
             {
                 LogShieldAbsorbed();
-                Calculator.Delay(250);
                 return;
             }
 
             LogDamageTaken(hpLoss);
-            Calculator.Delay(250);
         }
 
         /// <summary>
@@ -172,8 +170,7 @@ namespace LostCompound.Monsters
 
         /// <summary>
         /// 伤害**全部被护盾吸收**（血量没掉）时的播报。
-        /// 只负责打印，不负责 <see cref="Calculator.Delay"/> —— 延迟由基类统一加，
-        /// 免得某个子类多写或少写一句 Delay 就改变了节奏。
+        /// 只负责打印。
         /// 文案由各子类原样提供，必须与重构前逐字一致。
         ///
         /// 为什么是 virtual 而不是 abstract：不是所有怪物都走这条带播报的骨架。
@@ -187,7 +184,7 @@ namespace LostCompound.Monsters
 
         /// <summary>
         /// 实际扣血时的播报，<paramref name="hpLoss"/> = 真正扣掉的血量。
-        /// 同样只负责打印、不含 Delay。文案必须与重构前逐字一致
+        /// 同样只负责打印。文案必须与重构前逐字一致
         /// （注意各怪的写法本来就不同：龙是 "{0}受到 {1:F1} 点伤害！"，
         /// 其余三只是 Name + "受到{0:F1}点伤害!"，不要「顺手统一」）。
         /// virtual 而非 abstract 的理由同 <see cref="LogShieldAbsorbed"/>。

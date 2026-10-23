@@ -20,7 +20,6 @@ namespace LostCompound.Items.Consumables
             const int damage = 20;
             const int DUR = 3;
             Console.WriteLine("====你使用了白磷!====");
-            Calculator.Delay(250);
             int choice = p.SelectTarget(m);
             if (choice == -1)
             {

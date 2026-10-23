@@ -40,7 +40,6 @@ namespace LostCompound.Tools
                     // 这行原先由 ApplyDotEffects 打印。DOT 机制已删除、那个方法整体删掉了，
                     // 所以必须把它搬到这里，否则战斗日志里再也没有「第N回合」的分隔。
                     Console.WriteLine("=====第" + round + "回合=====");
-                    Calculator.Delay(250);   // 与原先 DOT 结算前的停顿一致，节奏不变
 
                     // ── buff 结算（流血）：唯一的周期性伤害出口 ──
                     // 必须在 RemoveDeadMonsters 之前：buff 打死怪也要走统一收尸，否则漏掉落。

@@ -300,7 +300,6 @@ public Dragon()
 |---|---|---|
 | `Calculator` | `Attack(double,double)` | `CalculateAttack(double str, double atk)`（避免与怪物 `Attack` 混淆） |
 | `Calculator` | `Define(double,double)` | `ApplyDefense(double def, double dmg)` |
-| `Calculator` | `delay(int)` | `Delay(int milliseconds)` |
 | `Tools` | `Fight(...)` | `RunBattle(Player p, List<Monster> monsters, EnvType envType)` |
 | `Tools` | `roundSetup(...)` | `ApplyDotEffects(Player p, List<Monster> monsters, int round)` |
 | `Tools` | `cleanupDead(...)` | `RemoveDeadMonsters(Player p, List<Monster> monsters)` |

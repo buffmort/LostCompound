@@ -33,7 +33,6 @@ namespace LostCompound.Items.Consumables
         public void Use(Player p, List<Monster> m)
         {
             Console.WriteLine("====你使用了热硫!====");
-            Calculator.Delay(250);
             int choice = p.SelectTarget(m);
             if (choice == -1)
             {

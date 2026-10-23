@@ -45,7 +45,6 @@ namespace LostCompound.Monsters.Normal
             Hp -= loss;
             // 文案与原先逐字一致（原先是道具侧拼的 mon.Name，这里就是自己的 Name）
             Console.WriteLine("你把水泼向" + Name + "，它被浇掉 " + loss.ToString("F1") + " 点血！");
-            Calculator.Delay(250);
             return true;
         }
 

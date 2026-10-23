@@ -41,7 +41,6 @@ namespace LostCompound.Items.Consumables
         public void Use(Player p, List<Monster> m)
         {
             Console.WriteLine("====你砸开了压缩沙瓶!====");
-            Calculator.Delay(250);
 
             if (m.Count == 0)
             {

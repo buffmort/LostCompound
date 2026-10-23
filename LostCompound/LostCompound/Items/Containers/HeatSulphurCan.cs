@@ -40,7 +40,6 @@ namespace LostCompound.Items.Containers
         public void Use(Player p, List<Monster> m)
         {
             Console.WriteLine("====你使用了热硫罐!====");
-            Calculator.Delay(250);
             int choice = p.SelectTarget(m);
             if (choice == -1)
             {

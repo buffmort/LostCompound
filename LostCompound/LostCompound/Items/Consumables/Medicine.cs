@@ -57,7 +57,6 @@ namespace LostCompound.Items.Consumables
             }
 
             Console.WriteLine("====你使用了药!====");
-            Calculator.Delay(250);
 
             // 先抬上限（同时抬 5 点当前血），再补 15 点当前血并夹到上限。
             p.GrowBaseHp(MaxHpGain);

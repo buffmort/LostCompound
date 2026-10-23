@@ -50,7 +50,6 @@ namespace LostCompound.Monsters.Boss
         {
             // 默认普通攻击：造成 10 点伤害（对应第二种行动）
             Console.WriteLine(Name + "喷出烈焰！");
-            Calculator.Delay(500);
             p.TakeDamage(10);
         }
 
@@ -78,7 +77,6 @@ namespace LostCompound.Monsters.Boss
         {
             // 回合头与跳过检查都移到 Tools.RunBattle 里统一处理了
             // （原先这里把回合头打了两遍，且跳过文案与其它怪物不一致）。
-            Calculator.Delay(250);
             int option = RollIndex(3); // 随机 0,1,2
 
             switch (option)
@@ -108,7 +106,6 @@ namespace LostCompound.Monsters.Boss
                     Console.WriteLine(Name + "疯狂撕咬三次！");
                     for (int i = 0; i < 3; i++)
                     {
-                        Calculator.Delay(200);
                         p.TakeDamage(3);
                     }
                     break;

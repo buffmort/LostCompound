@@ -40,7 +40,6 @@ namespace LostCompound.Monsters.Normal
         public override void Attack(Player p)
         {
             Console.WriteLine("僵尸咬了你一口!");
-            Calculator.Delay(500);
             double dmg = Calculator.CalculateAttack(Str, Atk);
             p.TakeDamage(dmg);
 
@@ -70,7 +69,6 @@ namespace LostCompound.Monsters.Normal
         {
             // 回合头、流血结算与跳过检查都由 Tools.RunBattle 统一处理：
             // 这里如果自己再结算一次流血，就会和 Tools.ApplyBuffs 重复结算（原 bug）。
-            Calculator.Delay(250);
             int option = RollIndex(3);
             switch (option)
             {

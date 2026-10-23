@@ -20,17 +20,5 @@ namespace LostCompound.Tools
         /// 玩家最大生命值 5%）属于 Hyberty 战自己的规则，不在本方法里。
         /// </summary>
         public static double ApplyDefense(double def, double dmg) => Math.Max(dmg - DefCoefficient * def, 1);
-
-        public static void Delay(int milliseconds)
-        {
-            try
-            {
-                Thread.Sleep(milliseconds);
-            }
-            catch (ThreadInterruptedException e)
-            {
-                Console.WriteLine(e);
-            }
-        }
     }
 }

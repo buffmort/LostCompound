@@ -49,7 +49,6 @@ namespace LostCompound.Items.Consumables
         public void Use(Player p, List<Monster> m)
         {
             Console.WriteLine("====你丢出了毒气弹!====");
-            Calculator.Delay(250);
 
             foreach (Monster monster in m)
             {

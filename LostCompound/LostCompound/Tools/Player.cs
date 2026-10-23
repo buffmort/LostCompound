@@ -475,7 +475,6 @@ namespace LostCompound.Tools
             HandleChangeableItems(envType);
             Inventory.AddRange(PendingItems);
             PendingItems.Clear();
-            Calculator.Delay(250);
             Console.WriteLine("你的血量:{0:F1}", Hp);
             Console.WriteLine("你的防御:{0:F1}", Def);
             Console.WriteLine("你的护盾剩余:" + Shield);
@@ -508,15 +507,12 @@ namespace LostCompound.Tools
             // 注意：buff 的状态快照（每回合伤害 / 剩余回合）原先在这里往日志打两行，
             // 现已整段删除 —— 这些信息改由右列状态框下方的「Buff 框」常驻显示（见 RefreshBuffBox），
             // 日志省下这些空间给真正的事件流（谁打了谁、掉了多少血）。
-            Calculator.Delay(250);
             // 敌人列表不再写进日志区，改由左列顶部的「敌人框」常驻显示（见 ConsoleScreen.DrawEnemies）。
             // 为什么搬走：Attack / SelectTarget / OpenItems 的提示都要求玩家按编号选目标，
             // 编号必须一直挂在眼前；写进滚动日志的话，几行之后就被冲掉了。
             RefreshEnemyBox(monsters);
-            Calculator.Delay(250);
             Console.WriteLine();
             Console.WriteLine("请选择操作");
-            Calculator.Delay(250);
             Console.WriteLine("1.攻击  2.防御  3.使用背包道具  4.徒手合成  5.饰品栏");
             if (DebugState.Enabled)
             {
@@ -800,7 +796,6 @@ namespace LostCompound.Tools
         {
             double dmg = Calculator.CalculateAttack(Str, Atk);
             Console.WriteLine("=====攻击界面=====");
-            Calculator.Delay(250);
 
             if (monsters.Count == 0)
             {
@@ -1507,7 +1502,6 @@ namespace LostCompound.Tools
         public void HandCraft()
         {
             Console.WriteLine("====徒手合成====");
-            Calculator.Delay(250);
             List<ICraftable> available = [];
 
             // 第一步：遍历所有配方，筛选可合成的
