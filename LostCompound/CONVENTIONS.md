@@ -162,7 +162,7 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
    `Items\Containers\Xxx.cs` / `Items\Equipment\Xxx.cs`
 2. `Items\ItemIds.cs` 加常量（**ID 按设计文档，允许跳号，不要挤号**）
 3. `Items\ItemType.cs` 加枚举成员（**只追加在末尾**，否则改变已有成员的数值）
-4. 若要能合成：`Tools\Player.cs` 的 `AddDefaultRecipes()`（配方0）或 `AddTier1Recipes()`（配方1）
+4. 若要能合成：`Tools\Player.Crafting.cs` 的 `AddDefaultRecipes()`（配方0）或 `AddTier1Recipes()`（配方1）
 5. 若要能掉落：`Rooms\LootTables.cs` / `Monsters\MonsterLootTable.cs`
 6. 若是新道具类：在 `Items\ItemFactory.cs` 的 `All` 表里补一行（ID 升序）
 
@@ -250,7 +250,7 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 | `Monsters\Boss\` | `LostCompound.Monsters.Boss` | Boss 与剧情怪（4） |
 | `Rooms\` | `LostCompound.Rooms` | `Room` / `RoomType` / `Direction` / `LootTables` / `MobSpawner` |
 | `Rooms\Types\` | `LostCompound.Rooms.Types` | 具体房间（7） |
-| `Tools\` | `LostCompound.Tools` | `Player` / `Tools` / `Calculator` / `Recipe` / `Mining` |
+| `Tools\` | `LostCompound.Tools` | `Player.*`（8 个 partial）/ `Tools` / `Calculator` / `Recipe` / `Mining` |
 | `Tools\Debug\` | `LostCompound.Tools.Debug` | `DebugMenu` / `DebugState` |
 | `Tools\Launch\` | `LostCompound.Tools.Launch` | `GameLauncher` / `GameLobby` |
 | `Buffs\` | `LostCompound.Buffs` | `Buff` / `BuffIds` / `BuffFactory` |
@@ -259,6 +259,26 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 | `MapEnvironment\Environments\` | `LostCompound.MapEnvironment.Environments` | `LavaWaterfall` / `FloodedCavern` |
 | `UI\` | `LostCompound.UI` | `ConsoleScreen` / `LogRegionWriter` |
 | `Maps\` | `LostCompound.Maps` | `TreeMazeGenerator` |
+
+### `Player` 的拆分（partial class）
+
+`Player` 有 1900+ 行、86 个成员，按职责拆成 8 个 `partial` 文件，**全部在 `Tools\`、命名空间仍是
+`LostCompound.Tools`**（拆文件不改命名空间，否则调用点要全改）。找成员按上表第 1 列定位：
+
+| 文件 | 职责 |
+|---|---|
+| `Player.cs` | 基础值 / 派生值 / `GrowBaseXxx` / `RecomputeStats` / 生死 |
+| `Player.Inventory.cs` | 背包：容量、`AddItem`、消耗品清扫、背包菜单 |
+| `Player.Equipment.cs` | 饰品：穿脱、被动结算、饰品菜单 |
+| `Player.Combat.cs` | 血与盾、受伤管线、`Attack` / `SelectTarget` / `FightCount` |
+| `Player.Buffs.cs` | Buff 列表、`AddBuff`、回合开始结算、跳过回合、Buff 框 |
+| `Player.Crafting.cs` | 配方表与手工合成 |
+| `Player.Map.cs` | 地图、坐标、移动、`CurrentEnvironment` |
+| `Player.UI.cs` | 分栏渲染、状态/敌人框、输入、主循环 `StartGame` / `OnPlayerTurn` |
+
+**新增成员时先想清楚属于哪个文件** —— 塞回 `Player.cs` 就等于把这 1900 行重新养回来。
+`partial` 只是分文件，**耦合没变**：任何一个 partial 里的 `private` 字段对另外 7 个都可见，
+所以「能乱摸」这件事靠自觉，不靠编译器。
 
 ---
 
