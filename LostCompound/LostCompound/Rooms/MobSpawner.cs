@@ -7,7 +7,12 @@ namespace LostCompound.Rooms
     public static class MobSpawner
     {
         /**
-         * 熔岩瀑布的普通怪池：(名字, 工厂, 起始层, 结束层)。
+         * 全地图通用的普通怪池（DESIGN §6.2「普通怪物（只在第 1-3 层出现）」）。
+         *
+         * 这些怪**任何环境**都可能出现，所以它们不再挂在某一个环境的池子里，
+         * 而是所有环境的「公共底子」。每个环境再按 <see cref="EnvPool"/> 叠上自己的专属怪。
+         *
+         * 元组字段：(名字, 工厂, 起始层, 结束层)。
          *
          * ⚠️ 层数用「区间」而不是「单个上限」：FromLayer 与 ToLayer 都是**闭区间端点**，
          * 第 FromLayer 层和第 ToLayer 层都算「能出现」（闭区间 [FromLayer, ToLayer]）。
@@ -16,18 +21,44 @@ namespace LostCompound.Rooms
          * 就得把数据结构和过滤条件整个推翻重写。区间模型一次到位。
          * 以后要加一只「只在第 3-5 层」的怪，只需在本表加一行：
          *     ("Xxx", () => new Xxx(), 3, 5)
-         *
-         * ToLayer = int.MaxValue 表示「环境专属怪，任何层都能出现」（岩浆怪）。
-         * 池按层数过滤后**等权重**抽取，所以第 1-3 层是僵尸 / 骷髅 / 岩浆怪各 1/3，
-         * 与「加层数参数之前」的行为完全一致。
          */
-        private static readonly (string Name, Func<Monster> Create, int FromLayer, int ToLayer)[] LavaWaterfallPool =
+        private static readonly (string Name, Func<Monster> Create, int FromLayer, int ToLayer)[] CommonPool =
         [
             // 僵尸与骷髅：只在第 1-3 层（闭区间 [1, 3]，第 1 层和第 3 层都算）。
             ("僵尸", () => new Zombie(), 1, 3),
             ("骷髅", () => new Skeleton(), 1, 3),
+        ];
+
+        /**
+         * 熔岩瀑布的**环境专属**池（DESIGN §6「地图 1」）。
+         *
+         * ToLayer = int.MaxValue 表示「环境专属怪，任何层都能出现」。
+         * 抽怪时候选 = <see cref="CommonPool"/> ∪ 本表，再按层数过滤后**等权重**抽：
+         *   - 第 1-3 层 = 僵尸 / 骷髅 / 岩浆怪，各 1/3（与加层数参数之前完全一致）；
+         *   - 第 4 层起 = 僵尸与骷髅被层数过滤掉，只剩岩浆怪（必定出岩浆怪）。
+         */
+        private static readonly (string Name, Func<Monster> Create, int FromLayer, int ToLayer)[] LavaWaterfallPool =
+        [
             // 岩浆怪：熔岩瀑布的环境专属怪，不限层。
             ("岩浆怪", () => new LavaSlime(), 1, int.MaxValue),
+        ];
+
+        /**
+         * 水淹洞穴的**环境专属**池（DESIGN §6「地图 2」：食人鱼 / 洞潜僵尸）。
+         *
+         * ⚠️ 这两只**还没实现**（代码里没有对应类），所以本表暂时是**空的**。
+         * 因此水淹洞穴今天只能靠 <see cref="CommonPool"/> 出怪：
+         *   - 第 1-3 层 → 僵尸 / 骷髅各 1/2（**本次修复的重点：不再是测试假人**）；
+         *   - 第 4 层起 → 通用池被层数过滤空，走 <see cref="SpawnOne"/> 的兜底
+         *     「忽略层数限制」再抽一次，于是**破例**出僵尸 / 骷髅（见该方法的注释）。
+         *
+         * 一旦实现食人鱼 / 洞潜僵尸，只需在下面加两行，MobSpawner 其它代码一行都不用改：
+         *     ("食人鱼", () => new Piranha(), 1, int.MaxValue),
+         *     ("洞潜僵尸", () => new DiverZombie(), 1, int.MaxValue),
+         * 有了专属怪之后，第 4 层起的候选池就不再为空，**不会**再走到「忽略层数」的兜底。
+         */
+        private static readonly (string Name, Func<Monster> Create, int FromLayer, int ToLayer)[] FloodedCavernPool =
+        [
         ];
 
         /// <summary>
@@ -65,7 +96,8 @@ namespace LostCompound.Rooms
          *     fightCount = 600 → 7.00 → 封顶 7 只
          *
          * 每多出的一只都**独立**从池里抽（可以重复抽到同一种怪），
-         * 并且每次都重新按层数过滤 —— 所以僵尸 / 骷髅只会在第 1-3 层出现。
+         * 并且每次都重新按层数过滤 —— 所以僵尸 / 骷髅默认只会在第 1-3 层出现
+         * （唯一例外是「过滤后为空」的兜底，见 <see cref="SpawnOne"/>）。
          *
          * 参数：
          *   layer     当前地图层数（从 1 开始）。防御性处理：layer < 1 时按第 1 层算，
@@ -89,6 +121,7 @@ namespace LostCompound.Rooms
          *   保证「龙 + 额外小怪」总数不超过 7。
          *
          * 概率仍用 Boss 系数（×0.5），与普通战斗的多怪公式同一份实现。
+         * 额外小怪走**同一套**「通用池 ∪ 环境专属池」逻辑 —— Boss 房不会另立规则。
          */
         public static List<Monster> SpawnExtras(EnvType envType, int layer, int fightCount)
         {
@@ -137,34 +170,62 @@ namespace LostCompound.Rooms
         }
 
         /**
-         * 抽一只怪：
-         *   熔岩瀑布 → 从普通怪池里按层数过滤后等权重取一只；
-         *   其余环境（含水淹洞穴）→ 仍出测试假人（用户明确说先不管）。
-         * 设计文档里的食人鱼、洞潜僵尸、穿模骆驼、医生等尚未实现。
+         * 按环境类型取「环境专属池」。未实现的环境返回空表 —— 它们就只用通用池。
+         *
+         * 这样加新环境时只需在这里加一个 case + 一张专属池表；
+         * 专属池为空的含义是「该环境还没有原生怪」，不是「该环境没有怪」。
          */
-        private static Monster SpawnOne(EnvType envType, int layer) => envType switch
-        {
-            EnvType.LavaWaterfall => SpawnFromPool(LavaWaterfallPool, layer),
-            // 默认返回普通怪物（水淹洞穴的测试假人）
-            _ => new Dummy(),
-        };
+        private static (string Name, Func<Monster> Create, int FromLayer, int ToLayer)[] EnvPool(EnvType envType) =>
+            envType switch
+            {
+                EnvType.LavaWaterfall => LavaWaterfallPool,
+                EnvType.FloodedCavern => FloodedCavernPool,
+                // 未实现的环境（含 None）：没有专属怪，只用通用池。
+                _ => [],
+            };
 
         /**
-         * 从池里按层数过滤后**等权重**取一只。
-         * 过滤条件：FromLayer <= layer <= ToLayer（两端都是闭区间端点）。
-         * 用整数骰而不是两次 NextDouble 比较，免得出现「某个分支概率是 1/2、
-         * 另一个是 1/4」这种不均匀分配；池子长度为 n 时每只恰好 1/n。
+         * 抽一只怪：候选 = 通用池 ∪ 环境专属池，合并后按层数过滤，再**等权重**取一只。
          *
-         * 池里始终有 ToLayer = int.MaxValue 的岩浆怪，所以过滤后不可能为空：
-         * 第 1-3 层是 3 只各 1/3，第 4 层起只剩岩浆怪（必定出岩浆怪，不是空列表）。
+         * 空池兜底（硬要求：绝不能因为池空而崩溃）：
+         *   1. 第一优先：过滤后为空 → **忽略层数限制**，用「通用池 + 专属池」的全部成员再抽一次。
+         *      今天只有「水淹洞穴第 4 层起」会走到这里（专属池为空、通用池 [1,3] 全被滤掉），
+         *      于是会**破例**出僵尸 / 骷髅 —— 这是**临时状态**：该环境还没有原生怪，
+         *      只能借用通用池。实现食人鱼 / 洞潜僵尸（填进 <see cref="FloodedCavernPool"/>）后，
+         *      第 4 层起的候选池不再为空，这条兜底就不会再被走到。
+         *   2. 第二优先：如果连「全部成员」都是空的（两张表都空，理论上不该发生），
+         *      打印一行醒目的警告并回退到**岩浆怪** —— 它的区间是 [1, ∞]，任何层都可用，
+         *      所以这个回退分支自身**不可能**再抽到空池。
+         *
+         * 为什么第 1 步不直接回退到岩浆怪：水淹洞穴第 4 层起出岩浆怪（熔岩专属怪）
+         * 比出通用池的僵尸 / 骷髅更不符合环境设定；借用通用池的怪是偏差最小的临时解。
          */
-        private static Monster SpawnFromPool(
-            (string Name, Func<Monster> Create, int FromLayer, int ToLayer)[] pool, int layer)
+        private static Monster SpawnOne(EnvType envType, int layer)
         {
+            (string Name, Func<Monster> Create, int FromLayer, int ToLayer)[] pool =
+                [.. CommonPool, .. EnvPool(envType)];
+
             (string Name, Func<Monster> Create, int FromLayer, int ToLayer)[] available =
                 pool.Where(m => m.FromLayer <= layer && layer <= m.ToLayer).ToArray();
 
-            return available[Random.Shared.Next(available.Length)].Create();
+            if (available.Length > 0)
+            {
+                return available[Random.Shared.Next(available.Length)].Create();
+            }
+
+            // 兜底 1：忽略层数限制，从「通用池 + 专属池」的全部成员里抽。
+            if (pool.Length > 0)
+            {
+                Console.WriteLine("【警告】" + envType + " 第 " + layer +
+                                  " 层没有符合层数区间的怪（专属池为空、通用池又被层数滤掉），" +
+                                  "临时忽略层数限制，从全部候选里抽一只。实现该环境的原生怪后不会再走到这里。");
+                return pool[Random.Shared.Next(pool.Length)].Create();
+            }
+
+            // 兜底 2：两张表都空（理论上不该发生）—— 醒目警告 + 岩浆怪（[1, ∞]，永远可用）。
+            Console.WriteLine("【警告】" + envType + " 第 " + layer +
+                              " 层的候选池完全为空（通用池与环境专属池都没有成员），已回退到岩浆怪。请检查 MobSpawner 的池表！");
+            return new LavaSlime();
         }
     }
 }
