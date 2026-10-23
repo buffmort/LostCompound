@@ -2,6 +2,7 @@ using LostCompound.Items;
 using LostCompound.Monsters;   // GetDamageImmunity(Monster m)
 using LostCompound.Tools;   // Player：环境直接改玩家（见 Environment 类注释的「方案 A」）
 using LostCompound.Items.Materials;
+using LostCompound.Items.Consumables;   // WaterBottle：空房间事件会发一个
 using LostCompound.Monsters.Normal;
 using Environment = LostCompound.MapEnvironment.Environment;
 using LostCompound.MapEnvironment;
@@ -24,6 +25,9 @@ namespace LostCompound.MapEnvironment.Environments
         /// <summary>普通模式每回合掉水量的下限与上限（含）。</summary>
         private const int MinWaterDrop = 5;
         private const int MaxWaterDrop = 10;
+
+        /// <summary>空房间「山壁岩浆涌下」事件蒸干的水量。</summary>
+        private const int DrainPerLavaEvent = 40;
 
         /// <summary>
         /// 每损失 1 点水，STR 的修正量（设计文档 5.1：每降 1 点 STR 降 0.01）。
@@ -89,10 +93,61 @@ namespace LostCompound.MapEnvironment.Environments
             return [new Sulphur(count)];
         }
 
-        public override void DrainWater(int amount)
+        /// <summary>
+        /// 熔岩瀑布的空房间事件（原先写在 <c>EmptyRoom.OnEnter</c> 里的三个分支，现在搬回环境）。
+        /// 概率不变：30% 岩浆蒸水 + 一件基础材料 / 30% 捡到水瓶 / 40% 什么也没有。
+        /// </summary>
+        /// <remarks>
+        /// 搬过来的理由见 <see cref="Environment.RollEmptyRoomEvent"/>：这三个分支是**熔岩瀑布专属**的，
+        /// 摆在公共房间里就会在水淹洞穴照发，而那边连「水量」都没有。
+        /// 本方法只改自己的 <see cref="Water"/>、只返回道具，不碰 Player —— 播报由房间执行。
+        /// </remarks>
+        public override EmptyRoomEvent RollEmptyRoomEvent()
         {
-            Water -= amount;
-            if (Water < 0) Water = 0;
+            // 只掷一次：三次独立掷点会把「30/30/40」变成别的联合概率。
+            double roll = Random.Shared.NextDouble();
+
+            // ---- 30%：山壁岩浆涌下，蒸干一部分水，但留下一份基础材料 ----
+            if (roll < 0.30)
+            {
+                int before = Water;
+                Water = Math.Max(0, Water - DrainPerLavaEvent);
+                int lost = before - Water;
+
+                Item reward = RollBasicMaterial();
+                return new EmptyRoomEvent
+                {
+                    // 报**实际**蒸干的水量：水本来就不到 40 时，说「蒸干了 40 点」是假话。
+                    // 这正是这次 bug 的同一类毛病（播报与真实状态脱节），顺手一起修掉。
+                    Message = lost > 0
+                        ? $"山壁涌下的岩浆蒸干了 {lost} 点水！"
+                        : "山壁涌下的岩浆烧了一阵，但这里已经没有水可蒸了。",
+                    Items = reward == null ? [] : [reward],
+                };
+            }
+
+            // ---- 30%：捡到一个水瓶 ----
+            if (roll < 0.60)
+            {
+                return new EmptyRoomEvent { Items = [new WaterBottle(1)] };
+            }
+
+            // ---- 40%：白跑一趟 ----
+            return new EmptyRoomEvent { Message = "你搜刮了一番，但什么也没找到。" };
+        }
+
+        /// <summary>
+        /// 随机一件「基础材料」：ItemIds 里 1~9 那一段（<see cref="ItemIds.Sulphur"/> 到
+        /// <see cref="ItemIds.Metal"/>）。
+        /// 候选集从 <see cref="ItemFactory.All"/> 按 ID 段筛出来，不再手抄一份「1..9 → 道具」的表 ——
+        /// 那种表与 ItemIds / ItemFactory 三处重复维护，改一处忘一处编译器还不报错。
+        /// </summary>
+        private static Item RollBasicMaterial()
+        {
+            var basics = ItemFactory.All
+                .Where(entry => entry.Id >= ItemIds.Sulphur && entry.Id <= ItemIds.Metal)
+                .ToList();
+            return basics.Count > 0 ? basics[Random.Shared.Next(basics.Count)].Create(1) : null;
         }
 
         /// <summary>

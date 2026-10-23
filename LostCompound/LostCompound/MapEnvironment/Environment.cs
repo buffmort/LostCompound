@@ -54,8 +54,25 @@ namespace LostCompound.MapEnvironment
         /// <summary>战斗房间通关后的额外掉落。默认无。</summary>
         public virtual List<Item> GetBattleLoot() => [];
 
-        /// <summary>事件用：扣除环境资源（水量）。只有具备水量的环境才有意义，默认什么也不做。</summary>
-        public virtual void DrainWater(int amount) { }
+        /// <summary>
+        /// 空房间随机事件：本环境决定玩家在空房间里遇到什么。
+        /// 返回 <c>null</c> = 本环境没有专属事件，房间退回通用的「按掉落表搜刮」逻辑。
+        /// </summary>
+        /// <remarks>
+        /// 为什么把这件事交给环境（原来写在 <c>EmptyRoom.OnEnter</c> 里，是个 bug）：
+        ///   原先空房间的 30% 分支写死了「山壁岩浆涌下 → <c>DrainWater(40)</c> → 播报蒸干了 40 点水」，
+        ///   **完全不看当前是哪个环境**。于是水淹洞穴里也会照发这句话，而那边根本没有「水量」，
+        ///   <c>DrainWater</c> 在基类里又是空实现 —— 玩家看到一句纯属虚构的损失。
+        ///   那不是「文案写错了」，而是事件本该属于环境、却被写在了公共房间里：
+        ///   每加一个新环境（沙漠 / 矿洞 / 墓地……）都得到 EmptyRoom 里再补一个 if，
+        ///   而漏补的那一次只会安静地发一句假话。
+        ///   现在环境自己声明「我这里空房间会发生什么」，EmptyRoom 只负责转交和播报，
+        ///   新增环境写不写覆写都不影响别的环境，也不会串台词。
+        ///
+        /// 约束：环境**不接触 Player** —— 只改自己的状态、把道具和播报放进返回值，
+        /// 由房间去发。这与 <see cref="StrModifier"/>「只提供修正量」是同一个约定。
+        /// </remarks>
+        public virtual EmptyRoomEvent RollEmptyRoomEvent() => null;
 
         /// <summary>
         /// 本环境是否可开采矿物（镐子的「采掘」只在可开采环境里生效）。

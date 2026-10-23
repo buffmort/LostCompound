@@ -2,7 +2,6 @@ using Environment = LostCompound.MapEnvironment.Environment;
 using LostCompound.MapEnvironment;
 using LostCompound.Tools;
 using LostCompound.Items;
-using LostCompound.Items.Consumables;
 using LostCompound.Rooms;
 
 using LostCompound.Tools.Players;
@@ -17,13 +16,6 @@ namespace LostCompound.Rooms.Types
 
         public override void OnEnter(Player p)
         {
-            // 没有环境对象（例如该环境尚未实现）时，退回原来的随机拾取逻辑
-            if (Environment == null)
-            {
-                FallbackLoot(p);
-                return;
-            }
-
             if (IsCleaned)
             {
                 Console.WriteLine("这里已经被搜过了。");
@@ -32,35 +24,32 @@ namespace LostCompound.Rooms.Types
 
             Console.WriteLine("这里没有怪物，可能找到些道具。");
 
-            // 掷一次骰子决定空房事件
-            double roll = Random.Shared.NextDouble();
-            if (roll < 0.3)
+            // 空房间里**会发生什么**由环境决定（Environment.RollEmptyRoomEvent）。
+            // 本类只负责执行：把播报写进日志、把道具塞进背包。
+            //
+            // 为什么不再在这里写 if：
+            //   原先这里是三个写死的分支，其中「山壁岩浆涌下 → 蒸干 40 点水」是熔岩瀑布专属的，
+            //   却不看环境，于是在水淹洞穴也会照发 —— 而那边没有「水量」这个东西，
+            //   基类的 DrainWater 又是空实现，玩家白白看到一句虚构的损失。
+            //   每加一个新环境还要回来补一个 if，漏补的那次只会安静地串台词。
+            //
+            // 没有环境时（EnvironmentFactory 对未实现的环境返回 null）：
+            //   EnvKind 是 None → 通用掉落表为空 → 与改造前完全一致（「什么也没找到」）。
+            EmptyRoomEvent ev = Environment?.RollEmptyRoomEvent();
+            if (ev != null)
             {
-                // 事件1：山壁岩浆涌下，蒸干一部分水，但会留下一份基础材料
-                Environment.DrainWater(40);
-                Console.WriteLine("山壁涌下的岩浆蒸干了 40 点水！");
-
-                // 基础材料 ID 1-9（ItemIds 里的 1~9 段），随机给一种。
-                // 候选集从 ItemFactory.All 按 ID 段筛出来，不再手抄一份「1..9 → 道具」的 switch：
-                // 那份 switch 与 ItemIds/ItemFactory 三处重复维护，改一处忘一处编译器还不报错。
-                // 顺序即 ItemFactory.All 的顺序，候选集与原先逐条一致（1..9 全部，无权重差异）。
-                var basics = ItemFactory.All
-                    .Where(entry => entry.Id >= ItemIds.Sulphur && entry.Id <= ItemIds.Metal)
-                    .ToList();
-                Item reward = basics.Count > 0 ? basics[Random.Shared.Next(basics.Count)].Create(1) : null;
-                if (reward != null)
+                if (!string.IsNullOrEmpty(ev.Message))
                 {
-                    p.AddItem(reward);
+                    Console.WriteLine(ev.Message);
                 }
-            }
-            else if (roll < 0.6)
-            {
-                // 事件2：捡到一个水瓶
-                p.AddItem(new WaterBottle(1));
+                foreach (Item item in ev.Items)
+                {
+                    p.AddItem(item);   // 获得播报统一由 Player.AddItem 负责
+                }
             }
             else
             {
-                Console.WriteLine("你搜刮了一番，但什么也没找到。");
+                LootFromTable(p);
             }
 
             // 标记为已清理，避免重复获取
@@ -68,49 +57,28 @@ namespace LostCompound.Rooms.Types
         }
 
         /// <summary>
-        /// 备用拾取逻辑：只在没有环境对象（<see cref="Room.Environment"/> 为 null）时调用。
-        /// 注意：候选列表是每次现取的局部变量，不再是静态列表（静态列表会在所有实例间共享累加）。
+        /// 通用搜刮：60% 从**本环境**的掉落表里抽一件，否则什么也没有。
         ///
-        /// ⚠️ 关于那句「保持原来的 60% 概率」的说法（原注释这里写错了，现改正）：
-        ///   本方法的实际行为是「60% 概率 × 可能为空的掉落表」——
-        ///   环境为 null 时 <see cref="EnvKind"/> 就是 <see cref="EnvType.None"/>，
-        ///   而 <see cref="LootTables.GetLootTable"/> 对 None 返回的是一张**空表**，
-        ///   于是 <c>possibleItems.Count > 0</c> 恒为假，永远是「什么也没找到」。
-        ///   所以 60% 这个概率在这个分支里**根本不起作用** —— 原来那句注释描述的是一种不存在的现象。
+        /// 这条路径只在环境没有声明专属事件时才走（目前是水淹洞穴，以及将来那些
+        /// 还没写空房间事件的环境）。掉落表由 <see cref="LootTables.GetLootTable"/> 按环境给，
+        /// 所以不会出现「水淹洞穴掉出硫磺」这种串环境的掉落。
         ///
-        /// 为什么不在这里补一份兜底掉落表：正常玩法走不到本方法。
-        ///   选中环境的两条入口（GameLobby.SelectEnvironment / DebugMenu.SelectEnvironment）
-        ///   都只列 EnvironmentCatalog.All 中已实现的环境，None 进不去；
-        ///   只有「catalog 里加了名字、EnvironmentFactory 却忘了加分支」这种**违反既定约定**的
-        ///   状态才会落到这里。那时正确做法是把工厂补上（catalog 的注释就是这么要求的），
-        ///   而不是让「环境没实现」继续安静地发道具。故保留空表、只把注释改成与代码相符。
+        /// 注意：候选表每次现取（GetLootTable 每次都 new 一份），
+        /// 不要改成静态列表 —— 静态列表会在所有房间实例之间共享累加。
         /// </summary>
-        private void FallbackLoot(Player p)
+        private void LootFromTable(Player p)
         {
-            Console.WriteLine("这里没有怪物，可能找到些道具。");
+            List<Item> possibleItems = LootTables.GetLootTable(EnvKind);
 
-            if (!IsCleaned)
+            // 60% 概率生成随机道具；候选表为空时（如 EnvType.None）永远走 else
+            if (Random.Shared.NextDouble() < 0.6 && possibleItems.Count > 0)
             {
-                List<Item> possibleItems = LootTables.GetLootTable(EnvKind);
-
-                // 60% 概率生成随机道具（注意：可能的候选表为空时下面这个分支永远走不到 else）
-                if (Random.Shared.NextDouble() < 0.6 && possibleItems.Count > 0)
-                {
-                    int index = (int)(Random.Shared.NextDouble() * possibleItems.Count);
-                    Item item = possibleItems[index];
-                    // 获得播报已统一由 Player.AddItem 负责，这里不再重复打印
-                    p.AddItem(item);
-                }
-                else
-                {
-                    Console.WriteLine("你搜刮了一番，但什么也没找到。");
-                }
-                // 标记为已清理，避免重复获取
-                IsCleaned = true;
+                int index = (int)(Random.Shared.NextDouble() * possibleItems.Count);
+                p.AddItem(possibleItems[index]);
             }
             else
             {
-                Console.WriteLine("这里已经被搜过了。");
+                Console.WriteLine("你搜刮了一番，但什么也没找到。");
             }
         }
 

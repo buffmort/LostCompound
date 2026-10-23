@@ -211,7 +211,7 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 | `OnBattleTurn()` | 每个**战斗大回合**调用一次（`Tools.RunBattle` 里） |
 | `StrModifier` | 对玩家有效 STR 的动态修正（**返回修正量，不是最终值**） |
 | `GetBattleLoot()` | 战斗房间通关后的额外掉落 |
-| `DrainWater(int)` | 空房事件扣水（不涉及水的环境是 no-op） |
+| `RollEmptyRoomEvent()` | 空房间随机事件：环境返回 `EmptyRoomEvent`（播报 + 道具），返回 `null` = 本环境没有专属事件、房间走通用掉落表。**环境不碰 Player**，播报与发道具由 `EmptyRoom` 执行。新环境要自己的空房事件就覆写它，**不要回头改 `EmptyRoom`** |
 | `DescribeStatus()` | 拼进状态栏的一行或多行（`\n` 分行，**高度会自适应**） |
 | `CanMine` | 镐子的「采掘」能否在此生效（水淹洞穴为 true） |
 | `CanMineOre` | 硫酸能否开采金属矿。**与 `CanMine` 分开**：镐子挖随机矿脉、硫酸腐蚀指定金属脉，语义不同。⚠️ 硫酸已改问 `MineOreWithAcid()`（产物归环境），本属性**目前没有道具在读**，保留作声明（删除 public API 要先问）——**不要再用它决定产物** |
