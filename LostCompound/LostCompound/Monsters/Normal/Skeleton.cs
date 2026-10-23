@@ -39,8 +39,10 @@ namespace LostCompound.Monsters.Normal
         /// </summary>
         public override void Attack(Player p)
         {
-            Console.WriteLine("骷髅挥动骨爪攻击了你!");
+            Console.WriteLine("骷髅挥动骨爪攻击了你! " +
+                              "它的爪子更锋利了!");
             double dmg = Calculator.CalculateAttack(Str, Atk);
+            Atk += 2;
             p.TakeDamage(dmg);
         }
 
