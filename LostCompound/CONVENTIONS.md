@@ -166,6 +166,19 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 5. 若要能掉落：`Rooms\LootTables.cs` / `Monsters\MonsterLootTable.cs`
 6. 若是新道具类：在 `Items\ItemFactory.cs` 的 `All` 表里补一行（ID 升序）
 
+**⚠️ 不可堆叠道具（`MaxStack = 1`）的 `Count` 在构造时恒为 1。**
+`Item` 的构造写的是 `stackable ? count : 1` —— 所以 `new Cloak(5)` 得到的只是**一件**斗篷，
+那个 5 会被静默丢掉。
+
+为什么钉死：装备的 DEF / 减伤 / 耐久 / 已承伤次数全部记在**实例字段**上，
+玩家侧的加成按 `ForEachEquippedItem` 遍历**实例**（一个实例只调一次），
+没有任何一条生效通路会读 `Count`。允许 `new Cloak(5)` 只会造出一个
+「标着 x5、实际一件、一破损五件全没」的幽灵堆叠（DEF 只 +5、免伤只 20%、耐久 50 次）。
+
+- **只夹构造，不夹 setter**：压缩沙瓶这类不可堆叠消耗品正是靠 `Count -= 1` 走到 0
+  表示「用完了」（`CompressedSandBottle.ShouldRemove`），把 setter 锁成 1 会变成无限道具。
+- **「给玩家 N 件装备」要调用 N 次 `AddItem(new Xxx(1))`**，不要 `new Xxx(N)`。
+
 ## 2.5 重复代码的判定
 
 **如果同一段逻辑在 ≥2 个子类里各写一遍，就应该提到基类。**
