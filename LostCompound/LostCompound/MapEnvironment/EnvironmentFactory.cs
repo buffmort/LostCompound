@@ -1,3 +1,5 @@
+using LostCompound.MapEnvironment.Environments;
+
 namespace LostCompound.MapEnvironment
 {
     /// <summary>按 <see cref="EnvType"/> 创建环境对象。</summary>

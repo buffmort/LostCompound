@@ -1,8 +1,10 @@
 using LostCompound.Items;
 using LostCompound.Tools;   // Player：环境直接改玩家（见 Environment 类注释的「方案 A」）
 using LostCompound.Items.Materials;
+using Environment = LostCompound.MapEnvironment.Environment;
+using LostCompound.MapEnvironment;
 
-namespace LostCompound.MapEnvironment
+namespace LostCompound.MapEnvironment.Environments
 {
     /// <summary>
     /// 水淹洞穴（设计文档 5.2）。

@@ -3,8 +3,10 @@ using LostCompound.Monsters;   // GetDamageImmunity(Monster m)
 using LostCompound.Tools;   // Player：环境直接改玩家（见 Environment 类注释的「方案 A」）
 using LostCompound.Items.Materials;
 using LostCompound.Monsters.Normal;
+using Environment = LostCompound.MapEnvironment.Environment;
+using LostCompound.MapEnvironment;
 
-namespace LostCompound.MapEnvironment
+namespace LostCompound.MapEnvironment.Environments
 {
     /// <summary>
     /// 熔岩瀑布（设计文档 5.1）——固定第一层。
