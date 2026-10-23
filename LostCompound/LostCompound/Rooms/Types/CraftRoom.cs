@@ -1,19 +1,20 @@
 using Environment = LostCompound.MapEnvironment.Environment;
 using LostCompound.MapEnvironment;
 using LostCompound.Tools;
+using LostCompound.Rooms;
 
-namespace LostCompound.Rooms
+namespace LostCompound.Rooms.Types
 {
-    public sealed class BlankRoom : Room
+    public sealed class CraftRoom : Room
     {
-        public BlankRoom(Environment environment) : base(RoomType.Blank, environment)
+        public CraftRoom(Environment environment) : base(RoomType.Craft, environment)
         {
         }
 
         public override void OnEnter(Player p)
         {
-            // 待定房间，默认什么都不做
-            Console.WriteLine("这是一个空房间");
+            Console.WriteLine("这里有一个合成台。");
+            // 可以添加合成逻辑
         }
 
         public override void OnLeave(Player p)

@@ -11,6 +11,7 @@ using LostCompound.Items.Materials;
 using LostCompound.Items.Consumables;
 using LostCompound.Items.Containers;
 using LostCompound.Items.Equipment;
+using LostCompound.Rooms.Types;
 
 namespace LostCompound.Tools
 {

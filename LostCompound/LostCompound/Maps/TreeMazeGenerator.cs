@@ -2,6 +2,7 @@ using Environment = LostCompound.MapEnvironment.Environment;
 using System.Text;
 using LostCompound.MapEnvironment;
 using LostCompound.Rooms;
+using LostCompound.Rooms.Types;
 
 namespace LostCompound.Maps
 {

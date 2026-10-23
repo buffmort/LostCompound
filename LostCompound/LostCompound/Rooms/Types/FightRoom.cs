@@ -3,8 +3,9 @@ using LostCompound.Items;
 using LostCompound.MapEnvironment;
 using LostCompound.Monsters;
 using LostCompound.Tools;
+using LostCompound.Rooms;
 
-namespace LostCompound.Rooms
+namespace LostCompound.Rooms.Types
 {
     public sealed class FightRoom : Room
     {

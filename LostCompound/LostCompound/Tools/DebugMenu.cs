@@ -8,6 +8,7 @@ using LostCompound.Monsters;
 using LostCompound.Rooms;   // StartRoom：给调试玩家挂假地图用
 using LostCompound.Monsters.Normal;
 using LostCompound.Monsters.Boss;
+using LostCompound.Rooms.Types;
 
 namespace LostCompound.Tools
 {

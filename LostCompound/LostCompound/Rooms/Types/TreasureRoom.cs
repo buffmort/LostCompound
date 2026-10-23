@@ -2,8 +2,9 @@ using Environment = LostCompound.MapEnvironment.Environment;
 using LostCompound.Items;
 using LostCompound.MapEnvironment;
 using LostCompound.Tools;
+using LostCompound.Rooms;
 
-namespace LostCompound.Rooms
+namespace LostCompound.Rooms.Types
 {
     /// <summary>
     /// 宝藏房：进入时从当前环境的道具池中摇取两次，两次获得的道具都给玩家。

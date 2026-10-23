@@ -3,8 +3,9 @@ using LostCompound.MapEnvironment;
 using LostCompound.Tools;
 using LostCompound.Items;
 using LostCompound.Items.Consumables;
+using LostCompound.Rooms;
 
-namespace LostCompound.Rooms
+namespace LostCompound.Rooms.Types
 {
     public sealed class EmptyRoom : Room
     {
