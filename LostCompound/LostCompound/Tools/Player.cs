@@ -12,6 +12,7 @@ using LostCompound.Items.Consumables;
 using LostCompound.Items.Containers;
 using LostCompound.Items.Equipment;
 using LostCompound.Rooms.Types;
+using LostCompound.Tools.Debug;
 
 namespace LostCompound.Tools
 {

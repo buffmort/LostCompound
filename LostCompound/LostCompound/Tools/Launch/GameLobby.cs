@@ -3,8 +3,10 @@ using LostCompound.Maps;
 using LostCompound.Rooms;
 
 using static LostCompound.MapEnvironment.EnvType;
+using LostCompound.Tools;
+using LostCompound.Tools.Debug;
 
-namespace LostCompound.Tools
+namespace LostCompound.Tools.Launch
 {
     /**
      * Author:  Hyberty

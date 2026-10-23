@@ -9,8 +9,9 @@ using LostCompound.Rooms;   // StartRoom：给调试玩家挂假地图用
 using LostCompound.Monsters.Normal;
 using LostCompound.Monsters.Boss;
 using LostCompound.Rooms.Types;
+using LostCompound.Tools;
 
-namespace LostCompound.Tools
+namespace LostCompound.Tools.Debug
 {
     /// <summary>
     /// 调试菜单。只在主菜单输入 255 后可用。

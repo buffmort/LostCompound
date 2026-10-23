@@ -1,4 +1,6 @@
-namespace LostCompound.Tools
+using LostCompound.Tools;
+
+namespace LostCompound.Tools.Debug
 {
     /// <summary>
     /// 全局 debug 开关（主菜单与战斗内**共用同一份**状态）。

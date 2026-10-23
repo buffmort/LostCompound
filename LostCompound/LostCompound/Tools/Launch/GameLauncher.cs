@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
+using LostCompound.Tools;
 
-namespace LostCompound.Tools
+namespace LostCompound.Tools.Launch
 {
     /**
      * Author:  Hyberty
