@@ -1,3 +1,5 @@
+using LostCompound.Buffs.Types;
+
 namespace LostCompound.Buffs
 {
     /// <summary>

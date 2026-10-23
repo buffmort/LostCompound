@@ -1,7 +1,8 @@
 using LostCompound.Monsters;
 using LostCompound.Tools;
+using LostCompound.Buffs;
 
-namespace LostCompound.Buffs;
+namespace LostCompound.Buffs.Types;
 
 public class SuperMaleBuff : Buff
 {

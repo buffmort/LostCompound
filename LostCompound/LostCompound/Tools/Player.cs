@@ -13,6 +13,7 @@ using LostCompound.Items.Containers;
 using LostCompound.Items.Equipment;
 using LostCompound.Rooms.Types;
 using LostCompound.Tools.Debug;
+using LostCompound.Buffs.Types;
 
 namespace LostCompound.Tools
 {

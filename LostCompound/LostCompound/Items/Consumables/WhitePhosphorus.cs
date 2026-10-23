@@ -3,6 +3,7 @@ using LostCompound.Tools;
 using LostCompound.Buffs;
 using LostCompound.Items;
 using LostCompound.Items.Capabilities;
+using LostCompound.Buffs.Types;
 
 namespace LostCompound.Items.Consumables
 {

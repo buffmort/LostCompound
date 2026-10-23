@@ -1,7 +1,8 @@
 using LostCompound.Monsters;
 using LostCompound.Tools;
+using LostCompound.Buffs;
 
-namespace LostCompound.Buffs
+namespace LostCompound.Buffs.Types
 {
     /// <summary>
     /// 流血（设计文档 3.2 技能 6）。DOT 机制已删除，全部周期性伤害改由本类承担。

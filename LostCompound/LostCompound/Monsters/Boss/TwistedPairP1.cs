@@ -1,6 +1,7 @@
 using LostCompound.Tools;
 using LostCompound.Buffs;
 using LostCompound.Monsters;
+using LostCompound.Buffs.Types;
 
 /**
  * Author:  Hyberty
