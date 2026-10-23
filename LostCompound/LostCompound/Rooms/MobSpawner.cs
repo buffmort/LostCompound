@@ -6,28 +6,62 @@ namespace LostCompound.Rooms
 {
     public static class MobSpawner
     {
+        /// <summary>
+        /// 僵尸 / 骷髅的「出现层数上限」：只在第 1-3 层出现（用户要求）。
+        /// 层数系统还没做，当前所有调用方都传 1，所以这条上限暂时不会过滤掉任何怪。
+        /// </summary>
+        private const int NormalMobMaxLayer = 3;
+
         /**
-         * 按环境类型生成本轮战斗的怪物列表。
-         * 目前实现很简单：熔岩瀑布在僵尸 / 岩浆怪 / 骷髅三种普通怪之间等概率三选一，
-         * 其余环境（含水淹洞穴）出测试假人。
-         * 设计文档里的食人鱼、洞潜僵尸、穿模骆驼、医生等尚未实现。
+         * 熔岩瀑布的普通怪池：(名字, 工厂, 出现层数上限)。
+         * 出现层数上限 = int.MaxValue 表示「环境专属怪，任何层都能出现」（岩浆怪）。
+         * 池按层数过滤后**等权重**抽取，所以第 1-3 层是僵尸 / 骷髅 / 岩浆怪各 1/3，
+         * 与「加层数参数之前」的行为完全一致。
          */
-        public static List<Monster> Spawn(EnvType envType)
+        private static readonly (string Name, Func<Monster> Create, int MaxLayer)[] LavaWaterfallPool =
+        [
+            ("僵尸", () => new Zombie(), NormalMobMaxLayer),
+            ("骷髅", () => new Skeleton(), NormalMobMaxLayer),
+            ("岩浆怪", () => new LavaSlime(), int.MaxValue),
+        ];
+
+        /**
+         * 按环境类型与当前层数生成本轮战斗的怪物列表。
+         * 熔岩瀑布从普通怪池里按层数过滤后等概率取一只；
+         * 其余环境（含水淹洞穴）仍出测试假人（用户明确说先不管）。
+         * 设计文档里的食人鱼、洞潜僵尸、穿模骆驼、医生等尚未实现。
+         *
+         * 参数 layer：当前地图层数（从 1 开始）。防御性处理：layer < 1 时按第 1 层算，
+         * 免得将来某个调用方传 0 / 负数把僵尸与骷髅整个过滤掉。
+         */
+        public static List<Monster> Spawn(EnvType envType, int layer)
         {
+            // 层数下限夹到 1：层数系统落地前，任何「未初始化 / 传错」的 0 都等价于第 1 层。
+            int currentLayer = Math.Max(layer, 1);
+
             return envType switch
             {
-                // 三种各 1/3：用整数骰而不是两次 NextDouble 比较，
-                // 免得出现「某个分支概率是 1/2、另一个是 1/4」这种不均匀分配。
-                // 骷髅是 §6.2 的「全地图可出现」普通怪，因此放进这个普通怪池。
-                EnvType.LavaWaterfall => Random.Shared.Next(3) switch
-                {
-                    0 => new List<Monster> { new Zombie() },
-                    1 => new List<Monster> { new LavaSlime() },
-                    _ => new List<Monster> { new Skeleton() },
-                },
+                EnvType.LavaWaterfall => SpawnFromPool(LavaWaterfallPool, currentLayer),
                 // 默认返回普通怪物
                 _ => new List<Monster> { new Dummy() },
             };
+        }
+
+        /**
+         * 从池里按层数过滤后**等权重**取一只。
+         * 用整数骰而不是两次 NextDouble 比较，免得出现「某个分支概率是 1/2、
+         * 另一个是 1/4」这种不均匀分配；池子长度为 n 时每只恰好 1/n。
+         *
+         * 池里始终有 MaxLayer = int.MaxValue 的岩浆怪，所以过滤后不可能为空：
+         * 第 1-3 层是 3 只各 1/3，第 4 层起只剩岩浆怪（必定出岩浆怪，不是空列表）。
+         */
+        private static List<Monster> SpawnFromPool(
+            (string Name, Func<Monster> Create, int MaxLayer)[] pool, int layer)
+        {
+            (string Name, Func<Monster> Create, int MaxLayer)[] available =
+                pool.Where(m => layer <= m.MaxLayer).ToArray();
+
+            return new List<Monster> { available[Random.Shared.Next(available.Length)].Create() };
         }
     }
 }

@@ -18,9 +18,13 @@ namespace LostCompound.Rooms.Types
             if (!IsCleaned)
             {
                 Console.WriteLine("敌人出现了!");
+                // ⚠️ 层数硬编码为 1：层数系统还没做（BossRoom 现在是 Environment.Exit 占位）。
+                // 等层数系统落地后，这个 1 要换成 Player/GameState 里的当前层数。
+                const int CurrentLayer = 1;
+
                 // 注意：类 Tools 与命名空间 LostCompound.Tools 同名，简单名 Tools 会被解析成
                 // 命名空间，因此这里必须写全限定名 LostCompound.Tools.Tools。
-                LostCompound.Tools.Tools.RunBattle(p, MobSpawner.Spawn(EnvKind), Environment);
+                LostCompound.Tools.Tools.RunBattle(p, MobSpawner.Spawn(EnvKind, CurrentLayer), Environment);
 
                 // 战斗结束后的环境额外掉落（如熔岩瀑布必掉硫磺）。
                 //
