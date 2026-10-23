@@ -1,4 +1,6 @@
 using LostCompound.Items;
+using LostCompound.Items.Materials;
+using LostCompound.Items.Consumables;
 
 namespace LostCompound.Tools
 {

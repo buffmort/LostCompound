@@ -4,6 +4,9 @@
  */
 
 using LostCompound.Items;
+using LostCompound.Items.Materials;
+using LostCompound.Items.Consumables;
+using LostCompound.Items.Containers;
 
 /**
  * 怪物掉落表。

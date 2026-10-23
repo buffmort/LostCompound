@@ -1,5 +1,6 @@
 using System.Text;
 using LostCompound.Items;
+using LostCompound.Items.Capabilities;
 
 namespace LostCompound.Tools
 {

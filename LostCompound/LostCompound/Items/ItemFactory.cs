@@ -1,3 +1,8 @@
+using LostCompound.Items.Consumables;
+using LostCompound.Items.Containers;
+using LostCompound.Items.Equipment;
+using LostCompound.Items.Materials;
+
 namespace LostCompound.Items
 {
     /// <summary>

@@ -6,6 +6,11 @@ using LostCompound.Monsters;
 using LostCompound.Maps;
 using LostCompound.UI;
 using LostCompound.Buffs;
+using LostCompound.Items.Capabilities;
+using LostCompound.Items.Materials;
+using LostCompound.Items.Consumables;
+using LostCompound.Items.Containers;
+using LostCompound.Items.Equipment;
 
 namespace LostCompound.Tools
 {

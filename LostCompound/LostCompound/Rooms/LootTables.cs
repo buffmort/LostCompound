@@ -1,5 +1,8 @@
 using LostCompound.Items;
 using LostCompound.MapEnvironment;
+using LostCompound.Items.Materials;
+using LostCompound.Items.Consumables;
+using LostCompound.Items.Containers;
 
 namespace LostCompound.Rooms
 {
