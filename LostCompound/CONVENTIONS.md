@@ -131,6 +131,10 @@
 
 ## 2.4 道具类
 
+**目录约定**：能力位接口在 `Items\Capabilities\`；道具根 `Items\` 只放 `Item` / `ItemType` / `ItemIds` / `ItemFactory`；
+具体道具按类别放进 `Items\Materials\`（材料）、`Items\Consumables\`（消耗品）、
+`Items\Containers\`（容器）、`Items\Equipment\`（装备）。命名空间与目录逐段对应。
+
 **所有道具继承 `Item`（主构造器）：**
 
 ```csharp
@@ -154,11 +158,13 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 （`Metal` 和 `RedPhosphorus` 都踩过这个坑。）
 
 **新增道具的完整清单：**
-1. `Items\Xxx.cs` 建类
+1. 在对应子包建类：`Items\Materials\Xxx.cs` / `Items\Consumables\Xxx.cs` /
+   `Items\Containers\Xxx.cs` / `Items\Equipment\Xxx.cs`
 2. `Items\ItemIds.cs` 加常量（**ID 按设计文档，允许跳号，不要挤号**）
 3. `Items\ItemType.cs` 加枚举成员（**只追加在末尾**，否则改变已有成员的数值）
-4. 若要能合成：`Player.cs` 的 `AddDefaultRecipes()`（配方0）或 `AddTier1Recipes()`（配方1）
+4. 若要能合成：`Tools\Player.cs` 的 `AddDefaultRecipes()`（配方0）或 `AddTier1Recipes()`（配方1）
 5. 若要能掉落：`Rooms\LootTables.cs` / `Monsters\MonsterLootTable.cs`
+6. 若是新道具类：在 `Items\ItemFactory.cs` 的 `All` 表里补一行（ID 升序）
 
 ## 2.5 重复代码的判定
 
@@ -187,10 +193,12 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 ## 2.7 环境（`MapEnvironment\`）
 
 **新增一个环境的清单：**
-1. `EnvType.cs` 加枚举成员（**只追加在末尾**）
-2. `EnvironmentFactory.Create()` 加一个 `case`（未实现的返回 `null`）
-3. 新建 `Xxx.cs` 继承 `Environment`，**照 `LavaWaterfall.cs` 的结构写**
-4. 要让玩家/调试菜单选得到：`EnvironmentCatalog.All` 加一行（主菜单与调试菜单**共用这一份清单**，不要再各抄一份）
+1. `MapEnvironment\EnvType.cs` 加枚举成员（**只追加在末尾**）
+2. `MapEnvironment\EnvironmentFactory.cs` 的 `Create()` 加一个 `case`（未实现的返回 `null`）
+3. 新建 `MapEnvironment\Environments\Xxx.cs` 继承 `Environment`，**照 `MapEnvironment\Environments\LavaWaterfall.cs` 的结构写**
+   （该子包里的文件需要 `using Environment = LostCompound.MapEnvironment.Environment;`，
+   否则 `Environment` 会与 `System.Environment` 撞名）
+4. 要让玩家/调试菜单选得到：`MapEnvironment\EnvironmentCatalog.cs` 的 `All` 加一行（主菜单与调试菜单**共用这一份清单**，不要再各抄一份）
 5. 本环境特有的能力（能挖矿 / 能回水 / 有判负条件 / 对某只怪有抗性…）一律**覆写能力位**，
    不要去改通用流程、道具或战斗循环
 
@@ -221,6 +229,34 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 这样避免 `MapEnvironment` 和 `Tools` 互相依赖。
 （唯一引用 `Monsters` 的地方是 `GetDamageImmunity(Monster)`：免疫规则只与环境有关，
 怪物侧只提供一个接收槽位 `Monster.ApplyDamageImmunity`，两边都拿不到对方的实例。）
+
+## 2.8 目录 / 命名空间结构
+
+**文件夹与命名空间逐段对应**（例：`Items\Materials\Sulphur.cs` → `namespace LostCompound.Items.Materials;`）。
+根命名空间为 `LostCompound`。**不要用 `global using` 一把导入子包** —— 按文件补 `using`，保持依赖可见。
+
+| 目录 | 命名空间 | 内容 |
+|---|---|---|
+| `Items\` | `LostCompound.Items` | `Item` / `ItemType` / `ItemIds` / `ItemFactory` |
+| `Items\Capabilities\` | `LostCompound.Items.Capabilities` | 能力位接口（`IUseable` 等 10 个） |
+| `Items\Materials\` | `LostCompound.Items.Materials` | 材料（8） |
+| `Items\Consumables\` | `LostCompound.Items.Consumables` | 消耗品（9） |
+| `Items\Containers\` | `LostCompound.Items.Containers` | 容器（3） |
+| `Items\Equipment\` | `LostCompound.Items.Equipment` | 装备（7） |
+| `Monsters\` | `LostCompound.Monsters` | `Monster` / `MonsterType` / `MonsterRank` / `MonsterLootTable` |
+| `Monsters\Normal\` | `LostCompound.Monsters.Normal` | 普通怪（3） |
+| `Monsters\Boss\` | `LostCompound.Monsters.Boss` | Boss 与剧情怪（4） |
+| `Rooms\` | `LostCompound.Rooms` | `Room` / `RoomType` / `Direction` / `LootTables` / `MobSpawner` |
+| `Rooms\Types\` | `LostCompound.Rooms.Types` | 具体房间（7） |
+| `Tools\` | `LostCompound.Tools` | `Player` / `Tools` / `Calculator` / `Recipe` / `Mining` |
+| `Tools\Debug\` | `LostCompound.Tools.Debug` | `DebugMenu` / `DebugState` |
+| `Tools\Launch\` | `LostCompound.Tools.Launch` | `GameLauncher` / `GameLobby` |
+| `Buffs\` | `LostCompound.Buffs` | `Buff` / `BuffIds` / `BuffFactory` |
+| `Buffs\Types\` | `LostCompound.Buffs.Types` | `BleedBuff` / `SuperMaleBuff` / `Strength` |
+| `MapEnvironment\` | `LostCompound.MapEnvironment` | `Environment` / `EnvType` / `EnvironmentFactory` / `EnvironmentCatalog` |
+| `MapEnvironment\Environments\` | `LostCompound.MapEnvironment.Environments` | `LavaWaterfall` / `FloodedCavern` |
+| `UI\` | `LostCompound.UI` | `ConsoleScreen` / `LogRegionWriter` |
+| `Maps\` | `LostCompound.Maps` | `TreeMazeGenerator` |
 
 ---
 
