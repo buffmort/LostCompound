@@ -1379,7 +1379,7 @@ namespace LostCompound.Tools
             // 产物一律传工厂 `() => new Xxx(1)` 而不是 `new Xxx(1)` 实例 ——
             // 配方如果持有实例，那个实例会被 AddItem 直接放进背包，配方与背包同指一个对象，
             // 于是「合成翻倍」「产物被打光后材料照扣」两种坏法都会出现。
-            // 详见 Items\ICraftable.CreateProduct 与 Tools\Recipe 构造函数的注释。
+            // 详见 Items\Capabilities\ICraftable.CreateProduct 与 Tools\Recipe 构造函数的注释。
             // 碳：白磷 + 木头（DESIGN 第九章 ID 3「白磷 + 木头」，效果「可点燃；点燃后清除背包 debuff」）。
             // 数量：文档没写 → 按 DESIGN 第九章的通用规则取 × 1（白磷 1 + 木头 1）。
             // 木炭类（Charcoal）本来只能靠「熔岩瀑布高温烤木头 3 回合」（Wood.Become）得到，
@@ -1435,7 +1435,7 @@ namespace LostCompound.Tools
 
             // 斗篷：3 木头 + 1 金属 + 1 布料（文档 ID 27）。
             // 获取方式已裁定为**合成**（用户裁定 6）：文档原先写的「放射性区域低概率」已删除，
-            // §9 的斗篷行与本条配方现在一致，不再是偏离（历史见 Items\Cloak.cs 的注释）。
+            // §9 的斗篷行与本条配方现在一致，不再是偏离（历史见 Items\Equipment\Cloak.cs 的注释）。
             Recipes.Add(new Recipe("斗篷",
                 [[ItemIds.Wood, 3], [ItemIds.Metal, 1], [ItemIds.Cloth, 1]],
                 () => new Cloak(1)));
@@ -1767,7 +1767,7 @@ namespace LostCompound.Tools
         ///
         /// 为什么**不再**复用 ApplyEquipmentPassives（改造前就是那么写的，那是个真 bug）：
         ///   那个方法在「先把 Atk/Def 还原成基础值」的同时会把 Def 也还原掉，于是金属的
-        ///   「消耗 1 块永久 +1 DEF」（Items\Metal.cs）会在下一回合开头被**静默**冲掉。
+        ///   「消耗 1 块永久 +1 DEF」（Items\Materials\Metal.cs）会在下一回合开头被**静默**冲掉。
         ///   根因是两类东西被混在了一条通道里：护盾是**资源**（每回合重置，用户明确要的），
         ///   Atk/Def 是**派生值**（只在装备变化 / 开战 / 修正量变化时重算）。
         ///   现在拆开：这里只走 IShieldSource 这条「只算盾」的通道，不碰派生值。

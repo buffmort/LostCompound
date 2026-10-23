@@ -33,7 +33,7 @@ namespace LostCompound.Items.Equipment
     /// 历史（已解决，保留供追溯）：
     ///   · 获取方式：文档原先写「放射性区域低概率」，用户裁定 6 改为「合成」，文档已对齐；
     ///   · 「免疫 N 次」：文档写 3 次流血、任务书写 20 次 dot，用户裁定**改成按值表达** → 实现成
-    ///     「累计吸收 20 点 DOT 伤害后破损」（走 IDotAbsorber，见 Items\IDotAbsorber.cs）；
+    ///     「累计吸收 20 点 DOT 伤害后破损」（走 IDotAbsorber，见 Items\Capabilities\IDotAbsorber.cs）；
     ///   · **本次（用户新裁定）**：去掉「吸收 DOT」这一条，改成**按次数**的「受伤 50 次后消失」。
     ///     于是斗篷不再实现 <see cref="IDotAbsorber"/> —— 那条通道目前**没有任何实现者**
     ///     （接口与 Player.TakeDotDamage 的去留待用户裁定，先保留不动）。

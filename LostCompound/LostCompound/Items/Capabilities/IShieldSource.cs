@@ -9,7 +9,7 @@ namespace LostCompound.Items.Capabilities
     /// 为什么必须分开（这是一个真 bug 的根因）：
     ///   Player 每回合开头都要把护盾清空再加回装备给的盾（用户明确要的「护盾每回合重置」），
     ///   而改造前这件事是靠在 ApplyEquipmentPassives 里顺带重置 Atk/Def 做的。
-    ///   于是「消耗 1 块金属永久 +1 DEF」（Items\Metal.cs 的 `p.Def += 1`）会在**下一回合开头**
+    ///   于是「消耗 1 块金属永久 +1 DEF」（Items\Materials\Metal.cs 的 `p.Def += 1`）会在**下一回合开头**
     ///   被那句还原冲掉 —— 不报错、不崩溃，只是静默失效。
     ///   根因是两类东西被塞进了同一条通道：
     ///     派生值（ATK/DEF）—— 由来源决定，可以随时从基础值重算；

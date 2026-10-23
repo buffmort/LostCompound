@@ -7,7 +7,7 @@ namespace LostCompound.MapEnvironment
     /// 玩家选到就得到一张「没有环境」的地图）。
     ///
     /// 为什么要有这个文件：这份「编号 → 显示名 → EnvType」的对应关系原先在
-    /// Tools\GameLobby.SelectEnvironment 和 Tools\DebugMenu.SelectEnvironment 里各抄了一份
+    /// Tools\Launch\GameLobby.SelectEnvironment 和 Tools\Debug\DebugMenu.SelectEnvironment 里各抄了一份
     /// （DebugMenu 的注释自己写着「新增环境时两处都要补」）。两处手抄的必然结果是
     /// 某次只补了一处 —— 主菜单能选、调试菜单选不到（或反过来）。
     /// 现在顺序即菜单编号（第 1 项就是 1 号）。
