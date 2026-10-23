@@ -1,12 +1,13 @@
 using LostCompound.Tools;
 using LostCompound.Buffs;
+using LostCompound.Monsters;
 
 /**
  * Author:  Hyberty
  * OOP牛逼
  */
 
-namespace LostCompound.Monsters
+namespace LostCompound.Monsters.Normal
 {
     public sealed class LavaSlime : Monster
     {

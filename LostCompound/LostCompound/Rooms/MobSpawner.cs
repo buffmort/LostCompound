@@ -1,5 +1,6 @@
 using LostCompound.MapEnvironment;
 using LostCompound.Monsters;
+using LostCompound.Monsters.Normal;
 
 namespace LostCompound.Rooms
 {

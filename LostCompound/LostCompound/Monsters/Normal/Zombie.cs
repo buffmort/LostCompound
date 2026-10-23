@@ -1,6 +1,7 @@
 using LostCompound.Tools;
+using LostCompound.Monsters;
 
-namespace LostCompound.Monsters
+namespace LostCompound.Monsters.Normal
 {
     public sealed class Zombie : Monster
     {

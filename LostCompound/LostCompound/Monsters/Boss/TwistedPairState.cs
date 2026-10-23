@@ -1,4 +1,6 @@
-namespace LostCompound.Monsters
+using LostCompound.Monsters;
+
+namespace LostCompound.Monsters.Boss
 {
     /**
      * Author:  Hyberty

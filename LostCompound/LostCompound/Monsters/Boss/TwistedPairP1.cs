@@ -1,5 +1,6 @@
 using LostCompound.Tools;
 using LostCompound.Buffs;
+using LostCompound.Monsters;
 
 /**
  * Author:  Hyberty
@@ -9,7 +10,7 @@ using LostCompound.Buffs;
 /**
  * 作孽双子 - p1（3技能）
  */
-namespace LostCompound.Monsters
+namespace LostCompound.Monsters.Boss
 {
     public sealed class TwistedPairP1 : Monster
     {

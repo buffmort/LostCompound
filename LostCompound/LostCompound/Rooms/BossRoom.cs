@@ -2,6 +2,7 @@ using Environment = LostCompound.MapEnvironment.Environment;
 using LostCompound.MapEnvironment;
 using LostCompound.Monsters;
 using LostCompound.Tools;
+using LostCompound.Monsters.Boss;
 
 namespace LostCompound.Rooms
 {

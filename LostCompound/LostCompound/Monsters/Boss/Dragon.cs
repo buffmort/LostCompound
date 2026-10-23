@@ -1,6 +1,7 @@
 using LostCompound.Tools;
+using LostCompound.Monsters;
 
-namespace LostCompound.Monsters
+namespace LostCompound.Monsters.Boss
 {
     public sealed class Dragon : Monster
     {
