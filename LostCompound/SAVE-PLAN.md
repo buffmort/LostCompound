@@ -1,0 +1,177 @@
+# 存档 / 继续游戏 —— 实施方案
+
+> 目标：**对局退出时保存；下次启动主菜单多一项「继续游戏」。**
+> 本文是动手前的勘察结果 + 方案 + 待拍板项。代码一行没改。
+
+---
+
+## 一、范围（重要）
+
+本方案只支持**一局中途**的存档。原因是**层数系统还没做**：现在一局的全部内容就是
+`TreeMazeGenerator(10, 10, envType)` 生成的一张地图，所以「存一整局」= 「存这一张地图」。
+
+DTO 里预留 `Layer` 字段，等层数系统落地再扩成「第 N 层 + 已通关层列表」，现在做不会白做。
+
+---
+
+## 二、需要持久化的全部状态（已逐项核对源码）
+
+### 2.1 玩家（`Tools\Players\*`）
+
+| 状态 | 位置 | 说明 |
+|---|---|---|
+| `Hp` / `Shield` | `Player.cs` | 资源，必须原样存 |
+| `BaseHp` / `BaseStr` / `BaseAtk` / `BaseDef` | `Player.cs` | 永久成长的载体 |
+| `Name` / `IsDead` | `Player.cs` | |
+| `InventoryCapacity` / `AccessorySlots` | `Player.Inventory.cs` / `Player.Equipment.cs` | |
+| `FightCount` / `SkipTurn` | `Player.Combat.cs` / `Player.Buffs.cs` | |
+| `PlayerRow` / `PlayerCol` | `Player.Map.cs` | 存档后要站在原位 |
+| `Inventory` / `Accessories` | 同上 | 每件：ID + Count + **额外状态**（见 2.2） |
+| `Buffs` | `Player.Buffs.cs` | 每个：ID + Stacks + Turns，`BuffFactory` 能造 |
+
+**不存**：`Str` / `Atk` / `Def`（派生值）—— 读档最后调一次 `RecomputeStats()` 就回来了，
+存了反而可能与来源不一致（CONVENTIONS §2.3「重算制」）。
+
+**不存**：`Recipes` —— 里面是 `Func<Item>`，不可序列化。
+改为存「解锁到第几档」（配方 0 / 配方 1），读档后调 `AddDefaultRecipes()` / `AddTier1Recipes()`。
+
+### 2.2 道具的「额外状态」—— 最容易漏的一环
+
+`ItemFactory.Create(id, count)` 只能还原 **ID + 数量**。下面 5 个类的内部状态会丢：
+
+| 道具 | 字段 | 初值 |
+|---|---|---|
+| `Wood` | `Change` | 3（倒计时，烤成木炭） |
+| `Pickaxe` | `Durability` | 20 |
+| `Cloak` | `_damageTakenCount` | 0（受伤 50 次破损） |
+| `IodineTablet` | `Durability` | 3 |
+| `Medicine` | `Durability` | 3（一颗药 3 次） |
+
+**方案**：新增能力位接口 `Items\Capabilities\IItemState.cs`，这 5 个类各实现一次：
+
+```csharp
+public interface IItemState
+{
+    Dictionary<string, int> SaveState();             // 空字典 = 没有额外状态
+    void LoadState(IReadOnlyDictionary<string, int> state);
+}
+```
+
+与项目现有风格一致（`IChangeable` / `ITurnCount` / `IDamageReduction` 都是这个套路），
+`SaveCollector` 只问接口，不认识具体道具类。
+
+### 2.3 地图（`Room[][]`）
+
+每个格子要存：
+
+| 字段 | 位置 |
+|---|---|
+| `Type`（`RoomType` 枚举） | `Room.Type`（只读，靠重建） |
+| 4 扇门 | `Room._doors`（有 `SetDoor`，但没有读取口） |
+| `IsVisited` / `IsCleaned` / `IsPlayerHere` | `Room`（可写属性） |
+
+**三个缺口**：
+
+1. **没有 `RoomFactory`** —— 现在只有 `TreeMazeGenerator` 里那几条 `new XxxRoom(env)`。
+   读档必须能「按 `RoomType` 造房间」，所以要补一个。
+2. **`StartRoom` 有私有字段 `_startItemsGiven`**（开局道具只发一次），读档要恢复它，
+   否则读档后会**再发一遍开局道具**。
+3. **`_doors` 没有读取口** —— 存档要读、重建要写，`SetDoor` 已有，还缺一个 `GetDoors()`（返回 4 位掩码）。
+
+### 2.4 环境（`MapEnvironment\`）
+
+同一层所有房间**共享同一个环境实例**（`TreeMazeGenerator.InitializeRooms` 里创建一次）。
+
+| 环境 | 要存的状态 |
+|---|---|
+| `LavaWaterfall` | `Water` |
+| `FloodedCavern` | `WaterLevel`、`_pluggedTurns` |
+
+**方案**：环境基类加两个 `virtual` 空实现（能力位）：`SaveState()` / `LoadState(Dictionary<string,int>)`，
+两个环境各自覆写。这样以后加新环境只写自己的覆写，不用回头改存档代码。
+
+### 2.5 明确不存的东西
+
+| 不存 | 理由 |
+|---|---|
+| `Str` / `Atk` / `Def` | 派生值，重算即可 |
+| 战利品、怪物、回合数 | **战斗中的状态不存**（见第四节「时机」） |
+| `Random` 状态 | 地图已定型，不需要重现 |
+| `_screen` / `_statusHeader` / `_inputClosed` | 纯运行期 UI 状态 |
+| `DebugState` | 全局开关，与存档无关 |
+
+---
+
+## 三、新增文件
+
+```
+LostCompound\
+  Save\
+    SaveData.cs        纯 DTO（只有字段，没有 Func / 没有控制台输出）
+    SaveFile.cs        路径、读写、版本号、坏档兜底
+    SaveCollector.cs   运行时状态 → DTO
+    SaveRestorer.cs    DTO → 运行时状态
+  Rooms\RoomFactory.cs
+  Items\Capabilities\IItemState.cs
+```
+
+**序列化格式：JSON（`System.Text.Json`，.NET 内置，零依赖、零新增包）。**
+
+文件头带版本号：
+
+```json
+{ "Version": 1, "SavedAt": "2026-10-31T21:00:00", ... }
+```
+
+**版本不符 / JSON 解析失败 / 文件损坏 → 丢弃存档并提示一句，绝不崩。**
+（这与 `ItemFactory.Create` 遇到未知 ID 返回 `null` 是同一种容错态度。）
+
+---
+
+## 四、存档时机（关键设计）
+
+**只在「非战斗、非房间事件中」存档。** 战斗中存了也恢复不了 —— 敌人列表、怪物血量、
+本回合盾、buff 剩余回合、当前是第几回合，全都没有对应的恢复入口。
+
+| 触发 | 行为 |
+|---|---|
+| 方向菜单输入 `4`（现有退出） | **存档并退出** |
+| 玩家死亡 / 环境判负 | **删档**（这一局结束了） |
+| 窗口被强杀 / 断电 | 不保证（不做自动定时存档） |
+| 战斗中想退出 | 提示「战斗结束后才能保存」，退回菜单，**不覆盖旧档** |
+
+---
+
+## 五、待你拍板的 5 件事（括号里是我的默认值）
+
+1. **存档路径** —— `%APPDATA%\LostCompound\save.json`（换 exe 位置不丢）／或 exe 同目录
+2. **槽位** —— 单槽，每次覆盖 ／ 多槽
+3. **主菜单编号** —— 有存档时：`1 开始游戏 / 2 继续游戏 / 3 退出游戏`
+   （⚠️ 会挤动现有编号；也可以把「继续」放在最前面）
+4. **死亡是否删档** —— 删 ／ 保留（下次还能读档回到死前）
+5. **战斗中途退出** —— 禁止保存、提示退回 ／ 允许「保存到战斗开始前」
+
+---
+
+## 六、明天的实施顺序（每步都编译得过）
+
+1. `IItemState` + 5 个道具类实现（不碰 `ItemFactory`）
+2. `RoomFactory` + `Room.GetDoors()` + `StartRoom` 的恢复入口
+3. `Environment.SaveState/LoadState`（两个环境各覆写）
+4. `SaveData` / `SaveFile`（JSON + 版本 + 坏档兜底）
+5. `SaveCollector` / `SaveRestorer`
+6. `Player.StartGame` 拆出「从已有状态开局」的入口（读档复用同一套主循环）
+7. 主菜单加「继续游戏」
+8. 验证：存 → 退 → 重进 → 逐项对比；再造坏档 / 旧版本 / 无档三条路径各试一次
+
+---
+
+## 七、已知风险
+
+| 风险 | 处理 |
+|---|---|
+| `TreeMazeGenerator._grid` 是 `readonly`，读档后画不出地图 | 加 `FromGrid(Room[][])` 工厂，跳过生成、直接注入网格 |
+| `Player` 大量 `private set` | 读档走 `internal` 恢复方法，**不要为了存档把它们改成 `public set`**（那等于把「只能通过 GrowBaseXxx 改」这条纪律废掉） |
+| 层数系统未实现 | DTO 预留 `Layer`，本方案只存单张地图 |
+| 读档后 `_startItemsGiven` 丢失 → 重复发开局道具 | 2.3 已列为必做项 |
+| `Item` 的 `MaxStack` 合并 | 读档时**逐个 `new` 再直接塞进列表**，不要走 `AddItem`（会触发合并、容量检查、播报） |
