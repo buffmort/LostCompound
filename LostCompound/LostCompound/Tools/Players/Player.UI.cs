@@ -319,7 +319,10 @@ namespace LostCompound.Tools.Players
 
             // 位置/房间这两行是状态栏的固定部分，缓存起来供战斗中刷新时复用
             // 「当前位置」已按要求去掉：地图上玩家所在格子本来就有 * 标记，再报一遍坐标是冗余。
-            _statusHeader = "当前房间:" + map[PlayerRow][PlayerCol].Type;
+            // 玩家名接在同一行后面：状态框只有 4 行（房间 / 血量 / 力量 / 环境），
+            // 单独开一行会把环境那行挤掉（DrawBox 会直接丢掉超出的行）。
+            // 「左旋/右旋-名字」是镜子(45) 用出来的，见 Player.MirrorSide。
+            _statusHeader = "当前房间:" + map[PlayerRow][PlayerCol].Type + "  " + RunDisplayName;
 
             RefreshStatus();
         }

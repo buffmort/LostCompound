@@ -214,6 +214,42 @@ namespace LostCompound.Tools.Players
             GameCleared = true;
         }
 
+        /// <summary>
+        /// 镜子(45) 留下的「朝向」：空字符串 = 没照过，否则是「左旋」或「右旋」。
+        ///
+        /// **只属于这一局**（用户裁定）：死了 / 开新局就清空，不进档案（profile）——
+        /// 但**要进存档**，否则存档退出再读档，朝向会丢、下一次照镜子又变回随机。
+        ///
+        /// 规则（用户原话）：「下次再使用镜子，若已经变为左旋则固定打印右旋」——
+        /// 也就是**交替**：第一次随机，之后每次都跟上次相反。
+        /// </summary>
+        public string MirrorSide { get; private set; } = "";
+
+        /// <summary>朝向 + 玩家名的组合名（如「左旋-张三」）；没照过镜子就是原本的名字。</summary>
+        public string RunDisplayName =>
+            MirrorSide.Length == 0 ? Save.Profile.DisplayName : MirrorSide + "-" + Save.Profile.DisplayName;
+
+        /// <summary>
+        /// 取下一次照镜子的朝向并记住它。第一次随机 50/50，之后与上次相反（用户裁定）。
+        /// 由 <see cref="Items.Consumables.Mirror"/> 调用。
+        /// </summary>
+        public string NextMirrorSide()
+        {
+            MirrorSide = MirrorSide switch
+            {
+                "左旋" => "右旋",
+                "右旋" => "左旋",
+                _ => Random.Shared.Next(2) == 0 ? "左旋" : "右旋",   // 第一次：各 1/2
+            };
+            return MirrorSide;
+        }
+
+        /// <summary>读档专用：把存档里的朝向灌回来（镜像名字靠它复原）。</summary>
+        internal void RestoreMirrorSide(string side)
+        {
+            MirrorSide = side ?? "";
+        }
+
         // 存活判定：派生值用计算属性（原 isAlive() 方法）
         public bool IsAlive => Hp > 0;
 

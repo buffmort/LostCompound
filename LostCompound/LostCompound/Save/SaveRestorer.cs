@@ -99,6 +99,9 @@ namespace LostCompound.Save
                 accessories,
                 buffs);
 
+            // 镜子(45) 留下的朝向（只属于这一局）：名字要跟着复原成「左旋-张三」。
+            player.RestoreMirrorSide(data.Player.MirrorSide);
+
             // ---- 5. 配方 ----
             // 配方表不可序列化（里面是 Func<Item>），只存了「解锁到第几档」，
             // 这里按档位重跑一次，与开局时的解锁顺序一致。

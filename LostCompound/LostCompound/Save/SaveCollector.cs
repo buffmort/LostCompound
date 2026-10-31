@@ -91,6 +91,7 @@ namespace LostCompound.Save
             PlayerData d = new()
             {
                 Name = p.Name ?? "",
+                MirrorSide = p.MirrorSide ?? "",
                 Hp = p.Hp,
                 Shield = p.Shield,
                 BaseHp = p.BaseHp,

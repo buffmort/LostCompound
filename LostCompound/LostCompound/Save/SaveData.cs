@@ -104,6 +104,13 @@ namespace LostCompound.Save
         /// </summary>
         public string Name { get; set; } = "";
 
+        /// <summary>
+        /// 镜子(45) 留下的朝向（"" / "左旋" / "右旋"）。**只属于这一局**，所以进 save 而不进 profile：
+        /// 不存的话存档退出再读档，朝向会丢，下一次照镜子又变回随机，
+        /// 而玩家眼前的名字（「左旋-张三」）却已经被存档按旧值还原过 —— 两者会对不上。
+        /// </summary>
+        public string MirrorSide { get; set; } = "";
+
         public double Hp { get; set; }
         public double Shield { get; set; }
 

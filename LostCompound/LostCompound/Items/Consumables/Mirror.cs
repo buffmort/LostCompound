@@ -33,9 +33,7 @@ namespace LostCompound.Items.Consumables
     {
         public override ItemType? Type => ItemType.Mirror;
 
-        /// <summary>提示语里的两个方向词。各 1/2 —— 纯文案，不影响数值。</summary>
-        private static readonly string[] Directions = ["左旋", "右旋"];
-
+        /// <summary>提示语里的「左旋 / 右旋」由 <see cref="Player.NextMirrorSide"/> 决定（用户裁定交替）。</summary>
         public void Use(Player p, List<Monster> m)
         {
             // ① 先把自己拿走（裁定③）。不从背包里移除的话，它会参与下面的数量轮换。
@@ -47,8 +45,11 @@ namespace LostCompound.Items.Consumables
             // ③ 背包数量轮换（先快照再写，超上限夹住）。
             p.RotateInventoryCounts();
 
-            // ④ 提示语。名字取档案里的玩家显示名（有称号就显示称号，否则名字）。
-            Console.WriteLine("你照了照镜子 你现在变成了" + Directions[Random.Shared.Next(Directions.Length)] + "-" + Profile.DisplayName + "！");
+            // ④ 朝向：第一次随机，之后与上次相反（用户裁定「若已经变为左旋则固定打印右旋」）。
+            //    朝向会改变玩家的**本局显示名**（RunDisplayName → 「左旋-张三」），
+            //    状态栏和之后的提示都用那个名字，所以这里不自己拼名字，直接问玩家。
+            p.NextMirrorSide();
+            Console.WriteLine("你照了照镜子 你现在变成了" + p.RunDisplayName + "！");
         }
 
         /// <summary>
