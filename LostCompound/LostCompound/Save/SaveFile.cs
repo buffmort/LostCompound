@@ -57,7 +57,7 @@ namespace LostCompound.Save
         /// 当前存档格式版本。
         /// 改了 `SaveData` 的字段含义才需要动它；纯加字段可以不升（旧档缺的字段用默认值）。
         /// </summary>
-        public const int CurrentVersion = 1;
+        public const int CurrentVersion = 2;
 
         /// <summary>存档文件名。</summary>
         private const string FileName = "save.json";

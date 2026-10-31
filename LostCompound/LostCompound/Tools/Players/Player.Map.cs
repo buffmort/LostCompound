@@ -135,16 +135,24 @@ namespace LostCompound.Tools.Players
         }
 
         /// <summary>
-        /// 读档专用：把玩家放回存档时所在的格子（不走 <see cref="Move"/>）。
+        /// 读档专用重载：把玩家放进**指定格子**，而不是去找起始房间。
         ///
-        /// 为什么不能复用 Move：Move 要求「相邻 + 有门」，还会触发
-        /// `LeaveSetup`（离开事件的副作用）—— 读档不是「走了一步」，是「就站在这里」。
-        /// 网格边界由调用方（存档层）按地图尺寸校验过。
+        /// 为什么不能复用「先 JoinMap(找起点) 再改坐标」：
+        ///   那样起始房间会被 <see cref="Room.MarkArrived"/> 标成「玩家在此」，
+        ///   玩家又站到别处，地图上就会同时出现两个 `*`。
+        ///   这里直接落在目标格，标记一次到位。
+        ///
+        /// 为什么不能复用 <see cref="Move"/>：Move 要求「相邻 + 有门」，还会触发
+        ///   `LeaveSetup`（离开事件的副作用）—— 读档不是「走了一步」，是「本来就在这里」。
+        ///
+        /// 坐标由调用方按地图尺寸夹过（<see cref="GameLobby"/> 的 ContinueRun）。
         /// </summary>
-        internal void RestorePosition(int row, int col)
+        public void JoinMap(Room[][] map, int row, int col)
         {
-            PlayerRow = row;
-            PlayerCol = col;
+            _map = map;
+            PlayerRow = Math.Clamp(row, 0, map.Length - 1);
+            PlayerCol = Math.Clamp(col, 0, map[0].Length - 1);
+            map[PlayerRow][PlayerCol].MarkArrived();
         }
     }
 }

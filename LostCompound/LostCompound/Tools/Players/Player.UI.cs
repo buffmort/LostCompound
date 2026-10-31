@@ -304,19 +304,9 @@ namespace LostCompound.Tools.Players
         /// </summary>
         public void ContinueGame(Room[][] map, TreeMazeGenerator tmg, int row, int col)
         {
-            JoinMap(map);              // 设 _map（RecomputeStats 要靠它读环境）
-            RestorePosition(row, col);
-
-            // JoinMap 会把起始房间标成「玩家在此」，读档要把它挪到存档位置 ——
-            // 否则地图上会出现两个 * 标记。全清后只标目标格。
-            foreach (Room[] r in map)
-            {
-                foreach (Room room in r)
-                {
-                    room.IsPlayerHere = false;
-                }
-            }
-            map[row][col].IsPlayerHere = true;
+            // 直接落在存档那一格：地图是刚用种子重建的空地图（没有任何 * 标记），
+            // 所以不需要「先清标记再补一个」那套麻烦事。
+            JoinMap(map, row, col);
 
             // 派生值按「基础值 + 当前环境」重算一次（CONVENTIONS 2.3 的重算制）
             RecomputeStats();
@@ -402,7 +392,7 @@ namespace LostCompound.Tools.Players
                         // 为什么这里能存：方向菜单只在「房间事件全部结算完」之后才出现，
                         // 所以此刻既没有进行中的战斗、也没有半截的房间事件 ——
                         // 战斗中途的状态（敌人列表、本回合盾、回合数）没有任何恢复入口。
-                        SaveCurrentProgress(map);
+                        SaveCurrentProgress(map, tmg);
                         Console.WriteLine("游戏结束，感谢游玩！");
                         break;
                     }
@@ -436,14 +426,14 @@ namespace LostCompound.Tools.Players
         /// 这里只做「采集 + 写入」两件事，具体怎么采集在 <see cref="SaveCollector"/>，
         /// 怎么落盘在 <see cref="SaveFile"/> —— 本方法不认识 JSON、也不认识文件路径。
         /// </summary>
-        private void SaveCurrentProgress(Room[][] map)
+        private void SaveCurrentProgress(Room[][] map, TreeMazeGenerator tmg)
         {
             if (!IsAlive || map == null)
             {
                 return;
             }
 
-            SaveData data = SaveCollector.Capture(this, map);
+            SaveData data = SaveCollector.Capture(this, map, tmg);
             if (SaveFile.Save(data))
             {
                 Console.WriteLine("已保存当前进度，下次可以从主菜单「继续游戏」。");

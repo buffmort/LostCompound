@@ -20,10 +20,44 @@ namespace LostCompound.Maps
         private readonly int _cols;
         private readonly Room[][] _grid;
 
-        public TreeMazeGenerator(int rows, int cols, EnvType envType)
+        /// <summary>
+        /// 本局专用的随机源。**它是“种子 → 地形”这套存档方案的地基。**
+        ///
+        /// 为什么不能用 `Random.Shared`：那是进程级的全局实例，**无法播种**，
+        /// 所以「同样的种子生成同样的地图」根本不成立 —— 存档里只存种子就还原不出来。
+        /// 改成每个生成器持有自己的 `Random(seed)`，6 个随机点全走它，才能复现。
+        ///
+        /// ⚠️ 关于线程安全：`Random` 实例**不是**线程安全的，而原来的 `Random.Shared` 是。
+        /// 本类只在建图时（单线程、构造之后立刻 Generate）用它，所以没有问题；
+        /// 如果将来要并行建多张图，必须各自 new 一个，绝不能共用一个实例。
+        /// </summary>
+        private readonly Random _rng;
+
+        /// <summary>
+        /// 本局的随机种子。存档只存它 + 进度坐标，地形由它重新算出来。
+        /// 取值范围就是 `int` 全域（含负数 —— `Random` 接受任何 int）。
+        /// </summary>
+        public int Seed { get; }
+
+        /// <summary>
+        /// 生成算法的版本号。**存档里会存一份，读档时比对。**
+        ///
+        /// 为什么必须有：种子的全部魔力就是「同一种子 + 同一份算法 = 同一张图」。
+        /// 以后只要动了这里的任何一个掷点顺序、概率、房间比例，旧存档的种子就会
+        /// 算出**另一张地图** —— 玩家可能站在一堵新生成的墙里，或者宝箱房凭空消失，
+        /// 而且全程不报错。
+        ///
+        /// 所以：**只要改了本类的建图逻辑，就把这个数字 +1**，
+        /// 旧档会被明确拒绝，而不是安静地变成另一张图。
+        /// </summary>
+        public const int GeneratorVersion = 1;
+
+        public TreeMazeGenerator(int rows, int cols, EnvType envType, int seed)
         {
             _rows = rows;
             _cols = cols;
+            Seed = seed;
+            _rng = new Random(seed);
             // Java: new Room[rows][cols]；C# 保持交错数组，需要逐行分配
             _grid = new Room[rows][];
             for (int r = 0; r < rows; r++)
@@ -32,23 +66,6 @@ namespace LostCompound.Maps
             }
             InitializeRooms(envType);
         }
-
-        /// <summary>
-        /// 读档专用：直接拿一张现成网格构造，**不重新生成地图**。
-        ///
-        /// 为什么需要它：`Player.StartGame` 要用 `tmg.ToDisplayString()` 画地图，
-        /// 而 `_grid` 是 readonly、只由构造函数填。
-        /// 读档时地图来自存档文件，不能再跑一遍随机生成 —— 那会把存档里的地形冲掉。
-        /// </summary>
-        private TreeMazeGenerator(Room[][] grid)
-        {
-            _grid = grid;
-            _rows = grid.Length;
-            _cols = grid.Length > 0 ? grid[0].Length : 0;
-        }
-
-        /// <summary>读档专用：用已有网格构造（见私有构造函数）。</summary>
-        public static TreeMazeGenerator FromGrid(Room[][] grid) => new(grid);
 
         /**
          * 初始化所有房间并分配类型（START、BOSS、其他随机）。
@@ -79,7 +96,7 @@ namespace LostCompound.Maps
             // 3. 先按概率生成 FightRoom 和 EmptyRoom（Fight : Empty = 2 : 1）
             foreach (int[] pos in normalPositions)
             {
-                int roll = Random.Shared.Next(3); // 0,1,2 均匀分布
+                int roll = _rng.Next(3); // 0,1,2 均匀分布
                 if (roll < 2)
                 {
                     _grid[pos[0]][pos[1]] = new FightRoom(env);  // 2/3 概率
@@ -93,9 +110,9 @@ namespace LostCompound.Maps
             // 4. 50% 概率生成一个 CraftRoom，随机替换掉一个普通房间
             //    taken 记下已被替换的格子坐标：步骤 5 必须避开它们。
             List<int[]> taken = [];
-            if (Random.Shared.Next(2) == 0) // 50% true / 50% false
+            if (_rng.Next(2) == 0) // 50% true / 50% false
             {
-                int index = Random.Shared.Next(normalPositions.Count);
+                int index = _rng.Next(normalPositions.Count);
                 int[] pos = normalPositions[index];
                 _grid[pos[0]][pos[1]] = new CraftRoom(env);
                 taken.Add(pos);
@@ -111,8 +128,8 @@ namespace LostCompound.Maps
             // 概率不变：本步仍然是独立的 50% 掷骰（掷骰在前、挑格子在后），
             //   只是「掷中时挑哪一格」的分布变成了在剩余格子上均匀。
             // 候选非空的前提：normalPositions.Count ≥ 2（10×10 时是 98），
-            // 先被占掉的至多 1 格，所以 count - 1 ≥ 1，Random.Shared.Next 不会收到 0/负数。
-            if (Random.Shared.Next(2) == 0)
+            // 先被占掉的至多 1 格，所以 count - 1 ≥ 1，_rng.Next 不会收到 0/负数。
+            if (_rng.Next(2) == 0)
             {
                 List<int[]> available = new List<int[]>(normalPositions.Count);
                 foreach (int[] p in normalPositions)
@@ -125,7 +142,7 @@ namespace LostCompound.Maps
                     }
                 }
 
-                int index = Random.Shared.Next(available.Count);
+                int index = _rng.Next(available.Count);
                 int[] pos = available[index];
                 _grid[pos[0]][pos[1]] = new TreasureRoom(env);
             }
@@ -366,11 +383,13 @@ namespace LostCompound.Maps
         };
 
         // 辅助方法：C# 没有 Collections.shuffle，用 Fisher-Yates 手写等价实现
-        private static void Shuffle<T>(IList<T> list)
+        // ⚠️ 必须是**实例**方法：它要用本局的 `_rng`。写成 static 就够不到种子，
+        //    整个「种子 → 地形」的复现性就断了（这条编译器帮不了你，只有运行期才发现）。
+        private void Shuffle<T>(IList<T> list)
         {
             for (int i = list.Count - 1; i > 0; i--)
             {
-                int j = Random.Shared.Next(i + 1);
+                int j = _rng.Next(i + 1);
                 (list[i], list[j]) = (list[j], list[i]);
             }
         }

@@ -4,20 +4,29 @@ namespace LostCompound.Save
     /// 存档的**纯数据**形态（DTO = Data Transfer Object）。
     ///
     /// 这一层刻意「傻」：只有属性、没有方法、没有 Func、不读控制台、不认识任何游戏类。
-    /// 原因：
-    ///   · 能被 JSON 序列化的只有**公开属性 + 基本类型**（int / double / string / List / 字典）；
-    ///     带行为的对象（`Recipe` 里是 `Func<Item>`、`Room` 里有环境引用）根本写不进文件。
-    ///   · 存档格式一旦发布就要兼容旧档，所以格式与游戏内部结构解耦，改代码不用改格式。
     ///
-    /// 命名上 `XxxData` 与游戏类一一对应，但**不是**同一个东西：
-    /// `PlayerData` 是「玩家状态的一份快照」，`Player` 是「会跑的游戏对象」。
+    /// ─────────────────────────────────────────────────────────────
+    /// 【设计核心】地图**不存**，只存「种子 + 进度」。
+    ///
+    /// 地形（房间类型、门的连通关系）完全由 `TreeMazeGenerator` 的种子决定：
+    /// 种子 + 同一版本的算法 → 必然算出同一张图。既然算得出来，就没必要占存档。
+    ///
+    /// 但**进度算不出来** —— 「走过哪几格」「搜刮过哪几格」「开局道具发过没」
+    /// 是玩家玩出来的，只能存。它们的体积很小：压平成「格子编号」的数组就是了。
+    ///
+    /// 于是存档从 15.9 KB 掉到 1 KB 左右，而且不会出现
+    /// 「存档里的地形和种子算出来的地形不一致」这种鬼故事 —— 地形只有一个真相源。
+    ///
+    /// ⚠️ 代价：**改了建图算法就会让旧存档的图变形**。
+    ///    所以存了 `GeneratorVersion`，不匹配就明确拒绝（见 SaveRestorer）。
+    /// ─────────────────────────────────────────────────────────────
     /// </summary>
     public sealed class SaveData
     {
-        /// <summary>格式版本。**只增不改语义**：加字段 = 升版本，读旧档走兼容分支。</summary>
+        /// <summary>格式版本。**加了/改了字段语义就 +1**，读旧档走兼容或明确拒绝。</summary>
         public int Version { get; set; }
 
-        /// <summary>存档时间（ISO 8601 字符串）。只用于显示「上次存档：…」。</summary>
+        /// <summary>存档时间（`yyyy-MM-dd HH:mm:ss`）。只用于显示「上次存档：…」。</summary>
         public string SavedAt { get; set; } = "";
 
         /// <summary>
@@ -36,9 +45,44 @@ namespace LostCompound.Save
         /// <summary>环境自己的状态（水量 / 水位 / 堵住回合），见 <see cref="MapEnvironment.Environment.SaveState"/>。</summary>
         public Dictionary<string, int> EnvState { get; set; } = [];
 
-        public PlayerData Player { get; set; } = new();
+        // ==================== 地图重建参数 ====================
 
-        public MapData Map { get; set; } = new();
+        /// <summary>
+        /// 本局的地图种子。**这是地图的全部来源** —— 房间类型与门的连通关系都由它重算。
+        /// </summary>
+        public int Seed { get; set; }
+
+        /// <summary>
+        /// 建图算法的版本（`TreeMazeGenerator.GeneratorVersion`）。
+        /// 与当前代码不一致时，读档会**拒绝**：同一个种子在新算法下是另一张图，
+        /// 硬读进来会让玩家站进墙里或让宝箱房凭空消失，而且全程不报错。
+        /// </summary>
+        public int GeneratorVersion { get; set; }
+
+        /// <summary>地图行数 / 列数。目前固定 10×10，但存下来才能诚实地重建。</summary>
+        public int Rows { get; set; }
+        public int Cols { get; set; }
+
+        /// <summary>
+        /// 已访问的格子。**压平成编号**：`下标 = row * Cols + col`。
+        ///
+        /// 为什么压平：存 `{"Row":3,"Col":7}` 这种对象，一格就是 30 多个字符；
+        /// 存一个整数只要 1~3 个字符。100 格的图里这个差距就是十几 KB。
+        /// 读取时用同一个公式还原，不需要额外约定。
+        /// </summary>
+        public List<int> Visited { get; set; } = [];
+
+        /// <summary>已搜刮 / 事件已触发的格子（同样是压平编号）。</summary>
+        public List<int> Cleaned { get; set; } = [];
+
+        /// <summary>
+        /// 起始房间的「本层开局道具是否已发放」。
+        /// 每层只有一个起始房间，所以一个 bool 就够，不必塞进坐标数组。
+        /// 不存的话读档后再回起点会**再发一轮开局三选一**。
+        /// </summary>
+        public bool StartItemsGiven { get; set; }
+
+        public PlayerData Player { get; set; } = new();
     }
 
     /// <summary>玩家状态快照。</summary>
@@ -101,35 +145,5 @@ namespace LostCompound.Save
         public int Id { get; set; }
         public int Stacks { get; set; }
         public int Turns { get; set; }
-    }
-
-    /// <summary>地图快照。二维数组在 JSON 里表示起来很啰嗦，所以展平成一维 + 行列数。</summary>
-    public sealed class MapData
-    {
-        public int Rows { get; set; }
-        public int Cols { get; set; }
-
-        /// <summary>按**行优先**展平：索引 = row * Cols + col。</summary>
-        public List<RoomData> Rooms { get; set; } = [];
-    }
-
-    /// <summary>一个格子。</summary>
-    public sealed class RoomData
-    {
-        /// <summary>房间类型，存名字（理由同 <see cref="SaveData.EnvType"/>）。</summary>
-        public string Type { get; set; } = "";
-
-        /// <summary>4 扇门的位掩码：上=1 下=2 左=4 右=8（见 <see cref="Rooms.Room.GetDoors"/>）。</summary>
-        public int Doors { get; set; }
-
-        public bool Visited { get; set; }
-        public bool Cleaned { get; set; }
-
-        /// <summary>
-        /// 只有起始房间用它：「本层开局道具是否已发放」。
-        /// 不存的话读档后再回起点会**再发一轮开局三选一**。
-        /// 其它房间忽略这个字段。
-        /// </summary>
-        public bool StartItemsGiven { get; set; }
     }
 }

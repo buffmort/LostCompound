@@ -153,19 +153,17 @@ namespace LostCompound.Tools.Launch
             }
 
             Player p = new Player();
-            if (!SaveRestorer.TryRestore(data, p, out Room[][] map))
+            // 地图在 Restorer 里用**种子重新生成**，所以它会连生成器一起交回来
+            if (!SaveRestorer.TryRestore(data, p, out Room[][] map, out TreeMazeGenerator tmg))
             {
                 Console.WriteLine("存档内容无法还原，已返回主菜单。\n");
                 return;
             }
 
-            // 用现成网格造生成器：只为了 ToDisplayString() 能画出地图，不重新 Generate()
-            TreeMazeGenerator tmg = TreeMazeGenerator.FromGrid(map);
-
             int row = Math.Clamp(data.Player.Row, 0, map.Length - 1);
             int col = Math.Clamp(data.Player.Col, 0, map[0].Length - 1);
 
-            Console.WriteLine($"已读取存档（{data.SavedAt}）。");
+            Console.WriteLine($"已读取存档（{data.SavedAt}），种子 {data.Seed}。");
             p.ContinueGame(map, tmg, row, col);
         }
 
@@ -187,7 +185,12 @@ namespace LostCompound.Tools.Launch
                 Console.WriteLine("已取消开局。\n");
                 return;
             }
-            TreeMazeGenerator tmg = new TreeMazeGenerator(10, 10, envType.Value);
+            // 摇一个本局种子。**这张地图的一切都由它决定** ——
+            // 存档里只存它，读档时用它重算出同一张图，而不是把 100 格地形都写进文件。
+            int seed = Random.Shared.Next();
+            Console.WriteLine("本局种子：" + seed);
+
+            TreeMazeGenerator tmg = new TreeMazeGenerator(10, 10, envType.Value, seed);
             tmg.Generate();
             Room[][] map = tmg.Grid;
             Player p = new Player();

@@ -284,34 +284,6 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 | `Maps\` | `LostCompound.Maps` | `TreeMazeGenerator` |
 | `Save\` | `LostCompound.Save` | `SaveData`（DTO）/ `SaveFile`（IO）/ `SaveCollector` / `SaveRestorer` |
 
-## 2.10 存档（`Save\`）
-
-**分工只有一条线：`Collector` 只读、`Restorer` 只写、`SaveFile` 只管文件、`SaveData` 只有字段。**
-
-| 谁 | 干什么 | 不许干什么 |
-|---|---|---|
-`SaveCollector` | 运行时对象 → DTO | 改任何游戏状态 |
-`SaveRestorer` | DTO → 运行时对象 | 碰文件、碰控制台以外的 UI |
-`SaveFile` | DTO ↔ `%APPDATA%\LostCompound\save.json` | 认识任何游戏类 |
-`SaveData` | 纯属性容器 | 有方法、有 `Func`、有行为 |
-
-**三条硬规则：**
-
-1. **派生值不进存档**（`Str` / `Atk` / `Def`）—— 读档后 `RecomputeStats()` 会算回来。
-   存了反而可能与来源矛盾（见 §2.3 重算制）。
-2. **实例状态必须走 `IItemState`**。`ItemFactory.Create(id, count)` 只还原 ID + 数量；
-   耐久 / 已承伤次数 / 倒计时都要道具自己实现 `SaveState()` / `LoadState()`，
-   否则读档后「快坏的镐子」会变回满耐久。
-3. **枚举一律存名字，不存数字**（`"LavaWaterfall"` 而非 `0`）。
-   存数字的话，将来往枚举中间插一个成员，旧档会整体错位且不报错。
-
-**写入必须原子**：先写 `save.json.tmp`，再 `File.Move(..., overwrite: true)`。
-直接覆盖写，一旦写到一半进程被杀，存档就永久报废（`SaveFile` 类注释里有一节基础 IO 讲解）。
-
-⚠️ **发布时不要开 `PublishAot` / `PublishTrimmed`**：`System.Text.Json` 的反射序列化在
-AOT/裁剪下默认被禁用（运行时报 `Reflection-based serialization has been disabled`）。
-现在的发布参数（self-contained 单文件、不裁剪）是安全的。
-
 ### `Player` 的拆分（partial class）
 
 `Player` 有 1900+ 行、86 个成员，按职责拆成 8 个 `partial` 文件，全部在 `Tools\Players\`，
@@ -366,6 +338,56 @@ int extra = guaranteed + (Random.Shared.NextDouble() < remainder ? 1 : 0);
 
 ---
 
+## 2.10 存档（`Save\`）
+
+**分工只有一条线：`Collector` 只读、`Restorer` 只写、`SaveFile` 只管文件、`SaveData` 只有字段。**
+
+| 谁 | 干什么 | 不许干什么 |
+|---|---|---|
+`SaveCollector` | 运行时对象 → DTO | 改任何游戏状态 |
+`SaveRestorer` | DTO → 运行时对象 | 碰文件、碰渲染 |
+`SaveFile` | DTO ↔ `%APPDATA%\LostCompound\save.json` | 认识任何游戏类 |
+`SaveData` | 纯属性容器 | 有方法、有 `Func`、有行为 |
+
+### 地图**不存**，只存「种子 + 进度」
+
+地形（房间类型、门的连通）完全由 `TreeMazeGenerator` 的种子决定：**算得出来的东西不进存档。**
+所以存档里只有：
+
+| 字段 | 作用 |
+|---|---|
+`Seed` / `GeneratorVersion` | 重建地形的全部参数 |
+`Rows` / `Cols` | 尺寸（目前固定 10×10，但存下来才算诚实重建） |
+`Visited` / `Cleaned` | **压平坐标**数组，`编号 = row * Cols + col`，只记变了的格子 |
+`StartItemsGiven` | 整层只有一个起始房间，一个 bool 够用 |
+
+体积：**15.9 KB → 0.96 KB**，而且地形只有一个真相源（不会出现「存档里的地形与种子算出的不一致」）。
+
+### 五条硬规则
+
+1. **派生值不进存档**（`Str` / `Atk` / `Def`）—— 读档后 `RecomputeStats()` 会算回来。
+   存了反而可能与来源矛盾（见 §2.3 重算制）。
+2. **实例状态必须走 `IItemState`**。`ItemFactory.Create(id, count)` 只还原 ID + 数量；
+   耐久 / 已承伤次数 / 倒计时都要道具自己实现 `SaveState()` / `LoadState()`，
+   否则读档后「快坏的镐子」会变回满耐久。
+3. **枚举一律存名字，不存数字**（`"LavaWaterfall"` 而非 `0`）。
+   存数字的话，将来往枚举中间插一个成员，旧档会整体错位且不报错。
+4. **⚠️ 改了建图逻辑，必须把 `TreeMazeGenerator.GeneratorVersion` + 1。**
+   种子的全部魔力是「同一种子 + 同一算法 = 同一张图」。改了任何掷点顺序、概率、房间比例，
+   旧档的种子就指向**另一张图** —— 玩家可能站进墙里、宝箱房凭空消失，而且全程不报错。
+   版本不符时 `SaveRestorer` 会明确拒绝，这是有意的：宁可读不了，不要安静地变一张图。
+5. **`TreeMazeGenerator` 只能用注入的 `_rng`，绝不能用 `Random.Shared`。**
+   后者是进程级实例、**无法播种**，用了它「种子复现」就不成立。
+   连带后果：`Shuffle` 必须从 `static` 改成实例方法（它要够到 `_rng`）。
+
+**写入必须原子**：先写 `save.json.tmp`，再 `File.Move(..., overwrite: true)`。
+直接覆盖写，一旦写到一半进程被杀，存档就永久报废（`SaveFile` 类注释里有一节基础 IO 讲解）。
+
+⚠️ **发布时不要开 `PublishAot` / `PublishTrimmed`**：`System.Text.Json` 的反射序列化在
+AOT/裁剪下默认被禁用（运行时报 `Reflection-based serialization has been disabled`）。
+现在的发布参数（self-contained 单文件、不裁剪）是安全的。
+
+---
 # 三、那些「看起来是 bug 其实不是」的东西
 
 | 现象 | 真相 |

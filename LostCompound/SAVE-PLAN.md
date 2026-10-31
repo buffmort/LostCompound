@@ -200,3 +200,34 @@ LostCompound\
 
 **已知未覆盖**：死亡删档这条分支没有自动化验证（需要把玩家打死），
 代码上是 `RunMainLoop` 退出后 `if (!IsAlive) SaveFile.Delete()`，逻辑单薄，人工试一局即可。
+
+---
+
+## 九、v2：改成「种子 + 进度」（已按用户方案落地）
+
+用户提出的方案：**只存种子，生成时把进度坐标点亮，再把玩家塞进去。**
+
+落地要点：
+
+| 项 | 做法 |
+|---|---|
+种子 | `TreeMazeGenerator(rows, cols, envType, seed)`，内部 6 个随机点全走 `_rng = new Random(seed)` |
+新开局 | `GameLobby` 摇 `Random.Shared.Next()` 并打印「本局种子：…」 |
+地形 | **不存**，读档时同种子重算 |
+进度 | `Visited` / `Cleaned` 压平成 `row * Cols + col`，只记变了的格子 |
+起始房间 | 单独一个 `StartItemsGiven` bool（整层只有一个起点） |
+玩家落位 | 新增 `Player.JoinMap(map, row, col)` 重载，直接落在目标格（不再「先找起点再挪」） |
+防护 | `GeneratorVersion` 不符 → 明确拒绝，避免「同种子算出另一张图」 |
+
+顺带删掉的死代码：`RoomFactory`（改用种子重建后不需要按类型造房间）、
+`Room.GetDoors/SetDoors`（地形由种子还原，不再存门掩码）、`TreeMazeGenerator.FromGrid`、
+`Player.RestorePosition`（被 `JoinMap` 重载取代）。
+
+**结果：存档 15.9 KB → 0.96 KB。**
+验证（探针）：
+- 同种子两次生成 → 房间类型 + 四向门逐格一致；换种子 → 不一致
+- 地形还原一致、水位 163、坐标 (3,4)、该格 `IsPlayerHere=True`
+- 已访问 4（3 个手标 + 起始房间自带 `IsVisited=true`）、已搜刮 1
+- 木头 `change=2`、斗篷承伤 2、`Hp=88.5` 原值
+- 存档 → 读档 → 再存，抹掉时间戳后逐字节一致
+- 端到端：开局存档 0.96 KB → 主菜单「继续游戏」→ 读档 → 再存，仍一致

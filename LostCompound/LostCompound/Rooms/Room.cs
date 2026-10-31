@@ -70,33 +70,5 @@ namespace LostCompound.Rooms
                 _doors[index] = hasDoor;
             }
         }
-
-        /// <summary>
-        /// 把 4 扇门压成一个 4 位掩码：上=1，下=2，左=4，右=8。
-        ///
-        /// 为什么要有它：`_doors` 是私有的、又只有 <see cref="SetDoor"/> 一个写入口，
-        /// 存档时**读不出来**。存档要的是「这一格的地形」，掩码比 4 个 bool 好存也好比对。
-        /// </summary>
-        public int GetDoors()
-        {
-            int mask = 0;
-            for (int i = 0; i < _doors.Length; i++)
-            {
-                if (_doors[i])
-                {
-                    mask |= 1 << i;   // 位号 == (int)Direction，与 _doors 的索引约定一致
-                }
-            }
-            return mask;
-        }
-
-        /// <summary>读档专用：按掩码恢复 4 扇门（与 <see cref="GetDoors"/> 互为逆操作）。</summary>
-        public void SetDoors(int mask)
-        {
-            for (int i = 0; i < _doors.Length; i++)
-            {
-                _doors[i] = (mask & (1 << i)) != 0;
-            }
-        }
     }
 }

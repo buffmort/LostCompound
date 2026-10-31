@@ -3,6 +3,7 @@ using LostCompound.Buffs;
 using LostCompound.Items;
 using LostCompound.Items.Capabilities;
 using LostCompound.MapEnvironment;
+using LostCompound.Maps;
 using LostCompound.Rooms;
 using LostCompound.Rooms.Types;
 using LostCompound.Tools.Players;
@@ -20,21 +21,63 @@ namespace LostCompound.Save
         /// <summary>拍一张快照。</summary>
         /// <param name="p">玩家</param>
         /// <param name="map">当前地图（环境对象可从任意房间拿到，同一层共享一个实例）</param>
-        public static SaveData Capture(Player p, Room[][] map)
+        /// <param name="tmg">生成器 —— 存档要它的种子，而不是地图本身</param>
+        public static SaveData Capture(Player p, Room[][] map, TreeMazeGenerator tmg)
         {
             // 环境对象：TreeMazeGenerator 建图时创建一次、所有房间共享，
             // 所以取哪一格都一样。取 [0][0] 是因为它一定存在（起点房间）。
             Environment env = map[0][0].Environment;
+            int cols = map.Length > 0 ? map[0].Length : 0;
 
             SaveData data = new()
             {
                 Layer = 1,   // 层数系统未实现，恒为 1（DTO 里预留）
                 EnvType = (env?.Type ?? EnvType.None).ToString(),
                 EnvState = env?.SaveState() ?? [],
+
+                // 地图只存"能重建它"的参数：种子 + 尺寸 + 算法版本
+                Seed = tmg.Seed,
+                GeneratorVersion = TreeMazeGenerator.GeneratorVersion,
+                Rows = map.Length,
+                Cols = cols,
+
                 Player = CapturePlayer(p),
-                Map = CaptureMap(map),
             };
+
+            CaptureProgress(data, map, cols);
             return data;
+        }
+
+        /// <summary>
+        /// 采集**进度**（哪些格子走过、哪些搜过、开局道具发过没）。
+        ///
+        /// 这些是玩家玩出来的状态，种子推不出来，必须存。
+        /// 但只存「变了的那几格」的编号 —— 没有访问过的格子不占任何空间。
+        /// </summary>
+        private static void CaptureProgress(SaveData data, Room[][] map, int cols)
+        {
+            for (int r = 0; r < map.Length; r++)
+            {
+                for (int c = 0; c < cols; c++)
+                {
+                    Room room = map[r][c];
+                    int index = r * cols + c;   // 压平编号，与 SaveData.Visited 的约定一致
+
+                    if (room.IsVisited)
+                    {
+                        data.Visited.Add(index);
+                    }
+                    if (room.IsCleaned)
+                    {
+                        data.Cleaned.Add(index);
+                    }
+                    // 全图只有一个 StartRoom，命中即记
+                    if (room is StartRoom start && start.StartItemsGiven)
+                    {
+                        data.StartItemsGiven = true;
+                    }
+                }
+            }
         }
 
         private static PlayerData CapturePlayer(Player p)
@@ -74,33 +117,6 @@ namespace LostCompound.Save
             if (item is IItemState stateful)
             {
                 d.State = stateful.SaveState();
-            }
-            return d;
-        }
-
-        private static MapData CaptureMap(Room[][] map)
-        {
-            MapData d = new()
-            {
-                Rows = map.Length,
-                Cols = map.Length > 0 ? map[0].Length : 0,
-            };
-
-            // 行优先展平：JSON 里二维数组不好看也不好读，一维列表 + 行列数足够
-            foreach (Room[] row in map)
-            {
-                foreach (Room room in row)
-                {
-                    d.Rooms.Add(new RoomData
-                    {
-                        Type = room.Type.ToString(),
-                        Doors = room.GetDoors(),
-                        Visited = room.IsVisited,
-                        Cleaned = room.IsCleaned,
-                        // 只有起始房间有这个状态，其它房间是 false
-                        StartItemsGiven = room is StartRoom start && start.StartItemsGiven,
-                    });
-                }
             }
             return d;
         }
