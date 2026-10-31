@@ -46,6 +46,50 @@ namespace LostCompound.Tools
         /// <summary>第几次通关解锁「初始生命值 +20」。</summary>
         public const int BaseHpBonusClears = 10;
 
+        /// <summary>
+        /// 「可自选下一层地图」的解锁档位（DESIGN 第十章：第 1 / 3 / 5 / 7 次通关各 +1）。
+        ///
+        /// 用户裁定（方案 A）的口径：**解锁几次，一局里就有几层可以自选**，
+        /// 从第 2 层开始数（第 1 层永远是开局选的那张图）。例如：
+        ///   · 通关 1 次 → 1 层可自选 → 第 **2** 层能选；
+        ///   · 通关 3 次 → 2 层可自选 → 第 **2、3** 层都能选（用户原话「第三层也能自选」）；
+        ///   · 通关 5 次 → 3 层 → 第 2、3、4 层；
+        ///   · 通关 7 次 → 4 层 → 第 2、3、4、5 层；再往后的层数恢复随机。
+        ///
+        /// 为什么用「层号 ≤ 解锁层数 + 1」判定而不是记一个「剩余自选次数」：
+        ///   后者是**一局内的状态**，要进存档（否则读档后次数会被重置或多给）；
+        ///   而「第几层该能不能选」完全由 (层号, 累计通关次数) 决定 —— 是纯函数，
+        ///   不需要存任何东西，也不会出现读档前后不一致。
+        /// </summary>
+        public const int SelfSelectMilestone1 = 1;
+        public const int SelfSelectMilestone2 = 3;
+        public const int SelfSelectMilestone3 = 5;
+        public const int SelfSelectMilestone4 = 7;
+
+        /// <summary>一局里最多有几层可以自选（0 = 全都随机）。</summary>
+        public static int SelfSelectLayerCount
+        {
+            get
+            {
+                int clears = Profile.Clears;
+                int count = 0;
+                if (clears >= SelfSelectMilestone1) count++;
+                if (clears >= SelfSelectMilestone2) count++;
+                if (clears >= SelfSelectMilestone3) count++;
+                if (clears >= SelfSelectMilestone4) count++;
+                return count;
+            }
+        }
+
+        /// <summary>
+        /// 第 <paramref name="layer"/> 层是否允许自选环境。
+        /// 第 1 层不算（那是开局在主菜单选的），所以门槛是「层号 ≤ 可自选层数 + 1」。
+        /// </summary>
+        public static bool CanSelfSelectLayer(int layer)
+        {
+            return layer >= GameProgress.FirstLayer + 1 && layer <= SelfSelectLayerCount + 1;
+        }
+
         /// <summary>第 2 次通关自带的玻璃罐数。</summary>
         public const int GlassJarClears2 = 2;
 

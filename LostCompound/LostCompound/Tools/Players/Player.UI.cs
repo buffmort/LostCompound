@@ -522,6 +522,46 @@ namespace LostCompound.Tools.Players
             }
         }
 
+        /// <summary>
+        /// 换层时让玩家选下一层的环境（已解锁「可自选下一层地图」时才走这里）。
+        /// 菜单里 **0 = 随机**；输入流结束（EOF）也按随机处理 —— 不能因为没输入就把换层卡死。
+        ///
+        /// 清单来自 <see cref="EnvironmentCatalog"/>，与开局选环境是同一份数据源
+        /// （未实现的环境不在里面，否则会得到一张「没有环境」的地图）。
+        /// </summary>
+        private (string Name, EnvType Type) ChooseNextEnvironment(
+            int layer, IReadOnlyList<(string Name, EnvType Type)> catalog)
+        {
+            Console.WriteLine();
+            Console.WriteLine("------------ 选择第 " + layer + " 层的环境 ------------");
+            for (int i = 0; i < catalog.Count; i++)
+            {
+                Console.WriteLine("  " + (i + 1) + ". " + catalog[i].Name);
+            }
+            Console.WriteLine("  0. 随机");
+            Console.WriteLine("------------------------------------------");
+
+            while (true)
+            {
+                int choice = ReadInt("选择环境");
+                if (choice == 0)
+                {
+                    Console.WriteLine("随机决定。");
+                    return catalog[Random.Shared.Next(catalog.Count)];
+                }
+                if (choice > 0 && choice <= catalog.Count)
+                {
+                    return catalog[choice - 1];
+                }
+                if (_inputClosed)
+                {
+                    // 没有输入了：按随机处理，别把换层卡在这里
+                    return catalog[Random.Shared.Next(catalog.Count)];
+                }
+                Console.WriteLine("选择无效，请输入 0-" + catalog.Count);
+            }
+        }
+
         /// <summary>换层时回复的最大生命比例（用户裁定：**恢复 70%**）。</summary>
         private const double NextLayerHealRatio = 0.7;
 
@@ -540,10 +580,19 @@ namespace LostCompound.Tools.Players
         {
             GameProgress.EnterNextLayer();
 
-            // 环境：默认**随机**（用户裁定：只有「第 1/3/7 次通关」才可自选下一层地图，
-            // 而通关系统还没做，所以眼下永远走随机）。
+            // 环境：默认**随机**；若这一层在「可自选」范围内（第十章第 1/3/5/7 次通关解锁，
+            // 见 ProgressUnlocks.CanSelfSelectLayer），则让玩家自己挑 —— 菜单里 0 = 仍然随机。
             IReadOnlyList<(string Name, EnvType Type)> catalog = EnvironmentCatalog.All;
-            (string envName, EnvType nextEnvType) = catalog[Random.Shared.Next(catalog.Count)];
+            string envName;
+            EnvType nextEnvType;
+            if (ProgressUnlocks.CanSelfSelectLayer(GameProgress.Layer))
+            {
+                (envName, nextEnvType) = ChooseNextEnvironment(GameProgress.Layer, catalog);
+            }
+            else
+            {
+                (envName, nextEnvType) = catalog[Random.Shared.Next(catalog.Count)];
+            }
 
             TreeMazeGenerator newTmg =
                 new(GameProgress.MapSizeForLayer(GameProgress.Layer).Rows,
