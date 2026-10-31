@@ -211,6 +211,23 @@ namespace LostCompound.Tools.Players
             }
         }
 
+        /// <summary>
+        /// 道具用完之后刷新右侧两个框（状态框 + Buff 框）。
+        ///
+        /// 为什么需要它：道具的 <c>Use</c> 可以直接改玩家状态 —— 镜子(45) 就会对换
+        /// Base 属性并夹低 Hp，而 <see cref="Player.OpenItems"/> 原先只做收尸（RemoveConsumedItems），
+        /// 没有刷新界面。于是在战斗中用镜子，状态框里还是换之前的血量/防御/力量，
+        /// 一直要等到怪物打中（TakeDamage 里会刷新）或下一回合才更新 —— 玩家会以为道具没生效。
+        ///
+        /// 为什么用 internal 而不是 public：这是**界面**的事，只有同程序集的道具使用路径
+        /// 该调它；公开出去等于允许游戏逻辑在任何地方刷界面（CONVENTIONS 1.2 的可见性口径）。
+        /// </summary>
+        internal void RefreshAfterItemUse()
+        {
+            RefreshStatus();
+            RefreshBuffBox();
+        }
+
         /// <summary>刷新状态栏。战斗时会追加血量/防御/护盾/力量。</summary>
         private void RefreshStatus()
         {
@@ -507,8 +524,9 @@ namespace LostCompound.Tools.Players
 
                     // 5/6/7：地图上的「非移动动作」。不做任何一格的计算、也不触发房间事件，
                     // 做完直接回到循环顶部重画（玩家的位置没变，pendingEnter 保持 false）。
-                    // 5 走的是**战斗外**那条背包路径（选中道具调 ExplainBattleOnly，
-                    // 不真的执行效果）—— 见 Player.ExplainItemsOutsideBattle 的注释。
+                    // 5 走的是**战斗外**那条背包路径（Player.ExplainItemsOutsideBattle）：
+                    // 声明了 IOutsideBattleUsable 的一次性道具（镜子）会**真的生效并消耗**，
+                    // 其余道具只得到一句「只能在战斗中使用」的解释。
                     if (direction == 5)
                     {
                         ExplainItemsOutsideBattle();

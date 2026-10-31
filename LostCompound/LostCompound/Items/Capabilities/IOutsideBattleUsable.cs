@@ -13,6 +13,14 @@ namespace LostCompound.Items.Capabilities
     ///
     /// 与项目里其它能力位（`IOnDamaged` / `IDotAbsorber` / `ICannotBeTargeted`）同一思路：
     /// 调用方只问「这件东西能不能在战斗外用」，不认识具体道具类。
+    ///
+    /// ⚠️ **实现义务（必须遵守）**：调用方在战斗外执行时传的是**空列表** `Use(p, [])` ——
+    ///   场上没有敌人。所以实现方必须做到「不依赖怪物列表」：
+    ///     · 不要去读 `m[0]`（会下标越界）；
+    ///     · 不要对空列表调 `SelectTarget`（会卡在选目标上）；
+    ///     · 不要用 `m.Count == 0` 当「早退条件」而不扣数量 —— 那会变成「用了但不消耗」
+    ///       （压缩沙瓶就是这种写法，所以它**不能**实现本接口）。
+    ///   这条约束只写在注释里、编译器检查不了，加实现之前请先确认自己的 `Use` 满足它。
     /// </summary>
     public interface IOutsideBattleUsable
     {

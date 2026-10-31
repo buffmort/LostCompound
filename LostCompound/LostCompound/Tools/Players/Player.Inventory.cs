@@ -114,15 +114,19 @@ namespace LostCompound.Tools.Players
         /// <summary>
         /// **不在战斗中**时打开背包（地图上按 5）。
         ///
-        /// 与战斗版的区别只有一句：选中道具后调 <see cref="IUseable.ExplainBattleOnly"/>，
-        /// 而不是 <see cref="IUseable.Use"/> —— 这就是那个方法存在的理由。
-        /// 接口把「怎么用」和「为什么现在不能用」分成两个方法，正是为了这条路径：
-        /// 战斗外用道具时**不该真的执行效果**（否则毒气弹会在没有敌人的房间里被白白消耗、
-        /// 水瓶会在没有水源的地方"回满水量"），但玩家需要知道原因。
+        /// 两种结局，按道具自己声明来分：
+        ///   · 实现了 <see cref="IOutsideBattleUsable"/> 的（目前只有一次性的镜子）——
+        ///     **真的执行** <see cref="IUseable.Use"/>，用完照常收尸；
+        ///   · 其余 <see cref="IUseable"/> —— 只调 <see cref="IUseable.ExplainBattleOnly"/>，
+        ///     **不执行、不消耗**。因为大部分道具是 AOE / 需要目标 / 需要水源的，
+        ///     在没有敌人的房间里硬执行会很荒谬（毒气弹白白消耗、水瓶在没有水源的地方"回满水量"）。
+        ///
+        /// 这个区分就是 <see cref="IOutsideBattleUsable"/> 存在的理由：
+        /// 「战斗外能不能用」由道具自己声明，调用方不认识具体道具类。
         ///
         /// 为什么不在 OpenItems 里加一个 bool 参数：那样两套流程会绞在一起
         /// （列表要不要标 [可使用]、选完要不要收尸、要不要弹战斗提示…），
-        /// 而这边只有一件事要做 —— 解释。分成两个方法，各自读起来就是它该做的事。
+        /// 而这边的主线是「解释」。分成两个方法，各自读起来就是它该做的事。
         /// </summary>
         private void ExplainItemsOutsideBattle()
         {
@@ -135,7 +139,10 @@ namespace LostCompound.Tools.Players
             Console.WriteLine("=====背包（战斗外）=====");
             for (int i = 0; i < Inventory.Count; i++)
             {
-                Console.WriteLine(i + "." + Inventory[i]);
+                // 标一下「选它会真的生效」，否则玩家分不清「执行」和「得到一句解释」。
+                bool usable = Inventory[i] is IUseable;
+                bool outside = Inventory[i] is IOutsideBattleUsable;
+                Console.WriteLine(i + "." + Inventory[i] + (outside ? "[可用]" : usable ? "[仅战斗中]" : ""));
             }
             Console.WriteLine("-1. 返回");
 
@@ -144,11 +151,9 @@ namespace LostCompound.Tools.Players
                 int choice = ReadInt("选择道具");
                 if (choice == -1)
                 {
+                    // 两种来源都走这里：玩家自己输 -1（返回），或输入流结束（ReadInt 置了
+                    // _inputClosed 并返回 -1）。后者不需要另判 —— 再问一遍也只会立刻返回 -1。
                     return;
-                }
-                if (_inputClosed)
-                {
-                    return;   // 输入流结束：不空转
                 }
                 if (choice < 0 || choice >= Inventory.Count)
                 {
@@ -161,9 +166,11 @@ namespace LostCompound.Tools.Players
                 {
                     // 这件道具声明了「战斗外也能用」（如一次性的镜子）：
                     // 真的执行效果，并像战斗路径一样立刻收尸（用完即从背包消失）。
-                    // 传空列表 = 场上没有敌人；它的 Use 本来就不看怪物列表。
+                    // 传空列表 = 场上没有敌人；实现方必须做到不依赖怪物列表
+                    // （接口注释里写明了这条义务）。
                     outsideUseable.Use(this, []);
                     RemoveConsumedItems();
+                    RefreshAfterItemUse();
                     return;
                 }
                 if (item is IUseable useable)
@@ -263,6 +270,10 @@ namespace LostCompound.Tools.Players
                 // 注意：走到这里意味着上面的 while 已经校验过编号合法，且 branch 确实执行了 Use()。
                 // 用户输入无效编号 / -1 退出 / 非 IUseable 时都不会到这里，不会被误删。
                 RemoveConsumedItems();
+
+                // 再刷一次界面：Use 可能直接改了玩家状态（镜子的 Base 对换 / Hp 夹取），
+                // 不刷的话状态框要等到下次挨打或下一回合才更新（见 RefreshAfterItemUse 的注释）。
+                RefreshAfterItemUse();
             }
             else
             {
@@ -351,7 +362,8 @@ namespace LostCompound.Tools.Players
         }
 
         /// <summary>
-        /// 收走背包里所有「该走了」的道具 —— 用完道具（<see cref="OpenItems"/>）后立刻调用，
+        /// 收走背包里所有「该走了」的道具 —— 两个使用入口（<see cref="OpenItems"/> 战斗内、
+        /// <see cref="ExplainItemsOutsideBattle"/> 战斗外用掉一次性道具）之后都会调用它，
         /// 免得「用掉最后一瓶水」之后背包里还挂着一条可被重新选中的「水瓶 x0」，
         /// 一直等到下一个玩家回合的 <see cref="HandleChangeableItems"/> 才消失。
         ///
