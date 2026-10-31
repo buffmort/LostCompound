@@ -343,6 +343,10 @@ namespace LostCompound.Tools.Players
 
         public void StartGame(Room[][] map, TreeMazeGenerator tmg)
         {
+            // 第十章「进度解锁」：按累计通关次数补背包容量 / 自带玻璃罐 / 初始 DEF·HP / 配方 1。
+            // 只在新开局套用 —— 读档走 ContinueGame，那些加成已经在存档的 BaseXxx 里了。
+            ProgressUnlocks.ApplyToNewRun(this);
+
             JoinMap(map);
             RunMainLoop(map, tmg, pendingEnter: true, unlockRecipes: true);
         }
