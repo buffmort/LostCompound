@@ -225,8 +225,10 @@ namespace LostCompound.Tools.Launch
             //（读档路径不走这里，它用存档里记的层数，见 SaveRestorer）。
             GameProgress.StartRun(seed);
 
+            // 地图尺寸随层数长大（GameProgress.MapSizeForLayer，第 1 层 5×5）。
+            (int rows, int cols) = GameProgress.MapSizeForLayer(GameProgress.Layer);
             TreeMazeGenerator tmg = new TreeMazeGenerator(
-                10, 10, envType.Value, GameProgress.LayerSeed, GameProgress.Layer);
+                rows, cols, envType.Value, GameProgress.LayerSeed, GameProgress.Layer);
             tmg.Generate();
             Room[][] map = tmg.Grid;
             Player p = new Player();

@@ -542,7 +542,9 @@ namespace LostCompound.Tools.Players
             (string envName, EnvType nextEnvType) = catalog[Random.Shared.Next(catalog.Count)];
 
             TreeMazeGenerator newTmg =
-                new(10, 10, nextEnvType, GameProgress.LayerSeed, GameProgress.Layer);
+                new(GameProgress.MapSizeForLayer(GameProgress.Layer).Rows,
+                    GameProgress.MapSizeForLayer(GameProgress.Layer).Cols,
+                    nextEnvType, GameProgress.LayerSeed, GameProgress.Layer);
             newTmg.Generate();
 
             // 分栏界面的尺寸是按地图算的（现在都是 10×10，所以尺寸不变），

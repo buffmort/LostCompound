@@ -869,7 +869,7 @@
 | **档案 profile（`profile.json`）** | 玩家名 / 死亡次数 / 转化仓（占位）。与 `save.json` 分开：死亡删 save 但不删 profile。开局第一次运行问名字；死亡时 `Profile.AddDeath()` + 落盘 |
 | 6 种环境（沙漠 / 矿洞 / 墓地 / 放射性区域 / 雾都城市） | — |
 | 附魔系统（4.4） | 魔法台 + 困难模式 |
-| 层数系统（**10 层**） | ✅ 已实现（2026-10-31）。<br>**层数**：`GameProgress.Layer`（权威）、`tmg.Layer`（图上的快照）、存档 `Layer`。<br>**每层种子**：`SeedForLayer(总种子, 层数) = 总种子 × 层数`（用户裁定；纯函数，读档后算出来的仍一样；乘积回绕成 0 时退回总种子）。总种子 `Random.Shared.NextInt64()` 开局摇一次，存进 `SaveData.RunSeed`。<br>**换层**：`BossRoom` 打赢后举牌 `Player.NextLayerRequested`，由 `Player.RunMainLoop` 调 `AdvanceLayer()` 统一重建（层数 +1 → 取新种子 → 新图 → 回到起点 → **回复 70% 上限的血** → 立刻存档）。环境**随机**（`EnvironmentCatalog` 里抽）。<br>**通关**：第 10 层 Boss 打赢 → `Player.GameCleared` → 删档 + `Profile.Clears++`。<br>⚠️ 还没做：第十章那些「按通关次数解锁」（第 2/4 次通关的背包/饰品成长、第 5 次解锁配方 1、可自选下一层地图）—— `Profile.Clears` 已经在记了，只是没人读它 |
+| 层数系统（**10 层**） | ✅ 已实现（2026-10-31）。<br>**层数**：`GameProgress.Layer`（权威）、`tmg.Layer`（图上的快照）、存档 `Layer`。<br>**地图尺寸**：随层数长大，每两层行列各 +1（5×5 → 9×9，`GameProgress.MapSizeForLayer`）；**放射性区域将来固定 10×10**，不吃这个公式。<br>**每层种子**：`SeedForLayer(总种子, 层数) = 总种子 × 层数`（用户裁定；纯函数，读档后算出来的仍一样；乘积回绕成 0 时退回总种子）。总种子 `Random.Shared.NextInt64()` 开局摇一次，存进 `SaveData.RunSeed`。<br>**换层**：`BossRoom` 打赢后举牌 `Player.NextLayerRequested`，由 `Player.RunMainLoop` 调 `AdvanceLayer()` 统一重建（层数 +1 → 取新种子 → 按新尺寸建图 → 回到起点 → **回复 70% 上限的血** → 立刻存档）。环境**随机**（`EnvironmentCatalog` 里抽）。<br>**通关**：第 10 层 Boss 打赢 → `Player.GameCleared` → 删档 + `Profile.Clears++`。<br>⚠️ 还没做：第十章那些「按通关次数解锁」（第 2/4 次通关的背包/饰品成长、第 5 次解锁配方 1、可自选下一层地图）—— `Profile.Clears` 已经在记了，只是没人读它 |
 | 困难 / fatal 模式（2.3） | 通关系统 |
 | Hyberty Boss 战（第三章） | — |
 | 转化仓（3.4） | Hyberty |
@@ -883,7 +883,7 @@
 
 | 项目 | 文档 | 代码 |
 |---|---|---|
-| 地图大小 | 7×7 ~ 13×13 | 固定 10×10 |
+| 地图大小 | 7×7 ~ 13×13 | **随层数长大**（用户裁定 A：每两层行列各 +1）：L1-2 5×5、L3-4 6×6、L5-6 7×7、L7-8 8×8、L9-10 9×9（`GameProgress.MapSizeForLayer`）。旧存档按档里存的 Rows/Cols 重建。**放射性区域将来固定 10×10**（该环境未实现） |
 | **洞潜僵尸** | 精英，**100 血** | 未实现；代码里的 `Zombie` 是 **30 血**（且与文档的「洞潜僵尸」不是同一只） |
 | **死亡后能否移动** | §11.1：可以 | `Player.StartGame` 是 `while (IsAlive)` → **死亡即整局结束** |
 | **重进战斗房是否重打** | §11.2 旧文：会重新战斗 | `FightRoom` / `BossRoom` 用 `IsCleaned` → **只打印「这是战斗过后的遗迹」** |

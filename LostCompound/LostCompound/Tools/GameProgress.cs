@@ -29,6 +29,28 @@ namespace LostCompound.Tools
         /// <summary>最后一层（用户裁定：**10 层**）。打完第 10 层的 Boss 就算通关。</summary>
         public const int FinalLayer = 10;
 
+        /// <summary>第 1 层的地图边长（用户裁定：5×5 起）。</summary>
+        public const int BaseMapSize = 5;
+
+        /// <summary>
+        /// 第 N 层的地图尺寸（用户裁定，方案 **A**：**每两层，行列各 +1**）。
+        ///
+        ///   L1-2  5×5   L3-4  6×6   L5-6  7×7   L7-8  8×8   L9-10 9×9
+        ///
+        /// 为什么用 A 而不是「行先行、列后列」的 B：方图换层时「整体放大一圈」读起来更自然，
+        /// 长条形（6×5、7×6）会让玩家觉得某个方向莫名其妙地短一截。
+        /// 第 10 层是 9×9，比原来固定 10×10 还小一档，分栏界面的排版一定放得下。
+        ///
+        /// ⚠️ 尺寸只影响「新生成」的地图；旧存档的 Rows/Cols 存在档里，读档仍按原尺寸重建。
+        /// ⚠️ **放射性区域**（未实现）的用户裁定：该环境**固定 10×10**，不吃这个公式 ——
+        ///    实现它的时候要在建图处单独覆盖，而不是改这里。
+        /// </summary>
+        public static (int Rows, int Cols) MapSizeForLayer(int layer)
+        {
+            int size = BaseMapSize + (Math.Max(layer, FirstLayer) - 1) / 2;   // 每两层 +1
+            return (size, size);
+        }
+
         /// <summary>当前所在层数。改动请走本类的三个方法，不要直接赋值。</summary>
         public static int Layer { get; private set; } = FirstLayer;
 
