@@ -255,22 +255,76 @@ namespace LostCompound.Tools.Players
                 if (_inputClosed) return;
                 Console.WriteLine("选择无效! 请重新选择(0-" + (available.Count - 1) + ", 255 返回)");
             }
-            available[choice].Craft(this);
+            CraftAndSettle(available[choice]);
+        }
 
-            // 立刻扫一次「该消失的道具」：硫酸剑(44) 的 ShouldRemove 恒为 true。
-            // 不扫的话它会挂在背包里、直到下一回合开头被 HandleChangeableItems 清掉 ——
-            // 玩家会真的在背包里看到一把"已经飞走"的剑。
+        /// <summary>
+        /// 标准合成（合成台，DESIGN §4.2）—— 与「徒手合成」的区别只有一条：
+        /// **能看到的配方 = 全部已实现配方 − 玩家当前已有的配方**（补集）。
+        ///
+        /// 为什么要补集：合成台是「有工具的地方」，能做出徒手做不了的东西；
+        /// 徒手合成没有工具，所以那些配方**离开房间就没了**（用户原话：
+        /// 「删除 因为徒手合成没工具所以你合成不了很合理吧」）。
+        /// 临时加进来的配方由 <see cref="CraftRoom"/> 在 OnLeave 时移除。
+        ///
+        /// 注意：这里的「可合成」仍然看材料够不够 —— 补集里但材料不足的配方照样列出来
+        /// （标「材料不足」），让玩家知道合成台能做什么，而不是把选项藏起来。
+        /// </summary>
+        public void CraftWithStation()
+        {
+            Console.WriteLine("====标准合成（合成台）====");
+
+            if (Recipes.Count == 0)
+            {
+                Console.WriteLine("你还不会任何配方。");
+                return;
+            }
+
+            for (int i = 0; i < Recipes.Count; i++)
+            {
+                ICraftable r = Recipes[i];
+                string mark = r.CanCraft(this) ? "" : "（材料不足）";
+                Console.WriteLine(i + ". " + r.Name + " " + r.DescribeMaterials(this) + mark);
+            }
+
+            Console.WriteLine("255. 返回");
+
+            int choice;
+            while (true)
+            {
+                Console.WriteLine("请选择..");
+                choice = ReadInt("选择配方编号");
+                if (choice == 255) return;
+                if (choice >= 0 && choice < Recipes.Count) break;
+                if (_inputClosed) return;
+                Console.WriteLine("选择无效! 请重新选择(0-" + (Recipes.Count - 1) + ", 255 返回)");
+            }
+
+            ICraftable picked = Recipes[choice];
+            if (!picked.CanCraft(this))
+            {
+                Console.WriteLine("材料不足，无法合成" + picked.Name + "!");
+                return;
+            }
+            CraftAndSettle(picked);
+        }
+
+        /// <summary>
+        /// 合成一条配方并做全部收尾（两个合成入口共用）。
+        ///
+        /// 收尾三件事的顺序不能换：
+        ///   ① <see cref="RemoveConsumedItems"/>：硫酸剑(44) 的 ShouldRemove 恒为 true，
+        ///      不立刻扫的话它会挂在背包里直到下回合开头才消失；
+        ///   ② <see cref="RecomputeStats"/>：合成会消耗材料，而材料里可能有加成的装备
+        ///      （硫酸剑要吃掉铁剑 +7 ATK），不重算会「白赚」到下一回合；
+        ///   ③ <see cref="RefreshAfterItemUse"/>：不刷界面状态框还是旧数值。
+        /// </summary>
+        private void CraftAndSettle(ICraftable recipe)
+        {
+            recipe.Craft(this);
             RemoveConsumedItems();
-
-            // 合成会**消耗**材料，而材料里可能有提供被动加成的装备：
-            // 铁剑 +7 ATK（Items\Equipment\IronSword.cs）、盔甲 +10 DEF、盾、斗篷……
-            // 硫酸剑的配方要消耗一把铁剑 —— 不重算的话，玩家合完剑纸面 ATK 还挂着那 7 点，
-            // 要等到下一回合的 OnTurnStart 才掉（看起来像「白赚了 7 点攻击」）。
-            // 重算后顺手刷一次界面，否则状态框还是旧数值。
             RecomputeStats();
             RefreshAfterItemUse();
-
-            HandCraft();
         }
         /*
         * 后面是地图逻辑
