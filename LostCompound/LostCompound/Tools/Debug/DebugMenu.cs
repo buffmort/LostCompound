@@ -135,13 +135,69 @@ namespace LostCompound.Tools.Debug
         {
             if (player == null) return;
 
-            // ── 1. 列出所有道具：ID + 名称，按 ID 升序 ──
-            // 序号就直接用 ID（不另编 0,1,2…）：用户要的是「for 所有道具 id 对应名称」，
-            // 多一套序号只会让「选第 3 个」和「ID 3」对不上。
-            Console.WriteLine("------------ 获取道具 ------------");
+            // ── 0. 先选 ID 区间（分页）──
+            // 为什么不能一次列完：道具已经有 45 个，一次打印 45 行会把日志区刷爆
+            // （日志区只有几行，玩家连「请输入道具 ID」这句提示都被顶上去看不到了）。
+            // 用户要求：先选 1-10 / 11-20 / 21-30 … 再在里面选 ID。
+            const int PageSize = 10;
+
+            int maxId = 0;
             foreach ((int Id, string Name, Func<int, Item> Create) entry in ItemFactory.All)
             {
+                if (entry.Id > maxId) maxId = entry.Id;
+            }
+            int pageCount = Math.Max(1, (maxId + PageSize - 1) / PageSize);
+
+            Console.WriteLine("------------ 获取道具 ------------");
+
+            // page = 0 表示「全部」（保留入口，但明确警告会刷屏）
+            int page;
+            while (true)
+            {
+                Console.WriteLine("选择 ID 区间：");
+                for (int p = 1; p <= pageCount; p++)
+                {
+                    Console.WriteLine("  " + p + ". " + ((p - 1) * PageSize + 1) + "-" + (p * PageSize));
+                }
+                Console.WriteLine("  " + (pageCount + 1) + ". 全部（会刷满日志）");
+                Console.WriteLine("  0. 取消");
+
+                int? input = ReadIntOrCancel("请输入区间编号: ");
+                if (input == null || input.Value == 0)
+                {
+                    Console.WriteLine("已取消。\n");
+                    return;
+                }
+                if (input.Value == pageCount + 1)
+                {
+                    page = 0;          // 全部
+                    break;
+                }
+                if (input.Value >= 1 && input.Value <= pageCount)
+                {
+                    page = input.Value;
+                    break;
+                }
+                Console.WriteLine("没有这个区间。");
+            }
+
+            int low = page == 0 ? int.MinValue : (page - 1) * PageSize + 1;
+            int high = page == 0 ? int.MaxValue : page * PageSize;
+
+            // ── 1. 只列出选中的那一页：ID + 名称，按 ID 升序 ──
+            // 序号就直接用 ID（不另编 0,1,2…）：用户要的是「for 所有道具 id 对应名称」，
+            // 多一套序号只会让「选第 3 个」和「ID 3」对不上。
+            bool any = false;
+            foreach ((int Id, string Name, Func<int, Item> Create) entry in ItemFactory.All)
+            {
+                if (entry.Id < low || entry.Id > high) continue;
                 Console.WriteLine("  " + entry.Id + ". " + entry.Name + "  (ID " + entry.Id + ")");
+                any = true;
+            }
+            if (!any)
+            {
+                Console.WriteLine("这个区间里没有道具。\n");
+                return;
             }
             Console.WriteLine("----------------------------------");
 
