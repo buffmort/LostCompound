@@ -34,7 +34,6 @@ namespace LostCompound.UI
                     break;      // 忽略回车，只认 \n
                 default:
                     _pending.Append(value);
-                    _screen.SetPartial(_pending.ToString());
                     break;
             }
         }
@@ -60,8 +59,10 @@ namespace LostCompound.UI
                 }
             }
 
-            // 整串处理完只更新一次未完成行
-            _screen.SetPartial(_pending.ToString());
+            // 这里原先还有一句 `_screen.SetPartial(_pending.ToString())`，把未换行内容画进输入框。
+            // 已删除：输入框现在只画 ">"（提示与回显叠在一个框里，输多了会错位，
+            // 详见 ConsoleScreen.RedrawInputBox 的注释）。未完成行继续留在 _pending 里，
+            // 等下一个换行一起提交成日志行 —— 内容不会丢。
         }
     }
 }

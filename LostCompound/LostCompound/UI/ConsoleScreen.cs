@@ -49,7 +49,6 @@ namespace LostCompound.UI
         private readonly TextWriter _raw;          // 真实输出，必须在 SetOut 之前抓住
         private readonly LogRegionWriter _writer;
         private readonly List<string> _log = [];
-        private string _partial = "";              // Console.Write 留下的未换行内容 = 当前的输入提示
         private string _lastMap;                   // 上次画过的地图文本（跳过无变化的重绘）
         private string _lastStatus;                // 上次画过的状态文本
         private string _lastEnemies = "";          // 上次画过的敌人文本
@@ -471,7 +470,6 @@ namespace LostCompound.UI
         /// <summary>提交一条日志（由 <see cref="LogRegionWriter"/> 在遇到换行时调用）。</summary>
         public void AppendLog(string line)
         {
-            _partial = "";
             _log.Add(line);
             while (_log.Count > LogRows) _log.RemoveAt(0);
             RedrawLog();
@@ -479,21 +477,13 @@ namespace LostCompound.UI
         }
 
         /// <summary>
-        /// 更新「当前未完成行」（Console.Write 不带换行时）。
-        /// 这类内容几乎都是输入提示（如 "请选择: "），所以放进输入框，而不是日志区。
+        /// （已删除 SetPartial / SetPrompt）
+        ///
+        /// 输入框现在**只画一个 ">"**，不再显示任何提示文字。
+        /// 原因：提示文字长度不定，而玩家敲的字是终端回显在光标处的 —— 两者叠在同一个框里，
+        /// 输入次数一多就会出现「提示文字与词条重叠」「上一句的残影还在」这类错位。
+        /// 提示一律改走日志区（`ReadInt` 会先写一行，方向提示由 ShowAvailableDirections 给）。
         /// </summary>
-        public void SetPartial(string text)
-        {
-            _partial = text;
-            RedrawInputBox();
-        }
-
-        /// <summary>设置输入框里显示的提示文字（光标自动定位到末尾）。</summary>
-        public void SetPrompt(string text)
-        {
-            _partial = text;
-            RedrawInputBox();
-        }
 
         private void RedrawLog()
         {
@@ -508,14 +498,14 @@ namespace LostCompound.UI
         private void RedrawInputBox()
         {
             int row = InputBoxTop + 1;
-            DrawBoxContent(row, LeftBoxLeft, LeftWidth, PromptPrefix + _partial);
+            DrawBoxContent(row, LeftBoxLeft, LeftWidth, PromptPrefix);   // 只画 ">"，不画提示
 
-            // 光标跑到提示文字之后，这样玩家敲的字回显在输入框里。
-            // 列号 = 左边框（1 列）+ ContentOffset 格边距 + 提示文字宽度 —— 与 DrawBoxContent
-            // 实际写出的文字位置**逐字对应**（那边也是 │ + ContentOffset 格 + 文字）。
-            // 原先这里减 2、而 DrawBoxContent 只写 1 格边距时恰好蒙对；DrawBoxContent 补齐宽度后
-            // 两者统一成 ContentOffset，光标不再错位到文字前面。
-            int col = LeftBoxLeft + ContentOffset + DisplayWidth(Clamp(PromptPrefix + _partial, LeftWidth));
+            // 光标停在 "> " 之后，玩家敲的字由终端回显在这里。
+            //
+            // 为什么不在这里算「提示文字宽度」了：输入框已经不画提示（提示改走日志）。
+            // 之前把提示画进框里时，提示长度不定 + 终端回显叠在一起，输入次数一多就错位；
+            // 现在这一行的内容宽度恒定为 "> "，光标位置也就恒定，不会再和词条/框线打架。
+            int col = LeftBoxLeft + ContentOffset + DisplayWidth(PromptPrefix);
             _raw.Write($"\u001b[{row};{col}H");
         }
 

@@ -74,7 +74,7 @@ namespace LostCompound.Tools.Players
             RefreshEnemyBox(monsters);
             Console.WriteLine();
             Console.WriteLine("请选择操作");
-            Console.WriteLine("1.攻击  2.防御  3.使用背包道具  4.徒手合成  5.饰品栏");
+            Console.WriteLine("1.攻击  2.防御  3.打开背包  4.徒手合成  5.饰品栏");
             if (DebugState.Enabled)
             {
                 Console.WriteLine("debug模式操作:");
@@ -125,7 +125,7 @@ namespace LostCompound.Tools.Players
                 //   刻意不为这种情况新增任何提示：否则玩家一乱按就能发现「这里藏着东西」，
                 //   而改造前它们是无条件生效的（127/128/129 一个守卫生效都没有）。
                 case 127 when DebugState.Enabled:
-                    AddBuff(new SuperMaleBuff(1,int.MaxValue));
+                    AddBuff(new SuperMaleBuff(1,int.MaxValue,true));
                     Console.WriteLine($"超雄模式：基础 STR 已设为 {BaseStr}（当前 STR {Str}）");
                     break;
                 case 128 when DebugState.Enabled:
@@ -173,8 +173,10 @@ namespace LostCompound.Tools.Players
         {
             while (true)
             {
-                // 输入框里也显示一份提示，否则玩家只能盯着滚动日志看要输入什么
-                _screen?.SetPrompt(prompt);
+                // 提示写进日志区，而不是输入框。
+                // 输入框现在只画 ">"：提示文字 + 终端回显叠在同一个框里，输入次数一多就会错位
+                // （提示与词条重叠 / 上一句的残影），详见 ConsoleScreen.RedrawInputBox。
+                Console.WriteLine(prompt);
                 string line = Console.ReadLine();
                 if (line == null)
                 {
@@ -333,6 +335,7 @@ namespace LostCompound.Tools.Players
             // 登记「当前对局」，让退出钩子（关窗口 / Ctrl+C）能拿到玩家、地图和生成器
             SaveSession.Begin(this, map, tmg);
             Console.WriteLine("游戏开始！输入方向探索地图。");
+            Console.WriteLine("方向：0上 1下 2左 3右，4 退出。");
 
             // 开局解锁「配方0」（内容见 AddDefaultRecipes；原先这里括注「热硫 + 玻璃罐」，
             // 早已漏掉水瓶，这次补全配方 0 后更不完整，故去掉括注、只留方法名这一处真相）。
@@ -372,8 +375,9 @@ namespace LostCompound.Tools.Players
 
                     ShowAvailableDirections();
 
-                    // 输入框里也提示一次可走的方向，别让玩家只看到日志区在滚
-                    _screen?.SetPrompt("选择方向（0上 1下 2左 3右，4 退出）");
+                    // 方向提示**不再塞进输入框**（输入框只画 ">"，避免提示与回显叠加导致错位）。
+                    // 可走方向已经由 ShowAvailableDirections 写进日志了，这里再写一遍只会每回合刷屏；
+                    // 「4 退出」这个提示改由进入地图时的开场白说明（见 RunMainLoop 开头）。
 
                     // 把「现在可以安全存档」的窗口打开，只包住这一次 ReadLine：
                     // 此刻房间事件已结算完、没有进行中的战斗，是整局里唯一能完整恢复的状态。

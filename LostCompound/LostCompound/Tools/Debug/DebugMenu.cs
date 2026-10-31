@@ -375,12 +375,11 @@ namespace LostCompound.Tools.Debug
         /// 非法输入（非数字 / 超出 int 范围）不取消，只提示后重问 —— 与 GameLobby.ReadChoice、
         /// Player.ReadInt 同一种写法：TryParse 而不是 Parse，绝不抛异常。
         ///
-        /// ⚠️ 提示用 <c>WriteLine</c> 而不是 <c>Write</c>（**本方法是调试菜单专用**，
-        /// 与 GameLobby / Player.ReadInt 无关，那两处仍走 <c>_screen.SetPrompt</c>）：
-        ///   带换行的输出会经 LogRegionWriter 走 <c>AppendLog</c> 进**日志区**，
-        ///   而不带换行的会经 <c>SetPartial</c> 进**输入框**（见 ConsoleScreen.SetPartial 的注释）。
-        ///   调试菜单要的是提示留在日志里可回看，所以这里明确选择「进日志」。
-        ///   顺带一个好处：AppendLog 会清掉未完成行，输入框只剩「> 」，不会把提示重复显示一遍。
+        /// ⚠️ 提示用 <c>WriteLine</c> 而不是 <c>Write</c>：
+        ///   带换行的输出会经 LogRegionWriter 走 <c>AppendLog</c> 进**日志区**。
+        ///   现在全项目的输入框都只画一个「> 」（见 ConsoleScreen.RedrawInputBox），
+        ///   `SetPartial` / `SetPrompt` 已经删除 —— 提示一律走日志，
+        ///   不再有「提示文字与终端回显叠在同一个框里」的错位问题。
         /// </summary>
         private static int? ReadIntOrCancel(string prompt)
         {
