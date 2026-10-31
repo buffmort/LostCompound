@@ -65,27 +65,7 @@ namespace LostCompound.Monsters
                     Console.WriteLine("哇,你杀了一个假人! 你好棒!");
                     break;
                 case MonsterType.Zombie:
-                    // ⚠️ 下面的概率是**替用户定的占位值**：用户只裁定「僵尸掉木炭 / 木头 / 布料」，
-                    // 没有给概率。本次按「70% 掉 1 件；掉的时候按权重选」落地：
-                    //   木头 5 / 布料 3 / 木炭 2（共 10）→ 期望 0.7 件/只。
-                    // 给出正式数值后，只需改这里的 0.70 与三个权重。
-                    // 用 if/else 而不是嵌套三元，是为了让「哪段区间对应哪件」一眼能看出来。
-                    if (r < 0.70)
-                    {
-                        int pick = Random.Shared.Next(10);
-                        if (pick < 5)
-                        {
-                            loots.Add(new Wood(1));
-                        }
-                        else if (pick < 8)
-                        {
-                            loots.Add(new Cloth(1));
-                        }
-                        else
-                        {
-                            loots.Add(new Charcoal(1));
-                        }
-                    }
+                    AddZombieLoot(loots, r);
                     break;
                 case MonsterType.Skeleton:
                     // 掉落规则（设计文档 §6.2）：每次击杀**抽 1 或 2 次**，每次从权重表里抽一项。
@@ -118,30 +98,33 @@ namespace LostCompound.Monsters
                     }
                     break;
                 case MonsterType.Piranha:
-                    // DESIGN §6 没有给食人鱼的掉落。**暂定无掉落**（它只有 10 血、
-                    // 又打不到、只能靠 AOE 清，若再给好东西会变成刷分对象）。
-                    // 用户给出正式掉落时，按骷髅那张权重表的写法补在这里。
+                    // 用户裁定：**50% 掉 1 个白磷，20% 掉 2 个**。
+                    // 口径是「互斥的两档」，不是「两个独立判定」：先看 20% 拿 2 个，
+                    // 没中再看 50% 拿 1 个。若写成两个独立的 `if (r < x)`，
+                    // 在 r < 0.2 的区间里会**两档同时命中**（白磷 1+2=3 个），
+                    // 那是叠加不是分档 —— 那种写法只在**有意「重叠即掉两样」**时才用
+                    // （见类注释里岩浆怪的例子）。
+                    if (r < 0.2)
+                    {
+                        loots.Add(new WhitePhosphorus(2));
+                    }
+                    else if (r < 0.5)
+                    {
+                        loots.Add(new WhitePhosphorus(1));
+                    }
                     break;
                 case MonsterType.DiverZombie:
-                    // ⚠️ 暂定：DESIGN §6 也没写洞潜僵尸的掉落，这里**沿用普通僵尸那张表**
-                    //   （70% 掉 1 件；木头 5 / 布料 3 / 木炭 2），理由是它本质是同一种怪。
-                    //   这是占位口径，等用户裁定后改这里的数字即可。
-                    if (r < 0.70)
+                    // 用户裁定：**必定掉 1-2 个布料**，再 **40% 掉 1 个白磷**，
+                    // 剩下那条「合并普通僵尸」—— 也就是普通僵尸那张加权表（木头 5 / 布料 3 / 木炭 2）。
+                    // 「合并」直接复用 AddZombieLoot，不再抄一份权重：两处手抄迟早会不一致。
+                    loots.Add(new Cloth(Random.Shared.Next(1, 3)));   // 1 或 2
+
+                    if (r < 0.4)
                     {
-                        int pick = Random.Shared.Next(10);
-                        if (pick < 5)
-                        {
-                            loots.Add(new Wood(1));
-                        }
-                        else if (pick < 8)
-                        {
-                            loots.Add(new Cloth(1));
-                        }
-                        else
-                        {
-                            loots.Add(new Charcoal(1));
-                        }
+                        loots.Add(new WhitePhosphorus(1));
                     }
+
+                    AddZombieLoot(loots, r);
                     break;
                 case MonsterType.ShieldSoldier:                    // DESIGN §6.2：掉落「1 金属（权重 0.5）」。
                     // ⚠️ 这里的 0.5 是**权重**不是概率 —— 表里只有它一项，抽中率恒为 100%？
@@ -184,6 +167,39 @@ namespace LostCompound.Monsters
                     break;
             }
             return loots;
+        }
+
+        /// <summary>
+        /// 「普通僵尸那一套掉落」：70% 掉 1 件，掉的时候按权重选 木头 5 / 布料 3 / 木炭 2。
+        ///
+        /// 抽出来单独一个方法，是因为**洞潜僵尸要「合并普通僵尸」的掉落**（用户裁定）——
+        /// 两处各抄一份权重表，早晚会改了一处忘了另一处（这类「同一份知识写两遍」的坑
+        /// 在 MobSpawner / EnvironmentCatalog 都踩过，见 CONVENTIONS 2.5）。
+        ///
+        /// ⚠️ 概率仍是**替用户定的占位值**：用户只裁定「僵尸掉木炭 / 木头 / 布料」。
+        /// 给出正式数值后，改这里的 0.70 与三个权重即可，两个调用点自动跟上。
+        /// 用 if/else 而不是嵌套三元，是为了让「哪段区间对应哪件」一眼能看出来。
+        /// </summary>
+        private static void AddZombieLoot(List<Item> loots, double r)
+        {
+            if (r >= 0.70)
+            {
+                return;
+            }
+
+            int pick = Random.Shared.Next(10);
+            if (pick < 5)
+            {
+                loots.Add(new Wood(1));
+            }
+            else if (pick < 8)
+            {
+                loots.Add(new Cloth(1));
+            }
+            else
+            {
+                loots.Add(new Charcoal(1));
+            }
         }
     }
 }
