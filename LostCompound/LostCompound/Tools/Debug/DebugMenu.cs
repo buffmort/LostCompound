@@ -184,35 +184,109 @@ namespace LostCompound.Tools.Debug
             int low = page == 0 ? int.MinValue : (page - 1) * PageSize + 1;
             int high = page == 0 ? int.MaxValue : page * PageSize;
 
-            // ── 1. 只列出选中的那一页：ID + 名称，按 ID 升序 ──
-            // 序号就直接用 ID（不另编 0,1,2…）：用户要的是「for 所有道具 id 对应名称」，
-            // 多一套序号只会让「选第 3 个」和「ID 3」对不上。
-            bool any = false;
-            foreach ((int Id, string Name, Func<int, Item> Create) entry in ItemFactory.All)
+            // ── 1. 选道具：一页内用**字母**选，n/p 翻页，数字仍可直接填 ID ──
+            // 为什么要字母：ID 是稀疏的（1..45 里有不少空号），而且同一个数字既像「编号」
+            // 又像「数量」，玩家容易敲混。字母只在本页有效、连续排，屏幕上「a. 硫磺」
+            // 和要敲的键一一对应。
+            //
+            // 为什么不要求「先选页、再看」：原先第一页看完发现没有，得退出去重来一遍。
+            // 现在页是循环的：n 下一页、p 上一页（首尾相接），只有选中字母才真正结束。
+            int? id = null;
+            while (id == null)
             {
-                if (entry.Id < low || entry.Id > high) continue;
-                Console.WriteLine("  " + entry.Id + ". " + entry.Name + "  (ID " + entry.Id + ")");
-                any = true;
-            }
-            if (!any)
-            {
-                Console.WriteLine("这个区间里没有道具。\n");
-                return;
-            }
-            Console.WriteLine("----------------------------------");
+                List<(int Id, string Name)> pageItems = [];
+                foreach ((int Id, string Name, Func<int, Item> Create) entry in ItemFactory.All)
+                {
+                    if (entry.Id < low || entry.Id > high) continue;
+                    pageItems.Add((entry.Id, entry.Name));
+                }
 
-            // ── 2. 选道具 ──
-            int? id = ReadIntOrCancel("请输入道具 ID（空行取消）: ");
-            if (id == null)
-            {
-                Console.WriteLine("已取消。\n");
-                return;
+                if (pageItems.Count == 0)
+                {
+                    Console.WriteLine("这个区间里没有道具。\n");
+                    return;
+                }
+
+                Console.WriteLine(page == 0
+                    ? "------------ 全部道具 ------------"
+                    : "------------ 第 " + page + "/" + pageCount + " 页（ID " + low + "-" + high + "）------------");
+
+                for (int i = 0; i < pageItems.Count; i++)
+                {
+                    char key = (char)('a' + i);   // 一页最多 PageSize(10) 项，字母够用
+                    Console.WriteLine("  " + key + ". " + pageItems[i].Name + "  (ID " + pageItems[i].Id + ")");
+                }
+                Console.WriteLine("  n=下一页  p=上一页  数字=直接填 ID  0=取消");
+                Console.WriteLine("----------------------------------");
+
+                Console.WriteLine("请选择（字母 / n / p / 数字）:");
+                string line = Console.ReadLine();
+                if (line == null || line.Trim().Length == 0)
+                {
+                    Console.WriteLine("已取消。\n");
+                    return;
+                }
+
+                string key2 = line.Trim().ToLowerInvariant();
+                if (key2 == "0")
+                {
+                    Console.WriteLine("已取消。\n");
+                    return;
+                }
+                if (key2 == "n")
+                {
+                    if (page != 0)   // 「全部」没有页可翻
+                    {
+                        page = page % pageCount + 1;
+                        low = (page - 1) * PageSize + 1;
+                        high = page * PageSize;
+                    }
+                    continue;
+                }
+                if (key2 == "p")
+                {
+                    if (page != 0)
+                    {
+                        page = (page - 2 + pageCount) % pageCount + 1;
+                        low = (page - 1) * PageSize + 1;
+                        high = page * PageSize;
+                    }
+                    continue;
+                }
+                if (key2.Length == 1 && key2[0] >= 'a' && key2[0] <= 'z')
+                {
+                    int index = key2[0] - 'a';
+                    if (index < pageItems.Count)
+                    {
+                        id = pageItems[index].Id;
+                        continue;
+                    }
+                    Console.WriteLine("这一页没有这个字母。");
+                    continue;
+                }
+                if (int.TryParse(key2, out int typed))
+                {
+                    if (ItemFactory.IsKnown(typed))
+                    {
+                        id = typed;
+                        continue;
+                    }
+                    if (typed >= 1 && typed <= pageCount)   // 当成「跳到第几页」
+                    {
+                        page = typed;
+                        low = (page - 1) * PageSize + 1;
+                        high = page * PageSize;
+                        continue;
+                    }
+                    Console.WriteLine("没有这个 ID。");
+                    continue;
+                }
+
+                Console.WriteLine("输入无法识别，请输入字母 / n / p / 数字。");
             }
-            if (!ItemFactory.IsKnown(id.Value))
-            {
-                Console.WriteLine("没有这个道具 ID。\n");
-                return;
-            }
+
+            // 走到这里 id 一定有值且已确认存在（字母只来自上面的 pageItems，数字分支也查过 IsKnown），
+            // 所以原先那句 IsKnown 兜底已经冗余 —— 删掉，避免下一个人以为还有第二条失败路径。
 
             // ── 3. 定数量：<= 0 视为取消 ──
             int? count = ReadIntOrCancel("请输入数量（空行取消）: ");
