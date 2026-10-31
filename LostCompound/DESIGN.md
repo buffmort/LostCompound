@@ -782,7 +782,7 @@
 | 饰品栏 | 5 格 / 每通关 +1 / 上限 15；战斗菜单第 5 项（方案 B：任何被动物件可装）；卸下时检查背包容量，满了拒绝 |
 | 熔岩瀑布 | 水量 200、每回合 -5~10、STR 惩罚 0.01、战斗掉硫磺 2-5、空房事件 30/30/40 |
 | 水淹洞穴 | 水位 0→15、50%/10%/40% 掷点、到 15 判负、热硫堵口 3 回合、可开采（`CanMine`） |
-| Buff 体系 | `Buff`（`Describe` / `StrBonus` / `AtkBonus` / `DefBonus` / `OnTurnTick`）、`BuffIds`、`BuffFactory`、`Permanent` 永久哨兵；血流量产、超雄综合症、力量 |
+| Buff 体系 | `Buff`（`Describe` / `StrBonus` / `AtkBonus` / `DefBonus` / `OnTurnTick`）、`BuffIds`、`BuffFactory`、`Permanent` 永久哨兵；血流量产、超雄综合症、锐化（原「力量」，效果为 +ATK） |
 | 属性机制 | `BaseStr/BaseAtk/BaseDef/BaseHp`（可成长）+ `RecomputeStats()` 统一重算派生值；`Shield`/`Hp` 是资源不参与重算 |
 | 环境能力位 | `CanMine` / `CanMineOre` / `MineOreWithAcid` / `CanRefillWater` / `OnFusionSulphurUsed` / `IsFatalToPlayer` / `GetDamageImmunity` / `BurnsWood` / `StrModifier` |
 | 道具工厂 | `ItemFactory`（ID → 名称 → 实例，登记 21 个道具）；`Recipe` 用产物工厂（不持有实例） |

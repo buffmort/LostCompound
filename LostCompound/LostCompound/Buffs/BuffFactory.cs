@@ -29,7 +29,7 @@ namespace LostCompound.Buffs
         [
             (BuffIds.Bleed, "流血", (stacks, turns) => new BleedBuff(stacks, turns)),
             (BuffIds.SuperMale, "超雄综合症", (stacks, turns) => new SuperMaleBuff(stacks, turns)),
-            (BuffIds.Strength, "力量", (stacks, turns) => new Strength(stacks, turns)),
+            (BuffIds.Sharpen, "锐化", (stacks, turns) => new Sharpen(stacks, turns)),
         ];
 
         /// <summary>

@@ -21,7 +21,7 @@ namespace LostCompound.Buffs
         /// <summary>超雄综合症（SuperMaleBuff）。</summary>
         public const int SuperMale = 2;
 
-        /// <summary>力量（Strength）。</summary>
-        public const int Strength = 3;
+        /// <summary>锐化（Sharpen）。原「力量」，效果已改为 +ATK。**编号 3 不能改**（存档按它还原）。</summary>
+        public const int Sharpen = 3;
     }
 }

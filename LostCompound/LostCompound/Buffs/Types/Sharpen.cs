@@ -5,16 +5,17 @@ using LostCompound.Tools.Players;
 
 namespace LostCompound.Buffs.Types;
 
-public class Strength : Buff
+public class Sharpen : Buff
 {
-    public Strength(int stacks, int turns, bool survivesBattleEnd = false) : base(stacks, turns, survivesBattleEnd)
+    public Sharpen(int stacks, int turns, bool survivesBattleEnd = false) : base(stacks, turns, survivesBattleEnd)
     {
     }
 
     /// <summary>
     /// 每层 +2 ATK（**不是** STR）。
     ///
-    /// 改版原因（用户裁定「力量有点超模了」）：原先每层 +1 STR。
+    /// 改版原因（用户裁定「力量有点超模了」）：原先每层 +1 STR，且当时这个 buff 叫「力量」。
+    /// 名字后来也按用户要求改成了「锐化」—— 效果加的是 ATK 不是 STR，继续叫「力量」会误导。
     /// 伤害公式是 <c>2 + STR × √ATK</c> —— STR 在**根号外面**、线性生效，
     /// ATK 在**根号里面**、收益递减，所以「+1 STR」与「+2 ATK」的实际收益差一个数量级：
     ///
@@ -29,10 +30,10 @@ public class Strength : Buff
 
     public override double AtkBonus => AtkPerStack * Stacks;
 
-    public override string Name => "力量";
+    public override string Name => "锐化";
 
     /// <summary>本 buff 的 ID（见 <see cref="BuffIds"/>）。</summary>
-    public override int Id => BuffIds.Strength;
+    public override int Id => BuffIds.Sharpen;
 
     public override void OnTurnTick(Player owner)
     {
