@@ -157,11 +157,22 @@ namespace LostCompound.Tools.Players
         {
             if (_screen == null) return;
 
+            // 框只有 ConsoleScreen.BuffRows 行。**超出时不能静默丢** ——
+            // 被丢掉的那些 buff 效果照常生效（如洞潜僵尸 4 种 debuff 叠满），
+            // 玩家看不到就会以为没中招。所以最后一行留作「还有 N 个」提示。
+            int limit = ConsoleScreen.BuffRows;
+            bool overflow = Buffs.Count > limit;
+            int show = overflow ? Math.Max(limit - 1, 0) : Buffs.Count;
+
             List<string> lines = [];
-            for (int i = 0; i < Buffs.Count && i < ConsoleScreen.BuffRows; i++)
+            for (int i = 0; i < show && i < Buffs.Count; i++)
             {
                 Buff b = Buffs[i];
                 lines.Add(b.Name + ": " + b.Describe());
+            }
+            if (overflow)
+            {
+                lines.Add("还有 " + (Buffs.Count - show) + " 个状态…");
             }
             _screen.DrawBuffs(string.Join("\n", lines));
         }

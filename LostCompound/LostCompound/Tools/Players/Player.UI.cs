@@ -43,7 +43,17 @@ namespace LostCompound.Tools.Players
 
         // ---- TUI 状态栏联动 ----
         private ConsoleScreen _screen;          // 当前接管输出的分栏界面（不在游戏中时为 null）
-        private string _statusHeader = "";      // 状态栏固定行：当前房间
+
+        /// <summary>
+        /// 状态栏第一行「当前房间:xxx」用的房间类型。
+        ///
+        /// 为什么存**类型**而不是像以前那样存拼好的整行字符串（原 `_statusHeader`）：
+        /// 那行里还带着玩家名（镜子会把名字改成「左旋-张三」），拼好缓存起来之后，
+        /// 名字一变、这行就永远是旧的 —— 战斗中整场显示旧名字，因为战斗中不会再调 DrawScreen。
+        /// 现在改成每次 RefreshStatus 现拼，缓存只留房间类型（它不会在同一步里变）。
+        /// </summary>
+        private RoomType _lastRoomType = RoomType.Start;
+
         private bool _inBattle;                 // 是否处于战斗中（决定状态栏是否追加血量等）
 
         /// <summary>
@@ -232,7 +242,9 @@ namespace LostCompound.Tools.Players
         private void RefreshStatus()
         {
             if (_screen == null) return;
-            string s = _statusHeader;
+
+            // 第一行现拼：房间类型 + 玩家名（名字会被镜子改成「左旋-张三」，不能缓存整行）
+            string s = "当前房间:" + _lastRoomType + "  " + RunDisplayName;
             if (_inBattle)
             {
                 // 护盾按 F1 保留一位小数：它是 double，且装备加成将来可能是小数（如盾 +5.0）
@@ -317,12 +329,9 @@ namespace LostCompound.Tools.Players
         {
             screen.DrawMap(tmg.ToDisplayString());
 
-            // 位置/房间这两行是状态栏的固定部分，缓存起来供战斗中刷新时复用
-            // 「当前位置」已按要求去掉：地图上玩家所在格子本来就有 * 标记，再报一遍坐标是冗余。
-            // 玩家名接在同一行后面：状态框只有 4 行（房间 / 血量 / 力量 / 环境），
-            // 单独开一行会把环境那行挤掉（DrawBox 会直接丢掉超出的行）。
-            // 「左旋/右旋-名字」是镜子(45) 用出来的，见 Player.MirrorSide。
-            _statusHeader = "当前房间:" + map[PlayerRow][PlayerCol].Type + "  " + RunDisplayName;
+            // 只记「在哪个房间」；状态栏首行由 RefreshStatus 现拼（房间 + 玩家名）。
+            // 「当前位置」已按要求去掉：地图上玩家所在格子本来就有 * 标记，再报坐标是冗余。
+            _lastRoomType = map[PlayerRow][PlayerCol].Type;
 
             RefreshStatus();
         }

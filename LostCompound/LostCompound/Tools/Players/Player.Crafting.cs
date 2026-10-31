@@ -262,6 +262,14 @@ namespace LostCompound.Tools.Players
             // 玩家会真的在背包里看到一把"已经飞走"的剑。
             RemoveConsumedItems();
 
+            // 合成会**消耗**材料，而材料里可能有提供被动加成的装备：
+            // 铁剑 +7 ATK（Items\Equipment\IronSword.cs）、盔甲 +10 DEF、盾、斗篷……
+            // 硫酸剑的配方要消耗一把铁剑 —— 不重算的话，玩家合完剑纸面 ATK 还挂着那 7 点，
+            // 要等到下一回合的 OnTurnStart 才掉（看起来像「白赚了 7 点攻击」）。
+            // 重算后顺手刷一次界面，否则状态框还是旧数值。
+            RecomputeStats();
+            RefreshAfterItemUse();
+
             HandCraft();
         }
         /*
