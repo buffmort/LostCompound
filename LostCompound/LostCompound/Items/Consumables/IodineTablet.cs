@@ -1,4 +1,4 @@
-using LostCompound.Monsters;
+﻿using LostCompound.Monsters;
 using LostCompound.Tools;
 using LostCompound.Items;
 using LostCompound.Items.Capabilities;
@@ -14,7 +14,7 @@ namespace LostCompound.Items.Consumables
     /// 数量与耐久的关系：**一片碘片 = 3 次使用**（耐久 3、每次 -1），
     /// 堆叠上限 5 指的是最多能带 5 片。所以 <see cref="Use"/> 只扣耐久、不扣 <see cref="Item.Count"/>。
     /// </summary>
-    public sealed class IodineTablet(int count) : Item(ItemIds.IodineTablet, "碘片", 5, true, count), IUseable, IChangeable, IItemState
+    public sealed class IodineTablet(int count) : Item(ItemIds.IodineTablet, "碘片", 5, true, count), IUseable, IChangeable, IItemState, IOutsideBattleUsable
     {
         public override ItemType? Type => ItemType.IodineTablet;
 

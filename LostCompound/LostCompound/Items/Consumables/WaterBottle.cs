@@ -1,4 +1,4 @@
-// 与 Tools.cs 同样的别名：不加这行时 Environment 会同时命中
+﻿// 与 Tools.cs 同样的别名：不加这行时 Environment 会同时命中
 // System.Environment（隐式 using）与 LostCompound.MapEnvironment.Environment，产生 CS0104。
 using Environment = LostCompound.MapEnvironment.Environment;
 using LostCompound.MapEnvironment;
@@ -19,7 +19,7 @@ namespace LostCompound.Items.Consumables
     /// 同时实现 Changeable：数量归零后由 Player.HandleChangeableItems 自动移出背包，
     /// 这与 Metal / WhitePhosphorus 等消耗品的做法一致（否则会留下「水瓶 x0」）。
     /// </remarks>
-    public sealed class WaterBottle(int count) : Item(ItemIds.WaterBottle, "水瓶", 10, true, count), IUseable, IChangeable
+    public sealed class WaterBottle(int count) : Item(ItemIds.WaterBottle, "水瓶", 10, true, count), IUseable, IChangeable, IOutsideBattleUsable
     {
         public override ItemType? Type => ItemType.WaterBottle;
 

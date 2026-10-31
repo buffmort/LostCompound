@@ -1,4 +1,4 @@
-using LostCompound.Monsters;
+﻿using LostCompound.Monsters;
 using LostCompound.Tools;
 using LostCompound.Items;
 using LostCompound.Items.Capabilities;
@@ -16,7 +16,7 @@ namespace LostCompound.Items.Equipment
     /// TODO 逃离(1)：需要地图逃逸机制（尚未实现，且和「离开地图」的语义要一起定）。
     /// TODO 打破二叉树：需要二叉树地图（尚未实现），届时本道具要能直接损坏并触发地图重置。
     /// </summary>
-    public sealed class Pickaxe(int count) : Item(ItemIds.Pickaxe, "镐子", 1, false, count), IUseable, IChangeable, IItemState
+    public sealed class Pickaxe(int count) : Item(ItemIds.Pickaxe, "镐子", 1, false, count), IUseable, IChangeable, IItemState, IOutsideBattleUsable
     {
         public override ItemType? Type => ItemType.Pickaxe;
 

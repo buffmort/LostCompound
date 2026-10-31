@@ -1,4 +1,4 @@
-using LostCompound.Monsters;
+﻿using LostCompound.Monsters;
 using LostCompound.Tools;
 using LostCompound.Items;
 using LostCompound.Items.Capabilities;
@@ -32,7 +32,7 @@ namespace LostCompound.Items.Consumables
     ///   Hp 是资源、上限是 BaseHp，超额回血会让血量条越过上限（状态栏显示 215/205 这种）。
     ///   所以按 <c>Math.Min(Hp + 15, BaseHp)</c> 处理 —— 满血时这一条**不浪费上限**，只是不溢出。
     /// </summary>
-    public sealed class Medicine(int count) : Item(ItemIds.Medicine, "药", 5, true, count), IUseable, IChangeable, IItemState
+    public sealed class Medicine(int count) : Item(ItemIds.Medicine, "药", 5, true, count), IUseable, IChangeable, IItemState, IOutsideBattleUsable
     {
         public override ItemType? Type => ItemType.Medicine;
 

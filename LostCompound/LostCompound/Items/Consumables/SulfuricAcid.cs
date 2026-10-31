@@ -1,4 +1,4 @@
-// 与 Tools.cs 同样的别名：不加这行时 Environment 会同时命中
+﻿// 与 Tools.cs 同样的别名：不加这行时 Environment 会同时命中
 // System.Environment（隐式 using）与 LostCompound.MapEnvironment.Environment，产生 CS0104。
 using Environment = LostCompound.MapEnvironment.Environment;
 using LostCompound.MapEnvironment;
@@ -24,7 +24,7 @@ namespace LostCompound.Items.Consumables
     /// 同时实现 Changeable：数量归零后由 Player.HandleChangeableItems 自动移出背包，
     /// 否则会留下一个「硫酸 x0」永远占着背包格（金属、水瓶等消耗品都是这个做法）。
     /// </remarks>
-    public sealed class SulfuricAcid(int count) : Item(ItemIds.SulfuricAcid, "硫酸", 10, true, count), IUseable, IChangeable
+    public sealed class SulfuricAcid(int count) : Item(ItemIds.SulfuricAcid, "硫酸", 10, true, count), IUseable, IChangeable, IOutsideBattleUsable
     {
         public override ItemType? Type => ItemType.SulfuricAcid;
 
