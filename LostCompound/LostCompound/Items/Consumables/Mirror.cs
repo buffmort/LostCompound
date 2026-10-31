@@ -29,7 +29,7 @@ namespace LostCompound.Items.Consumables
     ///   而轮换必须发生在它之前 —— 否则镜子还占着格子，轮换会把别的道具的数量搬到镜子上，
     ///   然后镜子连同那个数量一起消失（数量凭空少了）。所以这里当场移除。
     /// </summary>
-    public sealed class Mirror(int count) : Item(ItemIds.Mirror, "镜子", 1, false, count), IUseable
+    public sealed class Mirror(int count) : Item(ItemIds.Mirror, "镜子", 1, false, count), IUseable, IOutsideBattleUsable
     {
         public override ItemType? Type => ItemType.Mirror;
 
@@ -52,13 +52,13 @@ namespace LostCompound.Items.Consumables
         }
 
         /// <summary>
-        /// 战斗外使用时的解释。**这个方法现在真的会被调用**（地图上按 5 打开背包）。
-        /// 原来这里写的是「镜子随时可以用！」—— 那是自相矛盾：既然走到这个方法，
-        /// 就说明现在用不了。文案改成与其它道具一致的说法。
+        /// 战斗外使用时的解释 —— 实际上**走不到这里**：镜子实现了
+        /// <see cref="IOutsideBattleUsable"/>，地图上选中它会直接执行并消耗掉。
+        /// 留着这个实现只是为了满足 IUseable 的接口约定，文案也写成与事实一致的说法。
         /// </summary>
         public void ExplainBattleOnly(Player p)
         {
-            Console.WriteLine("镜子只能在战斗中使用！");
+            Console.WriteLine("镜子随时可以用（一次性消耗品）。");
         }
     }
 }

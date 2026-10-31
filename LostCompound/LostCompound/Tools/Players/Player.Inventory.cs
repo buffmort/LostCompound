@@ -157,9 +157,18 @@ namespace LostCompound.Tools.Players
                 }
 
                 Item item = Inventory[choice];
+                if (item is IOutsideBattleUsable && item is IUseable outsideUseable)
+                {
+                    // 这件道具声明了「战斗外也能用」（如一次性的镜子）：
+                    // 真的执行效果，并像战斗路径一样立刻收尸（用完即从背包消失）。
+                    // 传空列表 = 场上没有敌人；它的 Use 本来就不看怪物列表。
+                    outsideUseable.Use(this, []);
+                    RemoveConsumedItems();
+                    return;
+                }
                 if (item is IUseable useable)
                 {
-                    // 各道具自己解释「为什么现在不能用」（文案在各自类里，这里不认识具体道具）
+                    // 其余道具自己解释「为什么现在不能用」（文案在各自类里，这里不认识具体道具）
                     useable.ExplainBattleOnly(this);
                 }
                 else
