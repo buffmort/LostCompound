@@ -93,8 +93,13 @@ namespace LostCompound.Rooms.Types
             // 每轮从 5 个候选里选 1 个
             const int OptionsPerRound = 5;
 
-            // 进行三轮选择
-            for (int round = 1; round <= 3; round++)
+            // 轮数不是常数：DESIGN 第十章第 2 / 4 次通关各「自选轮数 +1」（基础 3 轮，最多 5 轮）。
+            // 轮数从 ProgressUnlocks 现算，不存状态 —— 通关次数单调递增，重算就够了。
+            int rounds = ProgressUnlocks.StartItemRounds;
+            Console.WriteLine("（本次可选 " + rounds + " 轮）");
+
+            // 进行 rounds 轮选择
+            for (int round = 1; round <= rounds; round++)
             {
                 Console.WriteLine("第 " + round + " 轮，请选择一种道具（输入 1~" + OptionsPerRound + "）：");
 

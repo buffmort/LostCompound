@@ -52,6 +52,33 @@ namespace LostCompound.Tools
         /// <summary>第 4 次通关再自带的玻璃罐数。</summary>
         public const int GlassJarClears4 = 1;
 
+        /// <summary>开局道具选择的**基础轮数**（DESIGN §2.2：从 5 个候选里选 1 个，共 3 轮）。</summary>
+        public const int BaseStartItemRounds = 3;
+
+        /// <summary>
+        /// 开局道具选择**实际轮数** = 基础 3 轮 + 已解锁的「自选轮数 +1」。
+        ///
+        /// 来源（DESIGN 第十章，用户订正）：第 2 次通关「自选轮数 +1」、第 4 次通关再「+1」，
+        /// 于是最多 5 轮。（原先我把它误读成「初始堆量 3→5」，是错的 —— 没有「堆量」这回事。）
+        /// </summary>
+        public static int StartItemRounds
+        {
+            get
+            {
+                int clears = Profile.Clears;
+                int rounds = BaseStartItemRounds;
+                if (clears >= InventoryBonus1Clears)
+                {
+                    rounds++;
+                }
+                if (clears >= InventoryBonus2Clears)
+                {
+                    rounds++;
+                }
+                return rounds;
+            }
+        }
+
         /// <summary>初始 DEF 加成量。</summary>
         public const double BaseDefBonus = 10;
 
