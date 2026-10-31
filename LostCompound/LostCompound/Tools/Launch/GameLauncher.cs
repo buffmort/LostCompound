@@ -84,6 +84,11 @@ namespace LostCompound.Tools.Launch
             // 必须在任何输出之前开启：banner 之后马上就会用到 ANSI 定位
             TryEnableAnsi();
 
+            // 打开战斗日志的节奏停顿（每个关键节点 80ms）。
+            // **只在正式入口打开**：BattleDelay 默认是关的，探针/测试跑得飞快不受影响。
+            // 输出被重定向时 BattleDelay 内部会自动跳过，不会拖慢自动化。
+            BattleDelay.Enable();
+
             // 装「关窗口 / Ctrl+C 自动存档」的钩子。放在主菜单之前 ——
             // 玩家完全可能一进游戏就点 ×，那时候钩子必须已经在位。
             ExitSaveHook.Install();

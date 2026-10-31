@@ -50,6 +50,7 @@ namespace LostCompound.Tools
                     // 这行原先由 ApplyDotEffects 打印。DOT 机制已删除、那个方法整体删掉了，
                     // 所以必须把它搬到这里，否则战斗日志里再也没有「第N回合」的分隔。
                     Console.WriteLine("=====第" + round + "回合=====");
+                    BattleDelay.Tick();     // 回合分隔前停一下（关键节点，见 BattleDelay）
 
                     // ── buff 结算（流血）：唯一的周期性伤害出口 ──
                     // 必须在 RemoveDeadMonsters 之前：buff 打死怪也要走统一收尸，否则漏掉落。
@@ -109,6 +110,7 @@ namespace LostCompound.Tools
                         Console.WriteLine("=====" + m.Name + "回合=====");
                         if (m.TryConsumeSkipTurn()) continue;
                         m.OnMonsterTurn(p);
+                        BattleDelay.Tick();      // 每只怪出手之后停一下
                     }
                     RemoveDeadMonsters(p, monsters);
 
@@ -266,6 +268,7 @@ namespace LostCompound.Tools
                     m.Die(p);
                     monsters.RemoveAt(i);
                     i--;
+                    BattleDelay.Tick();   // 死亡 + 掉落播报之后再停一下，别让掉落一闪而过
                 }
             }
         }
