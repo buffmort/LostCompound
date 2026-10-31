@@ -420,6 +420,21 @@ namespace LostCompound.Tools.Players
                         map[PlayerRow][PlayerCol].OnEnter(this);
                     }
 
+                    // ---- 2.5 换层 / 通关（BossRoom 打完 Boss 时举的牌）----
+                    // 放在房间事件之后、画图之前：换完图要立刻画新的那张，
+                    // 而不是先画一遍旧图再画新图（会闪一下，而且旧图的房间不该再触发事件）。
+                    if (GameCleared)
+                    {
+                        break;      // 通关：退出循环，收尾在 finally 之后处理
+                    }
+                    if (NextLayerRequested)
+                    {
+                        ClearNextLayerRequest();
+                        AdvanceLayer(ref map, ref tmg, ref screen);
+                        pendingEnter = true;    // 新层的起点房也要走一次 OnEnter（每层都有一次开局选道具）
+                        continue;               // 立刻回到循环顶部重画新图
+                    }
+
                     // ---- 3. 事件可能改变了状态（如水量），重画一次 ----
                     DrawScreen(screen, map, tmg);
 
@@ -481,7 +496,15 @@ namespace LostCompound.Tools.Players
 
             // 玩家死了就删档：这一局已经结束，留着只会让「继续游戏」把尸体读回来。
             // 注意放在 finally **之后**：死亡时循环是靠 IsAlive 退出的，没走 direction==4 那条存档分支。
-            if (!IsAlive)
+            if (GameCleared)
+            {
+                // 通关与死亡同样「这一局结束」，所以也删档 —— 区别只是记的是通关次数。
+                SaveFile.Delete();
+                Profile.AddClear();
+                Profile.Save();
+                Console.WriteLine("你通关了！这是第 " + Profile.Clears + " 次通关。");
+            }
+            else if (!IsAlive)
             {
                 SaveFile.Delete();
 
@@ -493,6 +516,63 @@ namespace LostCompound.Tools.Players
 
                 Console.WriteLine("这一局结束了。");
             }
+        }
+
+        /// <summary>换层时回复的最大生命比例（用户裁定：**恢复 70%**）。</summary>
+        private const double NextLayerHealRatio = 0.7;
+
+        /// <summary>
+        /// 换到下一层：加层数、按新层数派生种子、重建地图与环境、把玩家挪到新图起点、存一次档。
+        ///
+        /// 为什么集中在这里做（而不是让 <see cref="BossRoom"/> 自己建图）：
+        /// 换图要同时动地图、生成器、分栏界面三样东西，它们都在 `RunMainLoop` 手里 ——
+        /// 房间只负责「举牌」（<see cref="NextLayerRequested"/>），重建由持有者统一做。
+        ///
+        /// 三件事的顺序不能换：
+        ///   ① 先 <see cref="GameProgress.EnterNextLayer"/>（层数 +1），
+        ///      ② 再用 <see cref="GameProgress.LayerSeed"/> 取新种子 —— 反了就会拿上一层的种子建新图。
+        /// </summary>
+        private void AdvanceLayer(ref Room[][] map, ref TreeMazeGenerator tmg, ref ConsoleScreen screen)
+        {
+            GameProgress.EnterNextLayer();
+
+            // 环境：默认**随机**（用户裁定：只有「第 1/3/7 次通关」才可自选下一层地图，
+            // 而通关系统还没做，所以眼下永远走随机）。
+            IReadOnlyList<(string Name, EnvType Type)> catalog = EnvironmentCatalog.All;
+            (string envName, EnvType nextEnvType) = catalog[Random.Shared.Next(catalog.Count)];
+
+            TreeMazeGenerator newTmg =
+                new(10, 10, nextEnvType, GameProgress.LayerSeed, GameProgress.Layer);
+            newTmg.Generate();
+
+            // 分栏界面的尺寸是按地图算的（现在都是 10×10，所以尺寸不变），
+            // 但仍然按新图重建一份：screen 内部还记着敌人框 / Buff 框的状态。
+            screen.Uninstall();
+            map = newTmg.Grid;
+            tmg = newTmg;
+            screen = CreateScreenFor(tmg);
+            screen.Install();
+            _screen = screen;
+
+            // 坐标回到新图起点（JoinMap 会把 StartRoom 标记为已到达；
+            // 起始房间的 OnEnter 由调用方紧接着的 pendingEnter 触发）。
+            JoinMap(map);
+
+            // 回血 70% 上限，不超过最大生命（用户裁定）。
+            double heal = BaseHp * NextLayerHealRatio;
+            Hp = Math.Min(BaseHp, Hp + heal);
+
+            // 存档会话里存的是「当前这一局的玩家 + 地图 + 生成器」，换图后必须重新登记，
+            // 否则关窗口时钩子会拿着上一层的图去存档。
+            SaveSession.Begin(this, map, tmg);
+
+            Console.WriteLine();
+            Console.WriteLine("===== 第 " + GameProgress.Layer + " 层 · " + envName + " =====");
+            Console.WriteLine("你恢复了 " + heal + " 点生命。");
+            RefreshStatus();
+
+            // 换层是一次真正的地图切换，立刻存一次：否则刚打完 Boss 的一层白打。
+            SaveCurrentProgress(map, tmg);
         }
 
         /// <summary>

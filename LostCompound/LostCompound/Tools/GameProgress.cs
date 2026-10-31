@@ -26,6 +26,9 @@ namespace LostCompound.Tools
         /// <summary>第一层。层数从 1 开始（设计文档里「出现层数 [1, 5]」的写法同口径）。</summary>
         public const int FirstLayer = 1;
 
+        /// <summary>最后一层（用户裁定：**10 层**）。打完第 10 层的 Boss 就算通关。</summary>
+        public const int FinalLayer = 10;
+
         /// <summary>当前所在层数。改动请走本类的三个方法，不要直接赋值。</summary>
         public static int Layer { get; private set; } = FirstLayer;
 
@@ -61,22 +64,24 @@ namespace LostCompound.Tools
         /// <summary>
         /// 由「总种子 + 层数」算出**这一层的种子**。
         ///
+        /// 公式（用户裁定）：**总种子 × 层数**。第 1 层就是总种子本身。
+        ///
         /// 为什么是**纯函数**而不是「拿一个 Random 依次 NextInt64()」：后者依赖调用顺序。
         /// 玩家在第 3 层存档、退出、读档，然后下到第 4 层时，那个 Random 已经从头开始了 ——
         /// 第 4 层会拿到本该属于第 2 层的种子，两层地图重复。
         /// 纯函数没有状态：只要 (总种子, 层数) 一样，算出来就一样，读档多少次都一致。
         ///
-        /// 用的是 SplitMix64 的混合步骤（与 <see cref="Maps.TreeMazeGenerator"/> 把 long 折成
-        /// int 种子时同一个算法族）：先把层数摊进高位，再做三轮异或-乘-右移，
-        /// 让「层数差 1」也能得到完全不相关的种子，而不是相邻的相似种子。
+        /// ⚠️ 乘法会**溢出**（long 只有 64 位，总种子 × 3 就可能越界）。这在 C# 里是
+        ///   回绕（unchecked）而不是异常，结果仍是一个「看起来随机」的 64 位数 ——
+        ///   而 <see cref="Maps.TreeMazeGenerator"/> 本来就会把它折成 32 位种子，
+        ///   所以回绕不影响可用性。唯一要挡的是**乘积恰好为 0**（总种子为 0、或低位的
+        ///   2 的因子被乘光）：那会让该层与后续所有层的种子都变成 0，地图全部重复。
+        ///   这一句兜底把它退回总种子。
         /// </summary>
         public static long SeedForLayer(long runSeed, int layer)
         {
-            ulong z = (ulong)runSeed + 0x9E3779B97F4A7C15UL * (ulong)(layer + 1);
-            z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;
-            z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;
-            z ^= z >> 31;
-            return (long)z;
+            long seed = unchecked(runSeed * Math.Max(layer, FirstLayer));
+            return seed == 0 ? runSeed : seed;
         }
 
         /// <summary>开新局：回到第一层（不改变总种子，供内部/测试使用）。</summary>

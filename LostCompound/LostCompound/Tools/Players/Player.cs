@@ -183,6 +183,37 @@ namespace LostCompound.Tools.Players
 
         public bool IsDead { get; set; }
 
+        /// <summary>
+        /// 「请给我换下一层」的举牌。由 <see cref="Rooms.Types.BossRoom"/> 在**打赢**时举起，
+        /// 由 <see cref="RunMainLoop"/> 发现后重建地图并清掉。
+        ///
+        /// 为什么用举牌而不是让 BossRoom 自己换图：换图需要同时拿到地图、生成器、分栏界面
+        /// 三样东西，而它们都在 RunMainLoop 手里。让房间自己换，等于把这套重建逻辑
+        /// 复制到每个可能触发换层的地方。
+        /// </summary>
+        public bool NextLayerRequested { get; private set; }
+
+        /// <summary>「这一局通关了」的举牌（打完第 <see cref="GameProgress.FinalLayer"/> 层的 Boss）。</summary>
+        public bool GameCleared { get; private set; }
+
+        /// <summary>举牌：请求进入下一层（只在 Boss 被打死、玩家还活着时调用）。</summary>
+        public void RequestNextLayer()
+        {
+            NextLayerRequested = true;
+        }
+
+        /// <summary>RunMainLoop 换完图之后把牌子放下来，否则会一层接一层地疯换。</summary>
+        internal void ClearNextLayerRequest()
+        {
+            NextLayerRequested = false;
+        }
+
+        /// <summary>举牌：通关。</summary>
+        public void MarkGameCleared()
+        {
+            GameCleared = true;
+        }
+
         // 存活判定：派生值用计算属性（原 isAlive() 方法）
         public bool IsAlive => Hp > 0;
 

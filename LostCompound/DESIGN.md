@@ -869,7 +869,7 @@
 | **档案 profile（`profile.json`）** | 玩家名 / 死亡次数 / 转化仓（占位）。与 `save.json` 分开：死亡删 save 但不删 profile。开局第一次运行问名字；死亡时 `Profile.AddDeath()` + 落盘 |
 | 6 种环境（沙漠 / 矿洞 / 墓地 / 放射性区域 / 雾都城市） | — |
 | 附魔系统（4.4） | 魔法台 + 困难模式 |
-| 层数系统（10-12 层）、通关存档与进度解锁（第十章） | — ⚠️ 刷新侧**已预留层数参数**：`MobSpawner.Spawn(EnvType, int layer)`；怪物池拆成**通用池 + 环境专属池**，每只普通怪带**出现层数闭区间 `[起始层, 结束层]`**：通用池的僵尸 / 骷髅为 `[1, 3]`，熔岩瀑布专属的岩浆怪为 `[1, ∞]`，水淹洞穴专属池**暂空**（食人鱼 / 洞潜僵尸未实现）。过滤后为空时**忽略层数**兜底、若全空则回退岩浆怪。<br>**层数现在真的有值了（已实现第一步）**：`Tools\GameProgress.Layer` 是唯一权威值，`TreeMazeGenerator` 带一份快照（`tmg.Layer`），`FightRoom` / `BossRoom` 读 `GameProgress.Layer`，存档按 `tmg.Layer` 存、读档用 `GameProgress.Restore()` 回填（不会 +1）。<br>**还没做的**：打完 Boss 没有任何「+1 并生成下一层」的流程 —— `BossRoom` 仍是 `Environment.Exit(114514)`，所以 `EnterNextLayer()` 目前没有调用点 |
+| 层数系统（**10 层**） | ✅ 已实现（2026-10-31）。<br>**层数**：`GameProgress.Layer`（权威）、`tmg.Layer`（图上的快照）、存档 `Layer`。<br>**每层种子**：`SeedForLayer(总种子, 层数) = 总种子 × 层数`（用户裁定；纯函数，读档后算出来的仍一样；乘积回绕成 0 时退回总种子）。总种子 `Random.Shared.NextInt64()` 开局摇一次，存进 `SaveData.RunSeed`。<br>**换层**：`BossRoom` 打赢后举牌 `Player.NextLayerRequested`，由 `Player.RunMainLoop` 调 `AdvanceLayer()` 统一重建（层数 +1 → 取新种子 → 新图 → 回到起点 → **回复 70% 上限的血** → 立刻存档）。环境**随机**（`EnvironmentCatalog` 里抽）。<br>**通关**：第 10 层 Boss 打赢 → `Player.GameCleared` → 删档 + `Profile.Clears++`。<br>⚠️ 还没做：第十章那些「按通关次数解锁」（第 2/4 次通关的背包/饰品成长、第 5 次解锁配方 1、可自选下一层地图）—— `Profile.Clears` 已经在记了，只是没人读它 |
 | 困难 / fatal 模式（2.3） | 通关系统 |
 | Hyberty Boss 战（第三章） | — |
 | 转化仓（3.4） | Hyberty |

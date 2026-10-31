@@ -29,6 +29,9 @@ namespace LostCompound.Save
         /// <summary>累计死亡次数（只增不减）。</summary>
         public int Deaths { get; set; }
 
+        /// <summary>累计通关次数（打通第 10 层）。设计文档第十章的解锁就靠它。</summary>
+        public int Clears { get; set; }
+
         /// <summary>转化仓内容（未实现，占位）。</summary>
         public List<ItemData> ConversionChamber { get; set; } = [];
     }
@@ -72,6 +75,9 @@ namespace LostCompound.Save
         /// <summary>是不是还没起过名字（开局据此决定要不要问）。</summary>
         public static bool HasNoName => string.IsNullOrWhiteSpace(Current.Name);
 
+        /// <summary>累计通关次数（供 UI / 解锁判断读取）。</summary>
+        public static int Clears => Current.Clears;
+
         /// <summary>档案文件路径。</summary>
         public static string FilePath => Path.Combine(SaveFile.DirectoryPath, FileName);
 
@@ -90,6 +96,12 @@ namespace LostCompound.Save
         public static void AddDeath()
         {
             Current.Deaths++;
+        }
+
+        /// <summary>通关一次。**只记账，不落盘** —— 由调用方决定什么时候存。</summary>
+        public static void AddClear()
+        {
+            Current.Clears++;
         }
 
         /// <summary>把当前档案写到磁盘。失败返回 false 并打印原因，不抛异常。</summary>

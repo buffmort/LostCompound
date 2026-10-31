@@ -429,7 +429,7 @@ AOT/裁剪下默认被禁用（运行时报 `Reflection-based serialization has 
 | 文件 | 内容 | 死亡时 |
 |---|---|---|
 | `save.json`（`SaveFile` / `SaveData`） | **这一局**打到哪了：种子、坐标、背包… | **删除** |
-| `profile.json`（`Profile` / `ProfileData`） | **跨对局**的东西：玩家名、死亡次数、转化仓（占位） | **保留** |
+| `profile.json`（`Profile` / `ProfileData`） | **跨对局**的东西：玩家名、死亡次数、通关次数、转化仓（占位） | **保留** |
 
 判定标准：**换一局还该不该留着？** 该留 → profile；属于这一局 → save。
 例如「死亡次数」必须进 profile —— 写进 save 的话死亡删档时会连同计数一起丢，永远解锁不了
@@ -443,8 +443,8 @@ AOT/裁剪下默认被禁用（运行时报 `Reflection-based serialization has 
 
 | 现象 | 真相 |
 |---|---|
-| `BossRoom` 打完龙无条件 `Environment.Exit(114514)` | **占位**：下一层地图还没做（用户已确认设计意图就是「打完 Boss 生成下一层」） |
-| 只有 1 层（文档说 10-12 层） | **层数本身已能变**（`GameProgress.Layer`，见 DESIGN 12.3），缺的是「打完 Boss → `EnterNextLayer()` + 生成下一层」这条流程；`BossRoom` 仍 Exit 占位 |
+| `BossRoom` 打完龙不再 `Exit(114514)` | **已实现换层**：打赢后举牌 `Player.NextLayerRequested`，由 `RunMainLoop` 的 `AdvanceLayer()` 重建下一层；第 10 层打赢则通关（删档 + `Profile.Clears++`） |
+| 一共 10 层（文档原写 10-12 层） | **用户裁定：10 层**（`GameProgress.FinalLayer`） |
 | 地图固定 10×10（文档 7×7~13×13） | **用户已裁定：不变**，文档与实现的不一致保留 |
 | 药(20) / 咖啡(30) 的起始道具池状态 | 药**已进开局池**（用户裁定 6）：药已实现（配方 0：红磷 + 水瓶），池中给 **2 药 / 权重 1**（数量 2 按裁定 1 的「全部 +1」）；咖啡(30) 则**完全未实现**，**没进池子**（依赖雾都城市） |
 | 岩浆怪身上的流血也被削 30% | **已知精度损失**：高温免疫在 `TakeDamage` 上生效，无法区分伤害来源。要精确区分需给伤害带来源标记（大改，未做） |

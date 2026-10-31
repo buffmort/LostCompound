@@ -36,11 +36,26 @@ namespace LostCompound.Rooms.Types
                 // 命名空间，因此这里必须写全限定名 LostCompound.Tools.Tools。
                 LostCompound.Tools.Tools.RunBattle(p, monsters, Environment);
                 IsCleaned = true;
-                Console.WriteLine("感谢游玩!");
-                Console.WriteLine("现在执行退出方法!");
-                // 注意：基类 Room 新增了 Environment 属性，简单名 Environment 会被解析成该属性，
-                // 因此这里必须写全限定名 System.Environment（退出码与原实现一致）。
-                System.Environment.Exit(114514);
+
+                // ── 打赢之后：要么通关，要么进下一层 ──
+                // 判据与战斗房一致：IsAlive（Hp > 0）且没 EOF —— 输掉 / 输入断了都不算赢。
+                // 输掉就算了：整局结束，RunMainLoop 的 finally 会走死亡那条路（删档 + 记死亡）。
+                if (p.IsAlive && !p.InputClosed)
+                {
+                    if (GameProgress.Layer >= GameProgress.FinalLayer)
+                    {
+                        // 第 10 层 Boss = 通关。
+                        Console.WriteLine("恭喜通关！你走完了全部 " + GameProgress.FinalLayer + " 层。");
+                        p.MarkGameCleared();
+                    }
+                    else
+                    {
+                        // 举牌而不是当场换图：地图/生成器/分栏界面都在 RunMainLoop 手里，
+                        // 见 Player.NextLayerRequested 的注释。
+                        Console.WriteLine("通往下一层的阶梯出现了……");
+                        p.RequestNextLayer();
+                    }
+                }
             }
             else
             {
