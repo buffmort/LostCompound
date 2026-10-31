@@ -169,7 +169,12 @@ namespace LostCompound.Tools.Players
             Item item = Inventory[choice];
             if (item is IUseable useable)
             {
-                useable.Use(this, monsters);
+                // **不在战斗中**（地图上按 5 使用道具）时 monsters 传的是 null。
+                // 这里换成空列表再交给道具：毒气弹 / 红磷 / 白磷 / 压缩沙瓶 都是
+                // `foreach (Monster x in m)`，对 null 会直接 NullReferenceException。
+                // 换成空表之后它们会「什么也没打中」地正常走完 —— 与它们的语义一致：
+                // 房间里没有敌人，AOE 自然落空（道具照样消耗，这也是文档对 AOE 的口径）。
+                useable.Use(this, monsters ?? []);
 
                 // 用完立刻收尸：把「数量归零 / 该转变」的道具当场处理掉，别再等下一个玩家回合。
                 //

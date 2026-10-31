@@ -462,6 +462,13 @@ namespace LostCompound.Tools.Players
 
                     ShowAvailableDirections();
 
+                    // 地图上也能用的三项（原先只有战斗菜单里才有 —— 玩家反馈「发现只有战斗才能
+                    // 装配道具 / 合成」，这是真的：OpenItems / HandCraft / OpenAccessoryMenu
+                    // 之前只挂在 OnPlayerTurn 的战斗 switch 里）。
+                    // 放这里而不是让它们在别处各调一次：地图循环每回合都会回到这里，
+                    // 与方向输入共用同一个 ReadLine，行为统一（输入 5/6/7 不移动，直接 continue）。
+                    Console.WriteLine("5.使用道具  6.徒手合成  7.饰品栏");
+
                     // 方向提示**不再塞进输入框**（输入框只画 ">"，避免提示与回显叠加导致错位）。
                     // 可走方向已经由 ShowAvailableDirections 写进日志了，这里再写一遍只会每回合刷屏；
                     // 「4 退出」这个提示改由进入地图时的开场白说明（见 RunMainLoop 开头）。
@@ -496,6 +503,26 @@ namespace LostCompound.Tools.Players
                         SaveCurrentProgress(map, tmg);
                         Console.WriteLine("游戏结束，感谢游玩！");
                         break;
+                    }
+
+                    // 5/6/7：地图上的「非移动动作」。不做任何一格的计算、也不触发房间事件，
+                    // 做完直接回到循环顶部重画（玩家的位置没变，pendingEnter 保持 false）。
+                    // 传 null 的怪物列表：现在不在战斗里，OpenItems 里那些「对战中使用」
+                    // 的分支（如压缩沙瓶）会走 ExplainBattleOnly 给出提示，不会误伤远处的怪。
+                    if (direction == 5)
+                    {
+                        OpenItems(null);
+                        continue;
+                    }
+                    if (direction == 6)
+                    {
+                        HandCraft();
+                        continue;
+                    }
+                    if (direction == 7)
+                    {
+                        OpenAccessoryMenu();
+                        continue;
                     }
 
                     if (Move((Direction)direction))
