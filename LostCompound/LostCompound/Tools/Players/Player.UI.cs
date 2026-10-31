@@ -125,7 +125,7 @@ namespace LostCompound.Tools.Players
                 //   刻意不为这种情况新增任何提示：否则玩家一乱按就能发现「这里藏着东西」，
                 //   而改造前它们是无条件生效的（127/128/129 一个守卫生效都没有）。
                 case 127 when DebugState.Enabled:
-                    AddBuff(new SuperMaleBuff(1,-1,true));
+                    AddBuff(new SuperMaleBuff(1,-12,true));
                     Console.WriteLine($"超雄模式：基础 STR 已设为 {BaseStr}（当前 STR {Str}）");
                     break;
                 case 128 when DebugState.Enabled:

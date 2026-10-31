@@ -35,9 +35,11 @@ namespace LostCompound.Maps
 
         /// <summary>
         /// 本局的随机种子。存档只存它 + 进度坐标，地形由它重新算出来。
-        /// 取值范围就是 `int` 全域（含负数 —— `Random` 接受任何 int）。
+        ///
+        /// 类型是 **long**（64 位）：这样「时间戳类」的种子（如 `DateTime.Ticks`、
+        /// `Environment.TickCount64`）可以直接丢进来，不用先想办法挤进 int。
         /// </summary>
-        public int Seed { get; }
+        public long Seed { get; }
 
         /// <summary>
         /// 生成算法的版本号。**存档里会存一份，读档时比对。**
@@ -52,12 +54,12 @@ namespace LostCompound.Maps
         /// </summary>
         public const int GeneratorVersion = 1;
 
-        public TreeMazeGenerator(int rows, int cols, EnvType envType, int seed)
+        public TreeMazeGenerator(int rows, int cols, EnvType envType, long seed)
         {
             _rows = rows;
             _cols = cols;
             Seed = seed;
-            _rng = new Random(seed);
+            _rng = new Random(ToRngSeed(seed));
             // Java: new Room[rows][cols]；C# 保持交错数组，需要逐行分配
             _grid = new Room[rows][];
             for (int r = 0; r < rows; r++)
@@ -65,6 +67,36 @@ namespace LostCompound.Maps
                 _grid[r] = new Room[cols];
             }
             InitializeRooms(envType);
+        }
+
+        /// <summary>
+        /// 把 64 位的种子折成 `Random` 能接受的 32 位种子。
+        ///
+        /// 为什么要折：`System.Random` 的构造函数只收 int（这是 BCL 的限制，不是我们的选择）。
+        /// 种子对外的类型仍是 <c>long</c>，存档、打印、玩家读到的都是 64 位那个原值。
+        ///
+        /// ⚠️ **兼容性靠这一句**：种子落在 int 范围内时**原样使用**，不做任何混合 ——
+        ///   这样旧存档（当时种子是 int）读出来生成的地图与升级前**逐格一致**。
+        ///   只有超出 int 范围的种子（如时间戳）才走 SplitMix64 收尾混合，
+        ///   以保证 64 位输入也能均匀散到 32 位，而不是简单截断（截断会让高位全失效）。
+        ///
+        /// 代价（要知道）：两个不同的 long 仍可能折出同一个 int，即**理论上会撞图**。
+        ///   32 位空间有约 43 亿种，实际游戏里无所谓；真要 64 位全用上，
+        ///   就得换掉 System.Random、自己写一个 64 位 PRNG（如 xoshiro256**）。
+        /// </summary>
+        private static int ToRngSeed(long seed)
+        {
+            if (seed >= int.MinValue && seed <= int.MaxValue)
+            {
+                return (int)seed;   // 旧存档走这条，地图不变
+            }
+
+            // SplitMix64 的收尾混合：把 64 位扰动成 32 位
+            ulong z = (ulong)seed + 0x9E3779B97F4A7C15UL;
+            z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;
+            z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;
+            z ^= z >> 31;
+            return unchecked((int)z);
         }
 
         /**

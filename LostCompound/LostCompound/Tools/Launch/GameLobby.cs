@@ -187,7 +187,7 @@ namespace LostCompound.Tools.Launch
             }
             // 摇一个本局种子。**这张地图的一切都由它决定** ——
             // 存档里只存它，读档时用它重算出同一张图，而不是把 100 格地形都写进文件。
-            int seed = Random.Shared.Next();
+            long seed = Random.Shared.Next();
             Console.WriteLine("本局种子：" + seed);
 
             TreeMazeGenerator tmg = new TreeMazeGenerator(10, 10, envType.Value, seed);

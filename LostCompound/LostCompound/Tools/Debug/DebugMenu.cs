@@ -104,7 +104,7 @@ namespace LostCompound.Tools.Debug
             //
             // 为什么这么做是安全的：JoinMap 只调用 StartRoom.MarkArrived()，
             // 不会触发 OnEnter —— 所以不会弹「初始物品选择」、不会重复发初始道具。
-            TreeMazeGenerator tmg = new(10, 10, env.Type, Random.Shared.Next());
+            TreeMazeGenerator tmg = new(10, 10, env.Type, Random.Shared.NextInt64());
             tmg.Generate();
             Room[][] map = tmg.Grid;
             p.JoinMap(map);

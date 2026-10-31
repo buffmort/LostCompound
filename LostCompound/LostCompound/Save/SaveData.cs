@@ -50,7 +50,7 @@ namespace LostCompound.Save
         /// <summary>
         /// 本局的地图种子。**这是地图的全部来源** —— 房间类型与门的连通关系都由它重算。
         /// </summary>
-        public int Seed { get; set; }
+        public long Seed { get; set; }
 
         /// <summary>
         /// 建图算法的版本（`TreeMazeGenerator.GeneratorVersion`）。
