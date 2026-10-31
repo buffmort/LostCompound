@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using LostCompound.Save;
 using LostCompound.Tools;
 
 namespace LostCompound.Tools.Launch
@@ -82,6 +83,11 @@ namespace LostCompound.Tools.Launch
         {
             // 必须在任何输出之前开启：banner 之后马上就会用到 ANSI 定位
             TryEnableAnsi();
+
+            // 装「关窗口 / Ctrl+C 自动存档」的钩子。放在主菜单之前 ——
+            // 玩家完全可能一进游戏就点 ×，那时候钩子必须已经在位。
+            ExitSaveHook.Install();
+
             PrintBanner();
             GameLobby lobby = new GameLobby();
             lobby.Run();

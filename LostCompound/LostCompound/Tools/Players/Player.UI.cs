@@ -329,6 +329,9 @@ namespace LostCompound.Tools.Players
             ConsoleScreen screen = new ConsoleScreen(mapLines.Length, mapColumns);
             screen.Install();
             _screen = screen;              // 供 RefreshStatus / ReadInt 使用
+
+            // 登记「当前对局」，让退出钩子（关窗口 / Ctrl+C）能拿到玩家、地图和生成器
+            SaveSession.Begin(this, map, tmg);
             Console.WriteLine("游戏开始！输入方向探索地图。");
 
             // 开局解锁「配方0」（内容见 AddDefaultRecipes；原先这里括注「热硫 + 玻璃罐」，
@@ -371,7 +374,14 @@ namespace LostCompound.Tools.Players
 
                     // 输入框里也提示一次可走的方向，别让玩家只看到日志区在滚
                     _screen?.SetPrompt("选择方向（0上 1下 2左 3右，4 退出）");
+
+                    // 把「现在可以安全存档」的窗口打开，只包住这一次 ReadLine：
+                    // 此刻房间事件已结算完、没有进行中的战斗，是整局里唯一能完整恢复的状态。
+                    // 关窗口 / Ctrl+C 的钩子（ExitSaveHook）会来问这个标记。
+                    SaveSession.MarkSafe(true);
                     string line = Console.ReadLine();
+                    SaveSession.MarkSafe(false);
+
                     if (line == null)
                     {
                         // 输入流结束（EOF）：方向永远读不到了。必须退出游戏循环 ——
@@ -406,6 +416,10 @@ namespace LostCompound.Tools.Players
             }
             finally
             {
+                // 先把「当前对局」注销掉，再还原输出：
+                // 顺序反过来的话，Uninstall 期间若恰好触发退出钩子，会拿一局已结束的游戏去存档。
+                SaveSession.End();
+
                 // 离开地图时把 Console.Out 还给真实输出，否则主菜单的输出会跑进日志区
                 screen.Uninstall();
                 _screen = null;

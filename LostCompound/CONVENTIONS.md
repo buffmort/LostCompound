@@ -380,6 +380,26 @@ int extra = guaranteed + (Random.Shared.NextDouble() < remainder ? 1 : 0);
    后者是进程级实例、**无法播种**，用了它「种子复现」就不成立。
    连带后果：`Shuffle` 必须从 `static` 改成实例方法（它要够到 `_rng`）。
 
+### 关窗口 / Ctrl+C 的自动存档
+
+三个触发点，全部汇到 `SaveSession.TrySaveOnExit`：
+
+| 触发 | 来源 |
+|---|---|
+点窗口 × | `SetConsoleCtrlHandler` 的 `CTRL_CLOSE_EVENT`（.NET **没有**托管事件） |
+Ctrl+C / Ctrl+Break | 同一个 Win32 回调 + `Console.CancelKeyPress`（双保险） |
+正常退出 | `AppDomain.ProcessExit` |
+
+**三条铁律：**
+
+1. **只在「方向菜单等输入」的那一刻存**（`SaveSession.MarkSafe` 包住 `ReadLine`）。
+   战斗中/房间事件途中被关掉，存下来是一份「没有敌人、但血已经掉了」的残缺局面。
+2. **回调必须返回 `false`**：返回 `true` 会吞掉系统默认的终止动作，点 × 就关不掉窗口了。
+3. **回调里只能存盘**。`CTRL_CLOSE_EVENT` 之后系统只给约 **5 秒**，超时强杀；
+   而且整个方法必须 try/catch 兜住 —— 在控制台控制回调里抛异常是未定义行为。
+
+`SaveSession` 是**静态引用持有者**（玩家 / 地图 / 生成器），只为这个钩子存在：
+进对局 `Begin`、出对局 `End`，不承载任何游戏状态。
 **写入必须原子**：先写 `save.json.tmp`，再 `File.Move(..., overwrite: true)`。
 直接覆盖写，一旦写到一半进程被杀，存档就永久报废（`SaveFile` 类注释里有一节基础 IO 讲解）。
 
