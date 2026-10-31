@@ -168,8 +168,9 @@ namespace LostCompound.Buffs
         ///   结果会绕成负数（int.MaxValue + int.MaxValue = -2），
         ///   于是 <c>Math.Min(负数, MaxStacks)</c> 得到一个**负的 Stacks**，
         ///   再由 <see cref="IsExpired"/>（Stacks &lt;= 0）判定该 buff 立即失效并移除。
-        ///   实际触发路径：调试开关 127 挂 <c>SuperMaleBuff(1, int.MaxValue)</c>，
-        ///   再输一次 127 走 MergeFrom → AddStacks(int.MaxValue) → 溢出 → +1000 STR 凭空消失。
+        ///   实际触发路径：调试开关 127 连按两次 —— 第一次挂 <c>SuperMaleBuff(1, Buff.Permanent, true)</c>，
+        ///   第二次走 MergeFrom → AddStacks(1) 叠加；真正危险的是有人把它写成
+        ///   <c>SuperMaleBuff(int.MaxValue, ...)</c> 那种极端值（溢出让 +1000 STR 凭空消失）。
         /// 正常范围的输入结果逐字不变（long 的加法在 int 范围内与 int 加法完全一致）。</summary>
         public void AddStacks(int n)
         {

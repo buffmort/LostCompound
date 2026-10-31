@@ -163,8 +163,15 @@ namespace LostCompound.Tools.Players
                 //   刻意不为这种情况新增任何提示：否则玩家一乱按就能发现「这里藏着东西」，
                 //   而改造前它们是无条件生效的（127/128/129 一个守卫生效都没有）。
                 case 127 when DebugState.Enabled:
-                    AddBuff(new SuperMaleBuff(1,-12,true));
-                    Console.WriteLine($"超雄模式：基础 STR 已设为 {BaseStr}（当前 STR {Str}）");
+                    // ⚠️ 时长必须传 Buff.Permanent（-1 这个哨兵），**不能传负数回合**：
+                    //   Buff 构造函数里是 `turns == Permanent ? Permanent : Math.Max(turns, 0)`，
+                    //   所以 -12 会被夹成 0 → IsExpired 立刻为真 → buff 挂上就被回合管线清掉。
+                    //   原先这里写的是 -12，超雄模式其实一直是「挂上即消失」（用户反馈「buff 没了」）。
+                    //   SurvivesBattleEnd 仍然为 true：这个调试 buff 本来就是常驻的。
+                    AddBuff(new SuperMaleBuff(1, Buff.Permanent, true));
+                    // 报「当前 STR」而不是 BaseStr：这个 buff 走的是修正量通道（StrBonus +1000），
+                    // 并不改 BaseStr —— 原先那句「基础 STR 已设为 X」与事实不符。
+                    Console.WriteLine($"超雄模式：STR +1000（永久，跨战斗保留）。当前 STR {Str}");
                     break;
                 case 128 when DebugState.Enabled:
                     UnlockAllRecipes();
