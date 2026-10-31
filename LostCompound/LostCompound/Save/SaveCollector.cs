@@ -31,7 +31,8 @@ namespace LostCompound.Save
 
             SaveData data = new()
             {
-                Layer = 1,   // 层数系统未实现，恒为 1（DTO 里预留）
+                // 层数取生成器里那份快照，而不是硬编码 —— 读档时它就是「玩家在第几层」。
+                Layer = tmg.Layer,
                 EnvType = (env?.Type ?? EnvType.None).ToString(),
                 EnvState = env?.SaveState() ?? [],
 

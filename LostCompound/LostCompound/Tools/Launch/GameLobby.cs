@@ -190,7 +190,11 @@ namespace LostCompound.Tools.Launch
             long seed = Random.Shared.Next();
             Console.WriteLine("本局种子：" + seed);
 
-            TreeMazeGenerator tmg = new TreeMazeGenerator(10, 10, envType.Value, seed);
+            // 开新局 = 从第一层开始。上一局打到第几层都不该带进来
+            //（读档路径不走这里，它用存档里记的层数，见 SaveRestorer）。
+            GameProgress.Reset();
+
+            TreeMazeGenerator tmg = new TreeMazeGenerator(10, 10, envType.Value, seed, GameProgress.Layer);
             tmg.Generate();
             Room[][] map = tmg.Grid;
             Player p = new Player();

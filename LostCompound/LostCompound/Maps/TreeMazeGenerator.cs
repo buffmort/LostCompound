@@ -42,6 +42,20 @@ namespace LostCompound.Maps
         public long Seed { get; }
 
         /// <summary>
+        /// 这张图属于**第几层** —— 生成时由调用方传进来的快照。
+        ///
+        /// 为什么要在这里存一份：`FightRoom` / `BossRoom` 要按层数出怪
+        /// （盾兵 `10 × 层数` 血、怪物的出现层数区间），而地图就是 <c>Room[][]</c>，
+        /// 数组上没地方挂属性；跟着「这张图是怎么来的」一起记在这里最省事。
+        ///
+        /// ⚠️ 不要把它当权威值去改：它是**快照**，权威值在
+        /// <see cref="LostCompound.Tools.GameProgress.Layer"/>。
+        /// 换层时先 <c>GameProgress.EnterNextLayer()</c>，再用新层数造一张新图，
+        /// 两者就自然一致；反过来「只改这里」不会影响任何刷怪逻辑。
+        /// </summary>
+        public int Layer { get; }
+
+        /// <summary>
         /// 生成算法的版本号。**存档里会存一份，读档时比对。**
         ///
         /// 为什么必须有：种子的全部魔力就是「同一种子 + 同一份算法 = 同一张图」。
@@ -54,11 +68,12 @@ namespace LostCompound.Maps
         /// </summary>
         public const int GeneratorVersion = 1;
 
-        public TreeMazeGenerator(int rows, int cols, EnvType envType, long seed)
+        public TreeMazeGenerator(int rows, int cols, EnvType envType, long seed, int layer)
         {
             _rows = rows;
             _cols = cols;
             Seed = seed;
+            Layer = Math.Max(layer, 1);   // 传 0 / 负数当第 1 层，别让刷怪逻辑拿到 0
             _rng = new Random(ToRngSeed(seed));
             // Java: new Room[rows][cols]；C# 保持交错数组，需要逐行分配
             _grid = new Room[rows][];

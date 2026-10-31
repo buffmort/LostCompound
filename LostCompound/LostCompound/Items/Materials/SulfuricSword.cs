@@ -30,6 +30,7 @@ namespace LostCompound.Items.Materials
         public Item Become()
         {
             Console.WriteLine("你的剑变成氢气飞走了，你不会获得硫酸剑的！");
+            Console.WriteLine("你得到了一滩绿糊糊的东西 真恶心! 你给他扔了");
             return null;
         }
     }

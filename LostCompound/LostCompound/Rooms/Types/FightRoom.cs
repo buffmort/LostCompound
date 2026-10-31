@@ -20,16 +20,18 @@ namespace LostCompound.Rooms.Types
             if (!IsCleaned)
             {
                 Console.WriteLine("敌人出现了!");
-                // ⚠️ 层数硬编码为 1：层数系统还没做（BossRoom 现在是 Environment.Exit 占位）。
-                // 等层数系统落地后，这个 1 要换成 Player/GameState 里的当前层数。
-                const int CurrentLayer = 1;
+                // 层数：读全局进度（CONVENTIONS 2.11 / DESIGN §6.2 的「出现层数」口径）。
+                // 以前这里是 `const int CurrentLayer = 1` —— const 是编译期烧死的数字，
+                // 运行时根本没有这个变量，所以第 N 层永远刷第 1 层的怪（盾兵永远 10 血）。
+                // 现在换层由 GameProgress.EnterNextLayer() 负责；本房间**只读不写**。
+                int currentLayer = GameProgress.Layer;
 
                 // 注意：类 Tools 与命名空间 LostCompound.Tools 同名，简单名 Tools 会被解析成
                 // 命名空间，因此这里必须写全限定名 LostCompound.Tools.Tools。
                 // 多怪概率用的 p.FightCount 是**本场开打前**的累计值：RunBattle 里的
                 // SetInBattle(true) 在 Spawn 之后才把这一场计入（所以第一场是 0）。
                 LostCompound.Tools.Tools.RunBattle(
-                    p, MobSpawner.Spawn(EnvKind, CurrentLayer, p.FightCount), Environment);
+                    p, MobSpawner.Spawn(EnvKind, currentLayer, p.FightCount), Environment);
 
                 // 战斗结束后的环境额外掉落（如熔岩瀑布必掉硫磺）。
                 //
