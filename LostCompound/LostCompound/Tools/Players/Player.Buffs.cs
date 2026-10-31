@@ -39,6 +39,19 @@ namespace LostCompound.Tools.Players
         public List<Buff> Buffs { get; } = [];
 
         /// <summary>
+        /// 战斗结束时清空 buff —— **但保留声明了 <see cref="Buff.SurvivesBattleEnd"/> 的那些**。
+        ///
+        /// 为什么由 Player 来做而不是让 Tools 直接 `Buffs.Clear()`：
+        ///   · 这是玩家自己的状态，清理规则属于它；
+        ///   · 更重要的是它能被单独测试 —— `Tools.ClearBuffs` 是 private 且要跑完整场战斗
+        ///     才走得到，藏在里面的话"哪些该留、哪些该删"只能靠肉眼读代码。
+        ///
+        /// 为什么默认全清、跨战斗的要显式声明：见 <see cref="Buff.SurvivesBattleEnd"/> 的注释 ——
+        /// 漏掉一次清空，流血就会跟着玩家进每一场战斗，变成每回合无限掉血。
+        /// </summary>
+        public void ClearBattleBuffs() => Buffs.RemoveAll(b => !b.SurvivesBattleEnd);
+
+        /// <summary>
         /// 给玩家挂一个状态效果。
         /// 同类 buff **叠加到已有对象上**，而不是挂两个同名对象：理由
         ///   1. 「流血 10 点」是一个状态，不是两个状态；分开放会让上限 10 的判断散成多处；

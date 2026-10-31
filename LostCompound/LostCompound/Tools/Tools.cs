@@ -218,16 +218,20 @@ namespace LostCompound.Tools
         }
 
         /**
-         * 战斗结束时的清理：移除双方身上的全部状态效果。
+         * 战斗结束时的清理：移除双方身上的状态效果。
          *
          * 为什么必须清：流血是「不自然衰减、只在剩余回合归零时消失」的机制（见 BleedBuff 注释），
          * 而 Player 是跨战斗复用的同一个对象 —— 不清的话，玩家在第一场战斗里中的流血
          * 会跟着他进后面每一场战斗，变成每回合无限掉血。
+         *
+         * ⚠️ 玩家侧改成走 Player.ClearBattleBuffs()：它会**保留**显式声明了
+         *    Buff.SurvivesBattleEnd 的 buff（如常驻诅咒）。默认仍然是全清 ——
+         *    例外必须由 buff 自己声明，不会因为加了这个口子就让流血莫名其妙跨战斗。
          */
         private static void ClearBuffs(Player p, List<Monster> monsters)
         {
-            p.Buffs.Clear();
-            p.RecomputeStats();    // buff 全清了，派生值要跟着回到「基础 + 环境修正」
+            p.ClearBattleBuffs();  // 清掉普通 buff，保留"跨战斗"的那些
+            p.RecomputeStats();    // buff 变了，派生值要跟着回到「基础 + 环境 + 剩余 buff」
             foreach (Monster m in monsters)
             {
                 m.Buffs.Clear();

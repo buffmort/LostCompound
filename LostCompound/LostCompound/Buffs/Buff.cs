@@ -27,11 +27,31 @@ namespace LostCompound.Buffs
         /// turns 传 <see cref="Permanent"/> 表示永久。**⚠️ 这里必须先判永久再 Math.Max** ——
         /// 否则 Math.Max(-1, 0) 会把它夹成 0，也就是"已到期"，永久 buff 一挂上就消失。
         /// </summary>
-        protected Buff(int stacks, int turns)
+        protected Buff(int stacks, int turns, bool survivesBattleEnd = false)
         {
+            SurvivesBattleEnd = survivesBattleEnd;
             AddStacks(stacks);
             RemainingTurns = turns == Permanent ? Permanent : Math.Max(turns, 0);
         }
+
+        /// <summary>
+        /// **战斗结束时是否保留**。默认 <c>false</c> —— 战斗结束由
+        /// <see cref="Tools.ClearBuffs"/> 统一清空 <c>Player.Buffs</c>。
+        ///
+        /// ⚠️ 默认值必须是 false，这不是随手定的：
+        ///   流血是「不自然衰减、只在剩余回合归零时消失」的机制，而 Player 是跨战斗复用的
+        ///   同一个对象。若它跟着跨战斗，玩家会在**之后每一场战斗里**继续掉血 ——
+        ///   而且不掉错、不报错，只是"怎么一直在流血"。
+        ///
+        /// 什么时候该传 true：这个效果本来就是"常驻到本局结束"的（诅咒、寄生、长期增益）。
+        /// 传了就要想清楚**它怎么被清除** —— 没有清除手段的常驻 debuff 会让游戏无法平衡。
+        ///
+        /// 为什么它是构造参数而不是可写属性：生命周期是 buff 的**身份**，不该运行期改。
+        /// 也因此它**不需要写进存档** —— `BuffFactory` 重建实例时会重新走子类构造函数，
+        /// 标记自然就带回来了。⚠️ 反过来说：如果一个 buff 类需要"有时保留、有时不保留"，
+        /// 这个设计就不够用了，那种情况必须把标记一并存进 <c>BuffData</c>。
+        /// </summary>
+        public bool SurvivesBattleEnd { get; }
 
         /// <summary>显示名（如「流血」）。</summary>
         public abstract string Name { get; }
