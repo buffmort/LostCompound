@@ -7,7 +7,7 @@ namespace LostCompound.Buffs.Types;
 
 public class Strength : Buff
 {
-    public Strength(int stacks, int turns) : base(stacks, turns)
+    public Strength(int stacks, int turns, bool survivesBattleEnd = false) : base(stacks, turns, survivesBattleEnd)
     {
     }
 

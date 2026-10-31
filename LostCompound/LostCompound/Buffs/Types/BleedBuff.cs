@@ -30,7 +30,7 @@ namespace LostCompound.Buffs.Types
     /// 待确认项：困难模式的「每回合扣 2」需要难度系统，目前项目还没有难度概念，
     ///   所以这里只按存进来的伤害值结算，困难难度做出来后按难度对伤害乘 2。
     /// </summary>
-    public sealed class BleedBuff(int damagePerTurn, int turns) : Buff(damagePerTurn, turns)
+    public sealed class BleedBuff(int damagePerTurn, int turns, bool survivesBattleEnd = false) : Buff(damagePerTurn, turns, survivesBattleEnd)
     {
         public override string Name => "流血";
 

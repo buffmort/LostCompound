@@ -7,7 +7,7 @@ namespace LostCompound.Buffs.Types;
 
 public class SuperMaleBuff : Buff
 {
-    public SuperMaleBuff(int stacks, int turns) : base(stacks, turns)
+    public SuperMaleBuff(int stacks, int turns, bool survivesBattleEnd = false) : base(stacks, turns, survivesBattleEnd)
     {
     }
     public override double StrBonus => 1000;

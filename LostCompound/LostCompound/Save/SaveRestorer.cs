@@ -181,6 +181,8 @@ namespace LostCompound.Save
                     Console.WriteLine($"[存档] 未知 buff ID {d.Id}，已跳过。");
                     continue;
                 }
+                // 实例级标记：BuffFactory 只会传 Id/Stacks/Turns，这里把"是否跨战斗"补回去
+                buff.RestoreSurvivesBattleEnd(d.SurvivesBattleEnd);
                 result.Add(buff);
             }
             return result;

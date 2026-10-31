@@ -145,5 +145,13 @@ namespace LostCompound.Save
         public int Id { get; set; }
         public int Stacks { get; set; }
         public int Turns { get; set; }
+
+        /// <summary>
+        /// 是否**跨战斗保留**（<see cref="Buffs.Buff.SurvivesBattleEnd"/>）。
+        /// 必须存：它是实例级的，`BuffFactory` 重建时只知道 Id/Stacks/Turns，默认 false。
+        /// 不存的话，跨战斗 buff 读档后会变成战斗内临时 buff，下一场就没了。
+        /// 旧存档没有这个字段 → 反序列化成 false，对现有 buff 全部正确（它们都不是跨战斗的）。
+        /// </summary>
+        public bool SurvivesBattleEnd { get; set; }
     }
 }

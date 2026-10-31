@@ -119,7 +119,10 @@
 且不报错、不崩溃，只是「怎么一直在流血」。
 
 加「跨战斗 buff」时**必须同时想清楚它怎么被清除**，否则会做出一个无法平衡的常驻 debuff。
-这个标记由 buff 类自己的构造函数决定，所以**不需要写进存档**（`BuffFactory` 重建实例时会重新传）。
+这个标记是**实例级**的（`new Xxx(stacks, turns, true)`，同一个类可以这一件跨战斗、下一件不跨），
+所以**必须写进存档**：`BuffFactory` 重建实例时只知道 Id/Stacks/Turns，默认给 false；
+不存的话，跨战斗 buff 读档后会悄悄变成战斗内临时 buff，下一场战斗就消失。
+存档侧由 `SaveRestorer` 补一句 `RestoreSurvivesBattleEnd`。
 
 **判断标准：这个数值是「每次叠加」还是「每次重算」？**
 

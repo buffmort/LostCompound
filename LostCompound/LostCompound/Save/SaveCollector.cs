@@ -105,7 +105,13 @@ namespace LostCompound.Save
             foreach (Item item in p.Accessories) d.Accessories.Add(CaptureItem(item));
             foreach (Buff buff in p.Buffs)
             {
-                d.Buffs.Add(new BuffData { Id = buff.Id, Stacks = buff.Stacks, Turns = buff.RemainingTurns });
+                d.Buffs.Add(new BuffData
+                {
+                    Id = buff.Id,
+                    Stacks = buff.Stacks,
+                    Turns = buff.RemainingTurns,
+                    SurvivesBattleEnd = buff.SurvivesBattleEnd,   // 实例级标记，必须存
+                });
             }
             return d;
         }

@@ -46,12 +46,22 @@ namespace LostCompound.Buffs
         /// 什么时候该传 true：这个效果本来就是"常驻到本局结束"的（诅咒、寄生、长期增益）。
         /// 传了就要想清楚**它怎么被清除** —— 没有清除手段的常驻 debuff 会让游戏无法平衡。
         ///
-        /// 为什么它是构造参数而不是可写属性：生命周期是 buff 的**身份**，不该运行期改。
-        /// 也因此它**不需要写进存档** —— `BuffFactory` 重建实例时会重新走子类构造函数，
-        /// 标记自然就带回来了。⚠️ 反过来说：如果一个 buff 类需要"有时保留、有时不保留"，
-        /// 这个设计就不够用了，那种情况必须把标记一并存进 <c>BuffData</c>。
+        /// 为什么它是构造参数而不是可写属性：生命周期应当由"造它的人"决定，不该运行期乱改。
+        /// 但它**是实例级的**（同一个类可以这一件跨战斗、下一件不跨），所以**必须写进存档** ——
+        /// `BuffFactory` 只会传 stacks/turns，重建出来的实例默认是 false；
+        /// 不存的话，一件跨战斗 buff 读档后会**悄悄变成战斗内临时 buff**，下一场战斗就消失。
+        /// 存档侧的处理见 <see cref="RestoreSurvivesBattleEnd"/> 与 <c>SaveRestorer.BuildBuffs</c>。
         /// </summary>
-        public bool SurvivesBattleEnd { get; }
+        public bool SurvivesBattleEnd { get; private set; }
+
+        /// <summary>
+        /// 读档专用：把存档里的标记灌回来。
+        /// 为什么需要它：标记现在是**实例参数**（`new Xxx(stacks, turns, true)`），
+        /// 同一个类可能这一件跨战斗、下一件不跨，所以重建实例时构造函数给不出正确值
+        /// （`BuffFactory` 只会传 stacks/turns）。因此必须由存档层补一句。
+        /// 用 `internal` 是为了不让游戏逻辑随手改它 —— 生命周期只该由构造决定。
+        /// </summary>
+        internal void RestoreSurvivesBattleEnd(bool survives) => SurvivesBattleEnd = survives;
 
         /// <summary>显示名（如「流血」）。</summary>
         public abstract string Name { get; }
