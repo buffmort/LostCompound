@@ -57,9 +57,14 @@ namespace LostCompound.Items.Consumables
             p.CurrentEnvironment?.OnFusionSulphurUsed();
         }
 
+        /// <summary>
+        /// 战斗外使用时的解释。原先这里是空的 `{ }` —— 而 IUseable 的这个方法现在真的会被调用
+        /// （地图上按 5 打开背包），空着就等于「选了道具，游戏一声不吭」。
+        /// 热硫的使用效果是「丢出去炸 / 堵出水口」，都得在战斗里才成立。
+        /// </summary>
         public void ExplainBattleOnly(Player p)
         {
-
+            Console.WriteLine("热硫只能在战斗中使用！");
         }
 
         public void OnBattleStart(Player p, EnvType envType)

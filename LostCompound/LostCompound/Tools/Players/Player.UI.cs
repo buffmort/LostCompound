@@ -507,11 +507,11 @@ namespace LostCompound.Tools.Players
 
                     // 5/6/7：地图上的「非移动动作」。不做任何一格的计算、也不触发房间事件，
                     // 做完直接回到循环顶部重画（玩家的位置没变，pendingEnter 保持 false）。
-                    // 传 null 的怪物列表：现在不在战斗里，OpenItems 里那些「对战中使用」
-                    // 的分支（如压缩沙瓶）会走 ExplainBattleOnly 给出提示，不会误伤远处的怪。
+                    // 5 走的是**战斗外**那条背包路径（选中道具调 ExplainBattleOnly，
+                    // 不真的执行效果）—— 见 Player.ExplainItemsOutsideBattle 的注释。
                     if (direction == 5)
                     {
-                        OpenItems(null);
+                        ExplainItemsOutsideBattle();
                         continue;
                     }
                     if (direction == 6)

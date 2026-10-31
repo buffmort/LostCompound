@@ -111,6 +111,65 @@ namespace LostCompound.Tools.Players
             }
         }
 
+        /// <summary>
+        /// **不在战斗中**时打开背包（地图上按 5）。
+        ///
+        /// 与战斗版的区别只有一句：选中道具后调 <see cref="IUseable.ExplainBattleOnly"/>，
+        /// 而不是 <see cref="IUseable.Use"/> —— 这就是那个方法存在的理由。
+        /// 接口把「怎么用」和「为什么现在不能用」分成两个方法，正是为了这条路径：
+        /// 战斗外用道具时**不该真的执行效果**（否则毒气弹会在没有敌人的房间里被白白消耗、
+        /// 水瓶会在没有水源的地方"回满水量"），但玩家需要知道原因。
+        ///
+        /// 为什么不在 OpenItems 里加一个 bool 参数：那样两套流程会绞在一起
+        /// （列表要不要标 [可使用]、选完要不要收尸、要不要弹战斗提示…），
+        /// 而这边只有一件事要做 —— 解释。分成两个方法，各自读起来就是它该做的事。
+        /// </summary>
+        private void ExplainItemsOutsideBattle()
+        {
+            if (Inventory.Count == 0)
+            {
+                Console.WriteLine("你的背包空空如也！");
+                return;
+            }
+
+            Console.WriteLine("=====背包（战斗外）=====");
+            for (int i = 0; i < Inventory.Count; i++)
+            {
+                Console.WriteLine(i + "." + Inventory[i]);
+            }
+            Console.WriteLine("-1. 返回");
+
+            while (true)
+            {
+                int choice = ReadInt("选择道具");
+                if (choice == -1)
+                {
+                    return;
+                }
+                if (_inputClosed)
+                {
+                    return;   // 输入流结束：不空转
+                }
+                if (choice < 0 || choice >= Inventory.Count)
+                {
+                    Console.WriteLine("选择无效，请输入 0-" + (Inventory.Count - 1) + "（-1 返回）");
+                    continue;
+                }
+
+                Item item = Inventory[choice];
+                if (item is IUseable useable)
+                {
+                    // 各道具自己解释「为什么现在不能用」（文案在各自类里，这里不认识具体道具）
+                    useable.ExplainBattleOnly(this);
+                }
+                else
+                {
+                    Console.WriteLine(item.Name + " 不能直接使用。");
+                }
+                return;
+            }
+        }
+
         private void OpenItems(List<Monster> monsters)
         {
             // 「搅乱泥沙」这类 debuff 会封住背包（Buff.BlocksInventory）。

@@ -51,10 +51,14 @@ namespace LostCompound.Items.Consumables
             Console.WriteLine("你照了照镜子 你现在变成了" + Directions[Random.Shared.Next(Directions.Length)] + "-" + Profile.DisplayName + "！");
         }
 
-        /// <summary>镜子在背包里就能用（不是战斗专属），所以这个分支永远不会被调用。</summary>
+        /// <summary>
+        /// 战斗外使用时的解释。**这个方法现在真的会被调用**（地图上按 5 打开背包）。
+        /// 原来这里写的是「镜子随时可以用！」—— 那是自相矛盾：既然走到这个方法，
+        /// 就说明现在用不了。文案改成与其它道具一致的说法。
+        /// </summary>
         public void ExplainBattleOnly(Player p)
         {
-            Console.WriteLine("镜子随时可以用！");
+            Console.WriteLine("镜子只能在战斗中使用！");
         }
     }
 }
