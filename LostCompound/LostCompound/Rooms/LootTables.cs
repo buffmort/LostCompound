@@ -61,9 +61,13 @@ namespace LostCompound.Rooms
                     items.Add(new Sand(2));
                     items.Add(new GlassJar(1));
                     break;
-                // 其余环境（沙漠/矿洞/墓地/放射性区域/雾都城市）尚未实现，
-                // 等做出来后再在这里补1
-                // 各自的掉落表。
+                case EnvType.Desert:
+                    // 设计文档 5.3 第 1 条「无法获得除沙子以外任何道具」。
+                    // 用户裁定：**所有来源都只给沙子** —— 所以宝箱 / 空房也只放沙子。
+                    items.Add(new Sand(5));
+                    break;
+                // 其余环境（矿洞/墓地/放射性区域/雾都城市）尚未实现，
+                // 等做出来后再在这里补各自的掉落表。
                 default:
                     // 未知环境默认返回空列表
                     break;
@@ -105,6 +109,11 @@ namespace LostCompound.Rooms
                 case EnvType.FloodedCavern:
                     pool.AddRange(BuildFloodedCavernStartPool());
                     break;
+                case EnvType.Desert:
+                    // 沙漠开局也「除沙子外什么都没有」（DESIGN §5.3 第 1 条 + 用户裁定）。
+                    // 单独给表而不是走 default 的基础池 —— 否则沙漠开局就能领到木头/硫磺。
+                    pool.Add(new Sand(5));
+                    break;
                 default:
                     // 尚未实现的环境：暂时回退到基础池，等各环境做出来后各自给表。
                     pool.AddRange(BuildBasicStartPool());
@@ -129,6 +138,10 @@ namespace LostCompound.Rooms
                     break;
                 case EnvType.FloodedCavern:
                     weights.AddRange(FloodedCavernStartWeights);
+                    break;
+                case EnvType.Desert:
+                    // 与沙漠的 GetStartPool 一一对应：池里只有 1 项，权重也就只有 1 个数。
+                    weights.Add(1);
                     break;
                 default:
                     // 与 GetStartPool 的 default 分支保持一致：同样回退到基础池权重

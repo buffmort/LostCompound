@@ -1,4 +1,4 @@
-namespace LostCompound.MapEnvironment
+﻿namespace LostCompound.MapEnvironment
 {
     /// <summary>
     /// 「已实现的环境」清单 —— 菜单、调试菜单都从这里取，避免两处手抄走样。
@@ -19,6 +19,7 @@ namespace LostCompound.MapEnvironment
         [
             ("熔岩瀑布", EnvType.LavaWaterfall),
             ("水淹洞穴", EnvType.FloodedCavern),
+            ("沙漠", EnvType.Desert),
         ];
     }
 }

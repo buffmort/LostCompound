@@ -14,7 +14,8 @@ namespace LostCompound.MapEnvironment
             EnvType.None => null,
             EnvType.LavaWaterfall => new LavaWaterfall(),
             EnvType.FloodedCavern => new FloodedCavern(),
-            // 其余环境（沙漠 / 矿洞 / 墓地 / 放射性区域 / 雾都城市）尚未实现，先返回 null
+            EnvType.Desert => new Desert(),
+            // 其余环境（矿洞 / 墓地 / 放射性区域 / 雾都城市）尚未实现，先返回 null
             _ => null,
         };
     }

@@ -85,6 +85,26 @@ namespace LostCompound.MapEnvironment
         public virtual bool CanMine => false;
 
         /// <summary>
+        /// 能不能在**战斗菜单里采沙**（目前只有沙漠，DESIGN §5.3「采沙：花费 1 回合获得 5 沙子」）。
+        ///
+        /// 与 <see cref="CanMine"/> 同一套做法：入口（`Player.OnPlayerTurn` 的第 6 项）
+        /// 只问「这里能不能采」，不认识具体环境；将来再加一个能采东西的环境，
+        /// 覆写这个属性 + <see cref="DigSand"/> 即可。
+        /// </summary>
+        public virtual bool CanDigSand => false;
+
+        /// <summary>采一次沙的产物（默认什么都没有；沙漠返回沙子 × 5）。</summary>
+        public virtual List<Item> DigSand() => [];
+
+        /// <summary>
+        /// 本环境是否**压掉怪物掉落**（DESIGN §5.3 第 2 条「怪物不掉落物品」）。
+        ///
+        /// 判定点在 <see cref="Monsters.Monster.Die"/>：它拿着玩家对象，能问到当前环境；
+        /// 写成「问环境」而不是「`is Desert`」，是为了以后再有「贫瘠环境」时不用改怪。
+        /// </summary>
+        public virtual bool SuppressMonsterLoot => false;
+
+        /// <summary>
         /// 本环境是否已到「玩家必败」的条件（如水淹洞穴水位满）。
         /// 由环境自己判定，战斗循环只问结果 —— 这样以后再加有死亡条件的环境
         /// （如熔岩瀑布被岩浆淹没）不用回头改 RunBattle。

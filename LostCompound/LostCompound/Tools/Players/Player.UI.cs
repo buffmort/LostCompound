@@ -75,6 +75,14 @@ namespace LostCompound.Tools.Players
             Console.WriteLine();
             Console.WriteLine("请选择操作");
             Console.WriteLine("1.攻击  2.防御  3.打开背包  4.徒手合成  5.饰品栏");
+
+            // 第 6 项只在「这里能采东西」时出现（目前只有沙漠，DESIGN §5.3 采沙）。
+            // 问的是环境能力位，不是 `env is Desert` —— 将来再有能采的环境不用改这里。
+            bool canDigSand = CurrentEnvironment?.CanDigSand == true;
+            if (canDigSand)
+            {
+                Console.WriteLine("6.采沙");
+            }
             if (DebugState.Enabled)
             {
                 Console.WriteLine("debug模式操作:");
@@ -115,6 +123,16 @@ namespace LostCompound.Tools.Players
                     break;
                 case 5:
                     OpenAccessoryMenu();
+                    break;
+                case 6 when CurrentEnvironment?.CanDigSand == true:
+                    // 采沙：一次行动换一堆沙子（DESIGN §5.3「花费 1 回合获得 5 沙子」）。
+                    // 用 when 守卫而不是在 case 里 if：不满足时这条 case 不匹配，
+                    // 与「乱输一个数字」走完全相同的 default 分支（不新增任何提示）。
+                    foreach (Item dug in CurrentEnvironment.DigSand())
+                    {
+                        AddItem(dug);
+                    }
+                    Console.WriteLine("你花了些力气，从沙丘里筛出一堆沙子。");
                     break;
                 // 127 / 128 / 129 / 130 是调试指令，必须**先开开关**（255）才可用。
                 //

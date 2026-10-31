@@ -185,11 +185,14 @@
 - **对策**：热硫堵出水口 3（困难 2）回合，堵住后水位不再上涨。
 - **额外合成**：热硫 + 水瓶 → 硫酸。
 
-### 5.3 沙漠（Desert）
+### 5.3 沙漠（Desert） · ✅ 已实现
 
-- 无法获得除沙子以外任何道具。
-- 怪物不掉落物品。
-- **采沙**：花费 1 回合获得 5（困难 3）沙子。
+- 无法获得除沙子以外任何道具。（`LootTables` 的 Desert 分支：宝箱/空房/开局池都只给沙子）
+- 怪物不掉落物品。（`Environment.SuppressMonsterLoot` → `Monster.Die` 跳过掉落表）
+- **采沙**：花费 1 回合获得 5（困难 3）沙子。（战斗菜单第 **6** 项，`Environment.CanDigSand` / `DigSand`）
+
+> 用户裁定：采沙入口放在**战斗菜单**（只能战斗中采）；限制范围是**所有来源**都只给沙子。
+> 实现见 `MapEnvironment\Environments\Desert.cs`。困难模式的 5→3 待难度系统。
 
 ### 5.4 矿洞（Mine）
 
@@ -236,7 +239,7 @@
 | 1 | 岩浆怪 | 普通 | 30 | 免疫 30%（困难 50%）伤害；水瓶可扣当前 70%（困难 50%）血量 |
 | 2 | 食人鱼 | 普通 | 10 | 无法被攻击，可被 AOE 打；每回合攻击 5（困难 10）；怪物全死则自动死亡 · ✅ **已实现**（Monsters\Normal\Piranha.cs，能力位 ICannotBeTargeted） |
 | 2 | 洞潜僵尸 | 精英 | 100 | 每回合 10% 自动死亡；50%（困难 70%）上 4 种 debuff 之一 · ✅ **已实现**（Monsters\Elite\DiverZombie.cs；atk 10 / str 5 / def 2 由用户补全） |
-| 3 | 穿模骆驼 | 精英 | 50 | 20%（困难 30%）穿模（跳过玩家回合）；Hard 前两回合必跳过；ATK = 5 |
+| 3 | 穿模骆驼 | 精英 | 50 | 20%（困难 30%）穿模（跳过玩家回合）；Hard 前两回合必跳过；ATK = 5 · ✅ **已实现**（`Monsters\Elite\Camel.cs`；ATK 5 = 固定伤害；困难 30% / Hard 前两回合待难度系统） |
 | 7 | 医生 | 普通 | ?【待定】 | 每回合为全部怪物（除自己）恢复 5%（困难 7%）当前血量 |
 | 1-5 | 盾兵 | 普通 | 10 × 当前层数 | def 0 / str 0 / atk 0；**仅在多怪物时出现**；每回合为随机一只怪提供 5 × 当前层数的盾；掉落 1 金属（权重 0.5） · ✅ **已实现**（`Monsters\Normal\ShieldSoldier.cs`） |
 
@@ -289,8 +292,7 @@
 >    本类的 30 血对上的是 §6.2 那只普通僵尸，故判为 **普通**。
 >    若用户认为代码里的 `Zombie` 就当洞潜僵尸用，改 `Zombie.Rank` 一行即可。
 >
-> **文档里点名但代码还没做的怪物**：穿模骆驼（精英）、
-> 医生（普通）—— 实现时在各自类里覆写 `Rank` 即可。
+> **文档里点名但代码还没做的怪物**：医生（普通）—— 实现时在各自类里覆写 `Rank` 即可。
 
 ### 6.1 Boss
 
@@ -885,7 +887,8 @@
 | 其余配方 2 / 3 的道具 | 见第九章 |
 | **镜子 (45)** | ✅ 已实现（`Items\Consumables\Mirror.cs` + `Player.SwapBaseStats` / `RotateInventoryCounts`）。三处裁定见 §11 第 7 条 |
 | **档案 profile（`profile.json`）** | 玩家名 / 死亡次数 / 转化仓（占位）。与 `save.json` 分开：死亡删 save 但不删 profile。开局第一次运行问名字；死亡时 `Profile.AddDeath()` + 落盘 |
-| 6 种环境（沙漠 / 矿洞 / 墓地 / 放射性区域 / 雾都城市） | — |
+| **沙漠（Desert）** | ✅ 已实现（`MapEnvironment\Environments\Desert.cs`）：只出沙子、怪物无掉落、战斗菜单第 6 项采沙 5 个 |
+| 其余 4 种环境（矿洞 / 墓地 / 放射性区域 / 雾都城市） | — |
 | 附魔系统（4.4） | 魔法台 + 困难模式 |
 | 层数系统（**10 层**） | ✅ 已实现（2026-10-31）。<br>**层数**：`GameProgress.Layer`（权威）、`tmg.Layer`（图上的快照）、存档 `Layer`。<br>**地图尺寸**：随层数长大，每两层行列各 +1（5×5 → 9×9，`GameProgress.MapSizeForLayer`）；**放射性区域将来固定 10×10**，不吃这个公式。<br>**每层种子**：`SeedForLayer(总种子, 层数) = 总种子 × 层数`（用户裁定；纯函数，读档后算出来的仍一样；乘积回绕成 0 时退回总种子）。总种子 `Random.Shared.NextInt64()` 开局摇一次，存进 `SaveData.RunSeed`。<br>**换层**：`BossRoom` 打赢后举牌 `Player.NextLayerRequested`，由 `Player.RunMainLoop` 调 `AdvanceLayer()` 统一重建（层数 +1 → 取新种子 → 按新尺寸建图 → 回到起点 → **回复 70% 上限的血** → 立刻存档）。环境**随机**（`EnvironmentCatalog` 里抽）。<br>**通关**：第 10 层 Boss 打赢 → `Player.GameCleared` → 删档 + `Profile.Clears++`。<br>⚠️ 还没做：第十章那些「按通关次数解锁」（第 2/4 次通关的背包/饰品成长、第 5 次解锁配方 1、可自选下一层地图）—— `Profile.Clears` 已经在记了，只是没人读它 |
 | 困难 / fatal 模式（2.3） | 通关系统 |

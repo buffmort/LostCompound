@@ -14,5 +14,8 @@ namespace LostCompound.Monsters
         // 水淹洞穴专属（DESIGN §6 地图 2）
         Piranha,
         DiverZombie,
+
+        // 沙漠专属（DESIGN §6 地图 3）
+        Camel,
     }
 }

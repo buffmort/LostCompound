@@ -232,8 +232,19 @@ namespace LostCompound.Monsters
             }
             _lootDropped = true;
 
-            List<Item> loots = MonsterLootTable.Drop(Type);
             Console.WriteLine(Name + " 死了。");
+
+            // 环境可以「压掉怪物掉落」（DESIGN §5.3 沙漠第 2 条：怪物不掉落物品）。
+            // 判定问的是环境能力位（Environment.SuppressMonsterLoot），不是 `env is Desert` ——
+            // 将来再有贫瘠环境，改环境一行即可，怪物这边不用动。
+            // 注意：**掉落表都不摇**（不摇骰子也就不会打印「掉了几件」），而不是摇完再丢。
+            if (player.CurrentEnvironment?.SuppressMonsterLoot == true)
+            {
+                Console.WriteLine("（这里的环境让怪物什么也没留下。）");
+                return [];
+            }
+
+            List<Item> loots = MonsterLootTable.Drop(Type);
             foreach (Item item in loots)
             {
                 // 掉落播报已统一由 Player.AddItem 负责，这里不再重复打印

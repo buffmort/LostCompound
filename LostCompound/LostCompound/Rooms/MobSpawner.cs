@@ -73,6 +73,17 @@ namespace LostCompound.Rooms
         ];
 
         /// <summary>
+        /// 沙漠的**环境专属**池（DESIGN §6「地图 3」：穿模骆驼）。
+        ///
+        /// 只有一只精英，所以沙漠的战斗里它每场都在（与熔岩瀑布的岩浆怪同一写法）。
+        /// </summary>
+        private static readonly (string Name, Func<Monster> Create, int FromLayer, int ToLayer)[] DesertPool =
+        [
+            // 穿模骆驼：精英，50 血，20% 让玩家跳过一回合。
+            ("穿模骆驼", () => new Camel(), 1, int.MaxValue),
+        ];
+
+        /// <summary>
         /// 一场战斗里同时出现的怪物数上限（= 敌人框能显示的 7 行）。
         ///
         /// 与 <see cref="UI.ConsoleScreen.MaxEnemyRows"/> 是同一个数字的两端：
@@ -203,6 +214,7 @@ namespace LostCompound.Rooms
             {
                 EnvType.LavaWaterfall => LavaWaterfallPool,
                 EnvType.FloodedCavern => FloodedCavernPool,
+                EnvType.Desert => DesertPool,
                 // 未实现的环境（含 None）：没有专属怪，只用通用池。
                 _ => [],
             };
