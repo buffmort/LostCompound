@@ -14,7 +14,7 @@ namespace LostCompound.Items.Consumables
     /// 数量与耐久的关系：**一片碘片 = 3 次使用**（耐久 3、每次 -1），
     /// 堆叠上限 5 指的是最多能带 5 片。所以 <see cref="Use"/> 只扣耐久、不扣 <see cref="Item.Count"/>。
     /// </summary>
-    public sealed class IodineTablet(int count) : Item(ItemIds.IodineTablet, "碘片", 5, true, count), IUseable, IChangeable
+    public sealed class IodineTablet(int count) : Item(ItemIds.IodineTablet, "碘片", 5, true, count), IUseable, IChangeable, IItemState
     {
         public override ItemType? Type => ItemType.IodineTablet;
 
@@ -51,5 +51,20 @@ namespace LostCompound.Items.Consumables
         public bool ShouldRemove() => Count == 0;
 
         public Item Become() => null;
+
+        /// <summary>存档键名。**发布后不能改**。</summary>
+        private const string StateKeyDurability = "durability";
+
+        /// <summary>碘片要存的是剩余使用次数（一片 3 次）。</summary>
+        public Dictionary<string, int> SaveState() => new() { [StateKeyDurability] = Durability };
+
+        public void LoadState(IReadOnlyDictionary<string, int> state)
+        {
+            // 缺键 = 旧存档没这一项，保持构造时的默认值 3
+            if (state.TryGetValue(StateKeyDurability, out int durability))
+            {
+                Durability = durability;
+            }
+        }
     }
 }

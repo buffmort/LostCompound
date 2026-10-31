@@ -7,6 +7,7 @@ using LostCompound.Tools;
 using LostCompound.Tools.Debug;
 
 using LostCompound.Tools.Players;
+using LostCompound.Save;
 
 namespace LostCompound.Tools.Launch
 {
@@ -45,57 +46,127 @@ namespace LostCompound.Tools.Launch
         private void PrintMenu()
         {
             Console.WriteLine("------------ 主菜单 ------------");
-            Console.WriteLine("  1. 开始游戏");
-            Console.WriteLine("  2. 退出游戏");
-            // 只有 debug 模式才多出这两行：非 debug 时菜单文本与以前逐字一致
-            // （1/2 的编号绝不能被挤动，所以新项一律往后排 3/4）。
+
+            // 有存档时多出「继续游戏」，所以 1 是继续、2 是新游戏、3 是退出。
+            // 没有存档时保持原来的 1 开始 / 2 退出 —— 玩家看不出区别，也不会误点到一个空选项。
+            bool hasSave = SaveFile.Exists;
+            if (hasSave)
+            {
+                Console.WriteLine("  1. 继续游戏");
+                Console.WriteLine("  2. 开始新游戏");
+                Console.WriteLine("  3. 退出游戏");
+            }
+            else
+            {
+                Console.WriteLine("  1. 开始游戏");
+                Console.WriteLine("  2. 退出游戏");
+            }
+
+            // debug 项永远排在最后两个：编号按「前面有几项」算，避免手抄两套编号。
             if (DebugState.Enabled)
             {
-                Console.WriteLine("  3. 调试战斗");
-                Console.WriteLine("  4. 获取道具");
+                Console.WriteLine("  " + DebugBattleChoice + ". 调试战斗");
+                Console.WriteLine("  " + GiveItemsChoice + ". 获取道具");
             }
             Console.WriteLine("--------------------------------");
         }
 
+        // 菜单编号集中在这里算，PrintMenu 与 HandleChoice 共用同一份 ——
+        // 各写一遍的话，「有存档时 3 是调试战斗」这种偏移早晚会对不上。
+        private static bool HasSave => SaveFile.Exists;
+        private static int ContinueChoice => 1;
+        private static int NewGameChoice => HasSave ? 2 : 1;
+        private static int ExitChoice => HasSave ? 3 : 2;
+        private static int DebugBattleChoice => HasSave ? 4 : 3;
+        private static int GiveItemsChoice => HasSave ? 5 : 4;
+
         private void HandleChoice(int choice)
         {
-            switch (choice)
+            // 255 是「开启 debug 模式」而不是菜单项，所以它不出现在菜单里，先单独处理。
+            if (choice == 255)
             {
-                case 1:
-                    StartNewRun();
-                    break;
-                case 2:
-                    ConfirmExit();
-                    break;
-                case 255:
-                    // 255 是「开启 debug 模式」而不是菜单项，所以它不出现在菜单里。
-                    // 这里仅开开关，不做别的：主菜单 1/2 的行为完全不变。
-                    // 开的是全局开关（DebugState），所以战斗中输 255 也开的是同一个，
-                    // 两处不会再各开一份、各看一份。
-                    DebugState.Enable();
-                    Console.WriteLine("已进入 debug 模式！\n");
-                    break;
-                case 3:
-                    if (!DebugState.Enabled)
-                    {
-                        // 非 debug 时 3 依旧是「没有这个选项。」，与以前一致
-                        Console.WriteLine("没有这个选项。\n");
-                        break;
-                    }
-                    DebugMenu.RunDebugBattle();
-                    break;
-                case 4:
-                    if (!DebugState.Enabled)
-                    {
-                        Console.WriteLine("没有这个选项。\n");
-                        break;
-                    }
-                    DebugMenu.GiveItems();
-                    break;
-                default:
-                    Console.WriteLine("没有这个选项。\n");
-                    break;
+                // 这里仅开开关，不做别的：菜单项的行为完全不变。
+                // 开的是全局开关（DebugState），所以战斗中输 255 也开的是同一个，
+                // 两处不会再各开一份、各看一份。
+                DebugState.Enable();
+                Console.WriteLine("已进入 debug 模式！\n");
+                return;
             }
+
+            if (HasSave && choice == ContinueChoice)
+            {
+                ContinueRun();
+                return;
+            }
+            if (choice == NewGameChoice)
+            {
+                StartNewRun();
+                return;
+            }
+            if (choice == ExitChoice)
+            {
+                ConfirmExit();
+                return;
+            }
+            if (choice == DebugBattleChoice)
+            {
+                if (!DebugState.Enabled)
+                {
+                    Console.WriteLine("没有这个选项。\n");
+                    return;
+                }
+                DebugMenu.RunDebugBattle();
+                return;
+            }
+            if (choice == GiveItemsChoice)
+            {
+                if (!DebugState.Enabled)
+                {
+                    Console.WriteLine("没有这个选项。\n");
+                    return;
+                }
+                DebugMenu.GiveItems();
+                return;
+            }
+
+            Console.WriteLine("没有这个选项。\n");
+        }
+
+        /// <summary>
+        /// 从存档开局。
+        ///
+        /// 分工：<see cref="SaveFile"/> 管文件，<see cref="SaveRestorer"/> 管「数据 → 对象」，
+        /// 这里只做「读失败就说人话、读成功就进场」。
+        /// 地图不重新生成 —— 存档里带着地形，重生成等于把玩家走过的路抹掉。
+        /// </summary>
+        private void ContinueRun()
+        {
+            Console.WriteLine();
+            Console.WriteLine(">>> 继续游戏");
+
+            SaveData data = SaveFile.Load();
+            if (data == null)
+            {
+                // Load 内部已经打印过具体原因（无档/损坏/版本不符）
+                Console.WriteLine("读取存档失败，已返回主菜单。\n");
+                return;
+            }
+
+            Player p = new Player();
+            if (!SaveRestorer.TryRestore(data, p, out Room[][] map))
+            {
+                Console.WriteLine("存档内容无法还原，已返回主菜单。\n");
+                return;
+            }
+
+            // 用现成网格造生成器：只为了 ToDisplayString() 能画出地图，不重新 Generate()
+            TreeMazeGenerator tmg = TreeMazeGenerator.FromGrid(map);
+
+            int row = Math.Clamp(data.Player.Row, 0, map.Length - 1);
+            int col = Math.Clamp(data.Player.Col, 0, map[0].Length - 1);
+
+            Console.WriteLine($"已读取存档（{data.SavedAt}）。");
+            p.ContinueGame(map, tmg, row, col);
         }
 
         private void StartNewRun()

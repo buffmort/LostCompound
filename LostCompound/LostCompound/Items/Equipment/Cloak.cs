@@ -44,7 +44,7 @@ namespace LostCompound.Items.Equipment
     ///   两者连发生的位置都不同（一个改数值、一个收事件），硬揉在一起会让两个口径互相污染。
     /// </summary>
     public sealed class Cloak(int count)
-        : Item(ItemIds.Cloak, "斗篷", 1, false, count), IEquippable, IDamageReduction, IOnDamaged, IChangeable
+        : Item(ItemIds.Cloak, "斗篷", 1, false, count), IEquippable, IDamageReduction, IOnDamaged, IChangeable, IItemState
     {
         public override ItemType? Type => ItemType.Cloak;
 
@@ -115,5 +115,23 @@ namespace LostCompound.Items.Equipment
         public string DescribePassive() =>
             "背包 +" + DefBonus + " DEF，受伤 -" + ReductionRatio * 100 + "%，已承伤 " +
             _damageTakenCount + "/" + MaxDamageCount;
+
+        /// <summary>存档键名。**发布后不能改**。</summary>
+        private const string StateKeyDamageTaken = "damageTaken";
+
+        /// <summary>
+        /// 斗篷要存的是「已经挨了多少下」（<see cref="_damageTakenCount"/>）。
+        /// 不存的话，一件记到 49/50 的斗篷读档后会变回全新 —— 玩家等于白赚 49 次耐久。
+        /// </summary>
+        public Dictionary<string, int> SaveState() => new() { [StateKeyDamageTaken] = _damageTakenCount };
+
+        public void LoadState(IReadOnlyDictionary<string, int> state)
+        {
+            // 缺键 = 旧存档没这一项，保持构造时的默认值 0（全新斗篷）
+            if (state.TryGetValue(StateKeyDamageTaken, out int count))
+            {
+                _damageTakenCount = count;
+            }
+        }
     }
 }

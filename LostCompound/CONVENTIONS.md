@@ -262,7 +262,7 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 | 目录 | 命名空间 | 内容 |
 |---|---|---|
 | `Items\` | `LostCompound.Items` | `Item` / `ItemType` / `ItemIds` / `ItemFactory` |
-| `Items\Capabilities\` | `LostCompound.Items.Capabilities` | 能力位接口（`IUseable` 等 10 个） |
+| `Items\Capabilities\` | `LostCompound.Items.Capabilities` | 能力位接口（`IUseable` / `IItemState` 等 11 个） |
 | `Items\Materials\` | `LostCompound.Items.Materials` | 材料（8） |
 | `Items\Consumables\` | `LostCompound.Items.Consumables` | 消耗品（9） |
 | `Items\Containers\` | `LostCompound.Items.Containers` | 容器（3） |
@@ -282,6 +282,35 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 | `MapEnvironment\Environments\` | `LostCompound.MapEnvironment.Environments` | `LavaWaterfall` / `FloodedCavern` |
 | `UI\` | `LostCompound.UI` | `ConsoleScreen` / `LogRegionWriter` |
 | `Maps\` | `LostCompound.Maps` | `TreeMazeGenerator` |
+| `Save\` | `LostCompound.Save` | `SaveData`（DTO）/ `SaveFile`（IO）/ `SaveCollector` / `SaveRestorer` |
+
+## 2.10 存档（`Save\`）
+
+**分工只有一条线：`Collector` 只读、`Restorer` 只写、`SaveFile` 只管文件、`SaveData` 只有字段。**
+
+| 谁 | 干什么 | 不许干什么 |
+|---|---|---|
+`SaveCollector` | 运行时对象 → DTO | 改任何游戏状态 |
+`SaveRestorer` | DTO → 运行时对象 | 碰文件、碰控制台以外的 UI |
+`SaveFile` | DTO ↔ `%APPDATA%\LostCompound\save.json` | 认识任何游戏类 |
+`SaveData` | 纯属性容器 | 有方法、有 `Func`、有行为 |
+
+**三条硬规则：**
+
+1. **派生值不进存档**（`Str` / `Atk` / `Def`）—— 读档后 `RecomputeStats()` 会算回来。
+   存了反而可能与来源矛盾（见 §2.3 重算制）。
+2. **实例状态必须走 `IItemState`**。`ItemFactory.Create(id, count)` 只还原 ID + 数量；
+   耐久 / 已承伤次数 / 倒计时都要道具自己实现 `SaveState()` / `LoadState()`，
+   否则读档后「快坏的镐子」会变回满耐久。
+3. **枚举一律存名字，不存数字**（`"LavaWaterfall"` 而非 `0`）。
+   存数字的话，将来往枚举中间插一个成员，旧档会整体错位且不报错。
+
+**写入必须原子**：先写 `save.json.tmp`，再 `File.Move(..., overwrite: true)`。
+直接覆盖写，一旦写到一半进程被杀，存档就永久报废（`SaveFile` 类注释里有一节基础 IO 讲解）。
+
+⚠️ **发布时不要开 `PublishAot` / `PublishTrimmed`**：`System.Text.Json` 的反射序列化在
+AOT/裁剪下默认被禁用（运行时报 `Reflection-based serialization has been disabled`）。
+现在的发布参数（self-contained 单文件、不裁剪）是安全的。
 
 ### `Player` 的拆分（partial class）
 

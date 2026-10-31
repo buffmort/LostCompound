@@ -21,6 +21,13 @@ namespace LostCompound.Tools.Players
     {
         public List<ICraftable> Recipes { get; } = [];
 
+        /// <summary>
+        /// 配方 1 是否已解锁。**只给存档用**：`Recipes` 里装的是 `Func&lt;Item&gt;`，
+        /// 写不进文件，所以存档记的是「解锁到第几档」，读档时按档位重跑
+        /// <see cref="AddDefaultRecipes"/> / <see cref="AddTier1Recipes"/>。
+        /// </summary>
+        public bool Tier1RecipesUnlocked { get; private set; }
+
         public void UnlockAllRecipes()
         {
             // 这道守卫现在**不可达**：唯一的调用点（OnPlayerTurn 的 case 128）自己带了
@@ -120,6 +127,10 @@ namespace LostCompound.Tools.Players
         public void AddTier1Recipes()
         {
             Console.WriteLine("你解锁了配方1!");
+
+            // 存档只需要知道「解锁到第几档」，不需要把 Recipes 列表本身写进文件
+            // （列表里是 Func<Item>，不可序列化）。读档时按这个标记重新解锁一次。
+            Tier1RecipesUnlocked = true;
 
             // 镐子：5 金属 + 3 木头
             Recipes.Add(new Recipe("镐子",

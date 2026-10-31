@@ -16,7 +16,7 @@ namespace LostCompound.Items.Equipment
     /// TODO 逃离(1)：需要地图逃逸机制（尚未实现，且和「离开地图」的语义要一起定）。
     /// TODO 打破二叉树：需要二叉树地图（尚未实现），届时本道具要能直接损坏并触发地图重置。
     /// </summary>
-    public sealed class Pickaxe(int count) : Item(ItemIds.Pickaxe, "镐子", 1, false, count), IUseable, IChangeable
+    public sealed class Pickaxe(int count) : Item(ItemIds.Pickaxe, "镐子", 1, false, count), IUseable, IChangeable, IItemState
     {
         public override ItemType? Type => ItemType.Pickaxe;
 
@@ -63,5 +63,21 @@ namespace LostCompound.Items.Equipment
         public bool ShouldRemove() => Durability <= 0;
 
         public Item Become() => null;
+
+        /// <summary>存档键名。**发布后不能改**。</summary>
+        private const string StateKeyDurability = "durability";
+
+        /// <summary>镐子要存的是剩余耐久（否则读档后一把快坏的镐子会变回满耐久）。</summary>
+        public Dictionary<string, int> SaveState() => new() { [StateKeyDurability] = Durability };
+
+        public void LoadState(IReadOnlyDictionary<string, int> state)
+        {
+            // 缺键 = 旧存档没这一项，保持构造时的默认值（20），不要当成 0
+            // （当成 0 会让读档瞬间「镐子坏了」）。
+            if (state.TryGetValue(StateKeyDurability, out int durability))
+            {
+                Durability = durability;
+            }
+        }
     }
 }

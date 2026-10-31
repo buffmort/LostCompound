@@ -14,6 +14,7 @@ using LostCompound.Items.Equipment;
 using LostCompound.Rooms.Types;
 using LostCompound.Tools.Debug;
 using LostCompound.Buffs.Types;
+using LostCompound.Save;
 
 namespace LostCompound.Tools.Players
 {
@@ -289,6 +290,48 @@ namespace LostCompound.Tools.Players
         public void StartGame(Room[][] map, TreeMazeGenerator tmg)
         {
             JoinMap(map);
+            RunMainLoop(map, tmg, pendingEnter: true, unlockRecipes: true);
+        }
+
+        /// <summary>
+        /// 读档进入：与 <see cref="StartGame"/> 的差别只有三点。
+        ///
+        /// 1. **不再解锁配方** —— `AddDefaultRecipes()` 会打印「你成功添加了合成表0!」，
+        ///    读档时重跑一遍只是噪音；配方已由 `SaveRestorer` 按存档档位补过。
+        /// 2. **不触发房间事件** —— `pendingEnter = false`：读档不是「走进这个房间」，
+        ///    否则一读档就又打一场已经打过的战斗、再搜一遍已经搜过的空房间。
+        /// 3. **站回存档时的格子**，而不是起始房间。
+        /// </summary>
+        public void ContinueGame(Room[][] map, TreeMazeGenerator tmg, int row, int col)
+        {
+            JoinMap(map);              // 设 _map（RecomputeStats 要靠它读环境）
+            RestorePosition(row, col);
+
+            // JoinMap 会把起始房间标成「玩家在此」，读档要把它挪到存档位置 ——
+            // 否则地图上会出现两个 * 标记。全清后只标目标格。
+            foreach (Room[] r in map)
+            {
+                foreach (Room room in r)
+                {
+                    room.IsPlayerHere = false;
+                }
+            }
+            map[row][col].IsPlayerHere = true;
+
+            // 派生值按「基础值 + 当前环境」重算一次（CONVENTIONS 2.3 的重算制）
+            RecomputeStats();
+
+            RunMainLoop(map, tmg, pendingEnter: false, unlockRecipes: false);
+        }
+
+        /// <summary>
+        /// 主循环本体：新开局与读档共用。
+        ///
+        /// 两个入口的差异全部收成参数，**循环本身只有一份** ——
+        /// 否则以后改循环（加楼层、加存档点）会漏掉其中一条路径。
+        /// </summary>
+        private void RunMainLoop(Room[][] map, TreeMazeGenerator tmg, bool pendingEnter, bool unlockRecipes)
+        {
 
             // 地图文本的行数/列数决定地图区的大小（行数 = rows*2+1，列数算最长一行）
             string[] mapLines = tmg.ToDisplayString().Replace("\r", "").Split('\n');
@@ -303,10 +346,14 @@ namespace LostCompound.Tools.Players
             // 历史：这个方法原先只在一个已删除的调试入口里被调用，主游戏从来没解锁过任何配方，
             // 导致玩家选「4.徒手合成」永远只会看到「你没有任何道具合成!」。
             // 放在 Install 之后，提示才会进日志区（放前面会被 Install 的清屏抹掉）。
-            AddDefaultRecipes();
+            // 读档不重跑（理由见 ContinueGame）。
+            if (unlockRecipes)
+            {
+                AddDefaultRecipes();
+            }
             // 这样玩家先看到自己身处何地，再看到房间里发生了什么。
-            bool pendingEnter = true;    // 起始房间的事件也要等第一张地图
             bool justMoved = false;
+
 
             try
             {
@@ -351,6 +398,11 @@ namespace LostCompound.Tools.Players
                     }
                     if (direction == 4)
                     {
+                        // 主动退出 = 存档并退出。
+                        // 为什么这里能存：方向菜单只在「房间事件全部结算完」之后才出现，
+                        // 所以此刻既没有进行中的战斗、也没有半截的房间事件 ——
+                        // 战斗中途的状态（敌人列表、本回合盾、回合数）没有任何恢复入口。
+                        SaveCurrentProgress(map);
                         Console.WriteLine("游戏结束，感谢游玩！");
                         break;
                     }
@@ -368,6 +420,35 @@ namespace LostCompound.Tools.Players
                 screen.Uninstall();
                 _screen = null;
             }
+
+            // 玩家死了就删档：这一局已经结束，留着只会让「继续游戏」把尸体读回来。
+            // 注意放在 finally **之后**：死亡时循环是靠 IsAlive 退出的，没走 direction==4 那条存档分支。
+            if (!IsAlive)
+            {
+                SaveFile.Delete();
+                Console.WriteLine("这一局结束了。");
+            }
+        }
+
+        /// <summary>
+        /// 存档当前进度。只在**活着、且不在战斗中**时调用（调用点是方向菜单的「4 退出」）。
+        ///
+        /// 这里只做「采集 + 写入」两件事，具体怎么采集在 <see cref="SaveCollector"/>，
+        /// 怎么落盘在 <see cref="SaveFile"/> —— 本方法不认识 JSON、也不认识文件路径。
+        /// </summary>
+        private void SaveCurrentProgress(Room[][] map)
+        {
+            if (!IsAlive || map == null)
+            {
+                return;
+            }
+
+            SaveData data = SaveCollector.Capture(this, map);
+            if (SaveFile.Save(data))
+            {
+                Console.WriteLine("已保存当前进度，下次可以从主菜单「继续游戏」。");
+            }
+            // 失败时 SaveFile 已经打印了原因，这里不重复刷屏
         }
     }
 }

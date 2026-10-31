@@ -128,6 +128,33 @@ namespace LostCompound.MapEnvironment.Environments
         /// </summary>
         public override void OnFusionSulphurUsed() => PlugOutlet(3);
 
+        /// <summary>存档键名。**发布后不能改**。</summary>
+        private const string StateKeyWaterLevel = "waterLevel";
+        private const string StateKeyPluggedTurns = "pluggedTurns";
+
+        /// <summary>
+        /// 水淹洞穴要存的是**水位**和**出水口还堵着几回合**。
+        /// 后者不存的话，读档后堵住状态丢失 —— 水位会立刻开始涨，玩家手里的热硫白用了。
+        /// </summary>
+        public override Dictionary<string, int> SaveState() => new()
+        {
+            [StateKeyWaterLevel] = WaterLevel,
+            [StateKeyPluggedTurns] = _pluggedTurns,
+        };
+
+        public override void LoadState(IReadOnlyDictionary<string, int> state)
+        {
+            // 两个键各自独立判缺：缺哪个就保持哪个的默认值，不要因为一个键缺失就整体放弃
+            if (state.TryGetValue(StateKeyWaterLevel, out int level))
+            {
+                WaterLevel = Math.Clamp(level, 0, MaxWaterLevel);
+            }
+            if (state.TryGetValue(StateKeyPluggedTurns, out int plugged))
+            {
+                _pluggedTurns = Math.Max(plugged, 0);   // 负数会让 IsPlugged 逻辑变味
+            }
+        }
+
         public override string DescribeStatus()
         {
             string s = $"水淹洞穴水位：{WaterLevel}/{MaxWaterLevel}";

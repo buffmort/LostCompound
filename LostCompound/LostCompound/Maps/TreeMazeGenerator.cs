@@ -33,6 +33,23 @@ namespace LostCompound.Maps
             InitializeRooms(envType);
         }
 
+        /// <summary>
+        /// 读档专用：直接拿一张现成网格构造，**不重新生成地图**。
+        ///
+        /// 为什么需要它：`Player.StartGame` 要用 `tmg.ToDisplayString()` 画地图，
+        /// 而 `_grid` 是 readonly、只由构造函数填。
+        /// 读档时地图来自存档文件，不能再跑一遍随机生成 —— 那会把存档里的地形冲掉。
+        /// </summary>
+        private TreeMazeGenerator(Room[][] grid)
+        {
+            _grid = grid;
+            _rows = grid.Length;
+            _cols = grid.Length > 0 ? grid[0].Length : 0;
+        }
+
+        /// <summary>读档专用：用已有网格构造（见私有构造函数）。</summary>
+        public static TreeMazeGenerator FromGrid(Room[][] grid) => new(grid);
+
         /**
          * 初始化所有房间并分配类型（START、BOSS、其他随机）。
          * 这里默认左上角为 START，右下角为 BOSS，其余随机 FIGHT/EMPTY/CRAFT。

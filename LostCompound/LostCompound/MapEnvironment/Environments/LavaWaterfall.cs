@@ -93,6 +93,21 @@ namespace LostCompound.MapEnvironment.Environments
             return [new Sulphur(count)];
         }
 
+        /// <summary>存档键名。**发布后不能改**。</summary>
+        private const string StateKeyWater = "water";
+
+        /// <summary>熔岩瀑布要存的是当前水量（否则读档后回满 200，等于白送一箱水瓶）。</summary>
+        public override Dictionary<string, int> SaveState() => new() { [StateKeyWater] = Water };
+
+        public override void LoadState(IReadOnlyDictionary<string, int> state)
+        {
+            // 缺键 = 旧存档没这一项，保持构造时的默认值（满水 200），不要当成 0
+            if (state.TryGetValue(StateKeyWater, out int water))
+            {
+                Water = Math.Clamp(water, 0, MaxWater);
+            }
+        }
+
         /// <summary>
         /// 熔岩瀑布的空房间事件（原先写在 <c>EmptyRoom.OnEnter</c> 里的三个分支，现在搬回环境）。
         /// 概率不变：30% 岩浆蒸水 + 一件基础材料 / 30% 捡到水瓶 / 40% 什么也没有。

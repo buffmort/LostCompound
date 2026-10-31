@@ -133,5 +133,18 @@ namespace LostCompound.Tools.Players
             }
             throw new InvalidOperationException("地图中没有起始房间！");
         }
+
+        /// <summary>
+        /// 读档专用：把玩家放回存档时所在的格子（不走 <see cref="Move"/>）。
+        ///
+        /// 为什么不能复用 Move：Move 要求「相邻 + 有门」，还会触发
+        /// `LeaveSetup`（离开事件的副作用）—— 读档不是「走了一步」，是「就站在这里」。
+        /// 网格边界由调用方（存档层）按地图尺寸校验过。
+        /// </summary>
+        internal void RestorePosition(int row, int col)
+        {
+            PlayerRow = row;
+            PlayerCol = col;
+        }
     }
 }

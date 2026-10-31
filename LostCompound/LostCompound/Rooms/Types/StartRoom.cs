@@ -48,6 +48,19 @@ namespace LostCompound.Rooms.Types
             // 空实现
         }
 
+        /// <summary>
+        /// 读档专用：这个房间的「本层开局道具是否已发放」。
+        /// 存档时要读它 —— 否则读档回来再进起始房间会**再发一轮开局三选一**，等于白送。
+        /// </summary>
+        internal bool StartItemsGiven => _startItemsGiven;
+
+        /// <summary>
+        /// 读档专用：恢复上面那个标记。
+        /// 用 `internal` 而不是 `public`：只有同一程序集里的存档代码该调它 ——
+        /// 公开出去就等于允许游戏逻辑在任何地方重置「已发放」，那正是它防的事。
+        /// </summary>
+        internal void RestoreStartItemsGiven(bool given) => _startItemsGiven = given;
+
         // ==================== 起始道具选择逻辑 ====================
 
         private void GiveStartItems(Player p)

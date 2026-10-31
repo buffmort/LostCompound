@@ -184,5 +184,26 @@ namespace LostCompound.MapEnvironment
 
         /// <summary>拼进玩家状态栏的一行环境状态。</summary>
         public abstract string DescribeStatus();
+
+        /// <summary>
+        /// 存档：导出**本环境自己持有的**状态（水量、水位……）。
+        /// 默认返回空字典 —— 没有状态的环境（将来的静态场景）不用写任何东西。
+        ///
+        /// 为什么用「字符串键 + int 值」而不是给每个环境定一个 DTO 类：
+        ///   环境状态都是计数器（水量 / 水位 / 堵住几回合），DTO 类会变成
+        ///   「一个字段一个类」的样板；键值对让新增环境只写自己那两行，
+        ///   存档层完全不需要认识具体环境。
+        ///
+        /// ⚠️ 键名一旦发布就不能改：改了等于把旧存档里的这一项丢掉（<see cref="LoadState"/>
+        /// 遇到缺键是**保持默认值**，不会崩，但玩家会看到水量莫名其妙回满）。
+        /// </summary>
+        public virtual Dictionary<string, int> SaveState() => [];
+
+        /// <summary>
+        /// 读档：灌回状态。默认什么也不做。
+        /// 约定与 <see cref="Items.Capabilities.IItemState.LoadState"/> 一致：
+        /// **缺键时保持当前值（构造时的默认值），不要当成 0。**
+        /// </summary>
+        public virtual void LoadState(IReadOnlyDictionary<string, int> state) { }
     }
 }

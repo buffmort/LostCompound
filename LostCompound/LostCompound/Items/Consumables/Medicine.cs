@@ -32,7 +32,7 @@ namespace LostCompound.Items.Consumables
     ///   Hp 是资源、上限是 BaseHp，超额回血会让血量条越过上限（状态栏显示 215/205 这种）。
     ///   所以按 <c>Math.Min(Hp + 15, BaseHp)</c> 处理 —— 满血时这一条**不浪费上限**，只是不溢出。
     /// </summary>
-    public sealed class Medicine(int count) : Item(ItemIds.Medicine, "药", 5, true, count), IUseable, IChangeable
+    public sealed class Medicine(int count) : Item(ItemIds.Medicine, "药", 5, true, count), IUseable, IChangeable, IItemState
     {
         public override ItemType? Type => ItemType.Medicine;
 
@@ -93,5 +93,24 @@ namespace LostCompound.Items.Consumables
         public bool ShouldRemove() => Count == 0;
 
         public Item Become() => null;
+
+        /// <summary>存档键名。**发布后不能改**。</summary>
+        private const string StateKeyDurability = "durability";
+
+        /// <summary>
+        /// 药要存的是「当前这颗还剩几次」（<see cref="Durability"/>）。
+        /// 注意 `Count`（还剩几颗）由 <see cref="Item"/> 基类统一保存，这里不重复存 ——
+        /// 两处都存就会出现「当前颗的耐久与颗数互相矛盾」的存档。
+        /// </summary>
+        public Dictionary<string, int> SaveState() => new() { [StateKeyDurability] = Durability };
+
+        public void LoadState(IReadOnlyDictionary<string, int> state)
+        {
+            // 缺键 = 旧存档没这一项，保持构造时的默认值（<see cref="UsesPerTablet"/>）
+            if (state.TryGetValue(StateKeyDurability, out int durability))
+            {
+                Durability = durability;
+            }
+        }
     }
 }
