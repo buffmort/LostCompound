@@ -93,6 +93,13 @@ namespace LostCompound.Tools.Players
                 [[ItemIds.IronSword, 1], [ItemIds.SulfuricAcid, 1]],
                 () => new SulfuricSword(1)));
 
+            // 镜子：5 压缩沙瓶 + 白磷 ×1 + 玻璃罐 ×1 + 2 金属（DESIGN §9 第 45 行）。
+            // 数量：文档里「白磷」「玻璃罐」没写数量 → 按 §9 的通用规则取 1。
+            // 效果见 Items\Consumables\Mirror.cs（两组 Base 对换 + 背包数量轮换一格）。
+            Recipes.Add(new Recipe("镜子",
+                [[ItemIds.CompressedSandBottle, 5], [ItemIds.WhitePhosphorus, 1], [ItemIds.GlassJar, 1], [ItemIds.Metal, 2]],
+                () => new Mirror(1)));
+
             // 水瓶：1 玻璃罐（按你的决定，文档原本写的是「水淹洞穴空房间掉落」）
             Recipes.Add(new Recipe("水瓶",
                 [[ItemIds.GlassJar, 1]],

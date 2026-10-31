@@ -112,5 +112,8 @@ namespace LostCompound.Items
 
         /// <summary>硫酸剑（ID 44）：铁剑 + 硫酸合成，**获得即消失**（只是句玩笑，不是真装备）</summary>
         public const int SulfuricSword = 44;
+
+        /// <summary>镜子（ID 45）：两组基础属性对换 + 背包数量整体轮换一格，用完即消失</summary>
+        public const int Mirror = 45;
     }
 }

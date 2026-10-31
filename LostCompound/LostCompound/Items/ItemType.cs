@@ -50,5 +50,8 @@ namespace LostCompound.Items
 
         // 配方 0 补全：硫酸剑（ID 44）
         SulfuricSword,
+
+        // 配方 0 补全：镜子（ID 45）
+        Mirror,
     }
 }

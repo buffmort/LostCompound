@@ -283,6 +283,44 @@ namespace LostCompound.Tools.Players
         public int CountItemById(int id) => Inventory.Where(item => item.Id == id).Sum(item => item.Count);
 
         /// <summary>
+        /// 镜子(45) 的效果②：**背包里各道具的数量整体轮换一格**。
+        ///
+        /// 规则（用户原话）：「记录当前道具位置 将第 n 个道具数量变成第 n+1 个道具数量，
+        /// 最后一个与第一个交换（0→1→2→3…）」。
+        ///
+        /// 两个必须的细节：
+        ///   ① **先拍快照再写**。直接一边读一边写会把同一个数量连续搬好几格
+        ///      （第 1 格拿到第 2 格、第 2 格又拿到"已经被改过的第 3 格"之类），
+        ///      结果不是轮换而是全变成同一个数。快照 = 用户说的「记录当前道具位置」。
+        ///   ② **超过堆叠上限就夹到上限**（用户裁定）。这样非堆叠道具
+        ///      （`MaxStack` = 1，`Count` 恒为 1 的不变量，见 CONVENTIONS 2.4）
+        ///      不会被赋成 20 这种值 —— 夹一下就不变量也不会破。
+        ///
+        /// 空背包 / 只有一个道具时轮换没有意义，直接返回（避免下面取模的边界讨论）。
+        /// 镜子自己在调用前已经被移除（用户裁定「镜子先移除再轮」），所以它不占位。
+        /// </summary>
+        public void RotateInventoryCounts()
+        {
+            int n = Inventory.Count;
+            if (n < 2)
+            {
+                return;
+            }
+
+            int[] snapshot = new int[n];
+            for (int i = 0; i < n; i++)
+            {
+                snapshot[i] = Inventory[i].Count;
+            }
+
+            for (int i = 0; i < n; i++)
+            {
+                int next = snapshot[(i + 1) % n];       // 最后一格取第 0 格 → 首尾相连
+                Inventory[i].Count = Math.Min(next, Inventory[i].MaxStack);
+            }
+        }
+
+        /// <summary>
         /// 从背包扣除指定 ID 的若干个道具（跨多个堆叠扣），数量归零的堆叠直接移除。
         /// 调用前先整体校验总量，避免扣到一半发现不够、留下「扣了一半」的状态。
         /// </summary>

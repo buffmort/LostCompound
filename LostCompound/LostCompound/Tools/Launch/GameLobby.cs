@@ -26,6 +26,8 @@ namespace LostCompound.Tools.Launch
 
         public void Run()
         {
+            AskNameIfNeeded();
+
             while (_running)
             {
                 PrintMenu();
@@ -41,6 +43,33 @@ namespace LostCompound.Tools.Launch
                 }
                 HandleChoice(choice.Value);
             }
+        }
+
+        /// <summary>
+        /// 第一次运行时问一次名字，存进 profile（`%APPDATA%\LostCompound\profile.json`）。
+        ///
+        /// 为什么在**主菜单之前**问：镜子(45) 与电子云的提示语里要显示名字，
+        /// 而那些道具随时能用，与「开新局 / 继续游戏」无关；先问一次，后面两处都能直接用。
+        /// 已经起过名就不再问（改了想改名，删掉 profile.json 即可 —— 不值得为它加一个菜单项）。
+        ///
+        /// 回车 / EOF 都走默认名「玩家」：不能因为玩家没输入名字就把开局拦下来。
+        /// </summary>
+        private static void AskNameIfNeeded()
+        {
+            if (!Profile.HasNoName)
+            {
+                return;
+            }
+
+            Console.WriteLine("请输入你的名字（直接回车 = 用「" + Profile.DefaultName + "」）：");
+            string input = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                input = Profile.DefaultName;
+            }
+
+            Profile.Rename(input);
+            Console.WriteLine("你好，" + Profile.Name + "！\n");
         }
 
         private void PrintMenu()

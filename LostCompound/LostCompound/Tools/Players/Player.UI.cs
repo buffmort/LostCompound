@@ -484,6 +484,13 @@ namespace LostCompound.Tools.Players
             if (!IsAlive)
             {
                 SaveFile.Delete();
+
+                // 死亡次数记在 **profile** 里（不是 save）：save 这一局已经删了，
+                // 但「通关/死亡次数」是跨对局的进度，设计文档第十章要靠它解锁东西。
+                // 立刻落盘 —— 这里已经是这一局的终点，之后再没有更合适的保存点。
+                Profile.AddDeath();
+                Profile.Save();
+
                 Console.WriteLine("这一局结束了。");
             }
         }

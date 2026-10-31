@@ -154,6 +154,31 @@ namespace LostCompound.Tools.Players
             RecomputeStats();
         }
 
+        /// <summary>
+        /// 镜子(45) 的效果①：**两组基础属性对换** —— STR ↔ ATK、DEF ↔ HP（用户裁定）。
+        ///
+        /// 为什么只能动 Base：`Str` / `Atk` / `Def` 是派生值，下一次
+        /// <see cref="RecomputeStats"/> 会从 Base 重算一遍，改它们等于没改（见 CONVENTIONS 2.3）。
+        /// 所以这里换的是 Base 四项，然后重算一次派生值。
+        ///
+        /// ⚠️ 换完 `BaseHp` 可能变得很小（比如和 BaseDef=5 对调），此时**当前 Hp 会超过上限**。
+        ///   口径（用户裁定）：**夹到新上限**，不按比例缩放、不回满。
+        ///   注意方向：只夹「超过上限」，绝不把 Hp 往大改 —— HP 是资源，不是派生值。
+        /// </summary>
+        public void SwapBaseStats()
+        {
+            // 元组解构交换：先整体取值再赋回，不会出现「a 被覆盖后 b 拿到新 a」的经典错误
+            (BaseStr, BaseAtk) = (BaseAtk, BaseStr);
+            (BaseDef, BaseHp) = (BaseHp, BaseDef);
+
+            if (Hp > BaseHp)
+            {
+                Hp = BaseHp;
+            }
+
+            RecomputeStats();
+        }
+
         public string Name { get; set; }
 
         public bool IsDead { get; set; }
