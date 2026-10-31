@@ -209,6 +209,16 @@ namespace LostCompound.Buffs
         }
 
         /// <summary>
+        /// 这个 buff 是否**禁止玩家打开背包**（目前只有「搅乱泥沙」）。
+        ///
+        /// 为什么做成基类的虚属性而不是让 UI 写 `is MuddyWater`：
+        ///   与 Buff.StrBonus / Items 的能力位接口同一思路 —— 判定方（Player.OpenItems）
+        ///   只问「有没有东西挡着」，不认识具体 buff 类；将来再加第二种禁背包的 debuff，
+        ///   UI 一行都不用改。
+        /// </summary>
+        public virtual bool BlocksInventory => false;
+
+        /// <summary>
         /// 本 buff 对 STR 的修正量（正数加强、负数削弱），默认 0。
         ///
         /// 为什么是「暴露修正量」而不是在 OnTurnTick 里直接改 owner.Str：

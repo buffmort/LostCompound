@@ -117,8 +117,33 @@ namespace LostCompound.Monsters
                         }
                     }
                     break;
-                case MonsterType.ShieldSoldier:
-                    // DESIGN §6.2：掉落「1 金属（权重 0.5）」。
+                case MonsterType.Piranha:
+                    // DESIGN §6 没有给食人鱼的掉落。**暂定无掉落**（它只有 10 血、
+                    // 又打不到、只能靠 AOE 清，若再给好东西会变成刷分对象）。
+                    // 用户给出正式掉落时，按骷髅那张权重表的写法补在这里。
+                    break;
+                case MonsterType.DiverZombie:
+                    // ⚠️ 暂定：DESIGN §6 也没写洞潜僵尸的掉落，这里**沿用普通僵尸那张表**
+                    //   （70% 掉 1 件；木头 5 / 布料 3 / 木炭 2），理由是它本质是同一种怪。
+                    //   这是占位口径，等用户裁定后改这里的数字即可。
+                    if (r < 0.70)
+                    {
+                        int pick = Random.Shared.Next(10);
+                        if (pick < 5)
+                        {
+                            loots.Add(new Wood(1));
+                        }
+                        else if (pick < 8)
+                        {
+                            loots.Add(new Cloth(1));
+                        }
+                        else
+                        {
+                            loots.Add(new Charcoal(1));
+                        }
+                    }
+                    break;
+                case MonsterType.ShieldSoldier:                    // DESIGN §6.2：掉落「1 金属（权重 0.5）」。
                     // ⚠️ 这里的 0.5 是**权重**不是概率 —— 表里只有它一项，抽中率恒为 100%？
                     //   不。按文档的口径「数量 + 名称 + 权重/概率」，单一来源 + 权重 0.5 的写法
                     //   等价于「50% 掉 1 个金属」（权重只有一项时它就是概率）。

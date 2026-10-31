@@ -26,6 +26,13 @@ namespace LostCompound.Save
         /// <summary>玩家名。空字符串 = 还没起过名字。</summary>
         public string Name { get; set; } = "";
 
+        /// <summary>
+        /// 称号（彩蛋）。空字符串 = 没有称号。目前只有两个：输入 `buffmort` →「开发者?」、
+        /// `aliamgad` →「老朋友.」。**只是显示用，不带任何权限**（用户裁定）。
+        /// 与 <see cref="Name"/> 分开存：玩家输入的原名不因为有个称号就被改写掉。
+        /// </summary>
+        public string Title { get; set; } = "";
+
         /// <summary>累计死亡次数（只增不减）。</summary>
         public int Deaths { get; set; }
 
@@ -72,6 +79,15 @@ namespace LostCompound.Save
         public static string Name =>
             string.IsNullOrWhiteSpace(Current.Name) ? DefaultName : Current.Name;
 
+        /// <summary>称号（彩蛋），没有就是空字符串。</summary>
+        public static string Title => Current.Title ?? "";
+
+        /// <summary>
+        /// 提示语该显示的名字：有称号就显示称号（「开发者?」/「老朋友.」），否则显示名字。
+        /// 镜子(45) 与将来的电子云(`dsp²`) 都用这个。
+        /// </summary>
+        public static string DisplayName => Title.Length > 0 ? Title : Name;
+
         /// <summary>是不是还没起过名字（开局据此决定要不要问）。</summary>
         public static bool HasNoName => string.IsNullOrWhiteSpace(Current.Name);
 
@@ -89,6 +105,18 @@ namespace LostCompound.Save
                 return;
             }
             Current.Name = name.Trim();
+            Save();
+        }
+
+        /// <summary>给名字配一个称号并落盘（`name` 是玩家输入的原名，`title` 是显示用的称号）。</summary>
+        public static void Rename(string name, string title)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return;
+            }
+            Current.Name = name.Trim();
+            Current.Title = (title ?? "").Trim();
             Save();
         }
 

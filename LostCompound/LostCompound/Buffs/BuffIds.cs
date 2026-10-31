@@ -23,5 +23,19 @@ namespace LostCompound.Buffs
 
         /// <summary>锐化（Sharpen）。原「力量」，效果已改为 +ATK。**编号 3 不能改**（存档按它还原）。</summary>
         public const int Sharpen = 3;
+
+        // ---- 洞潜僵尸的 4 种 debuff（DESIGN §6，持续回合由用户给定）----
+
+        /// <summary>减压病：-1 STR、-2 ATK，3 回合。</summary>
+        public const int DecompressionSickness = 4;
+
+        /// <summary>呼吸性碱中毒：每回合 -2 血，5 回合。</summary>
+        public const int RespiratoryAlkalosis = 5;
+
+        /// <summary>搅乱泥沙：这一回合打不开背包（尝试一次即消费）。</summary>
+        public const int MuddyWater = 6;
+
+        /// <summary>缺氧：每回合 -0.1 STR，5 回合，到期自动恢复。</summary>
+        public const int Hypoxia = 7;
     }
 }

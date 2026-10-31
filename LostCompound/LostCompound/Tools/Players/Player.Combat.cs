@@ -3,6 +3,7 @@ using LostCompound.MapEnvironment;
 using LostCompound.Rooms;
 using LostCompound.Items;
 using LostCompound.Monsters;
+using LostCompound.Monsters.Capabilities;
 using LostCompound.Maps;
 using LostCompound.UI;
 using LostCompound.Buffs;
@@ -247,15 +248,30 @@ namespace LostCompound.Tools.Players
             double dmg = Calculator.CalculateAttack(Str, Atk);
             Console.WriteLine("=====攻击界面=====");
 
-            if (monsters.Count == 0)
+            // 单体攻击只能用「可以被选中」的目标 —— 食人鱼实现了 ICannotBeTargeted
+            // （DESIGN §6：无法被攻击，可被 AOE 打）。这里筛一份列表出来，
+            // 下面展示编号、校验编号、取目标全都用这份，**不再用 monsters 的下标** ——
+            // 否则筛掉一只之后界面上的编号与实际目标会错位一格。
+            List<Monster> targets = [];
+            foreach (Monster m in monsters)
+            {
+                if (m is ICannotBeTargeted) continue;
+                targets.Add(m);
+            }
+
+            if (targets.Count == 0)
             {
                 // 没有目标就不能进入重问循环，否则会死循环
                 Console.WriteLine("没有可以攻击的目标！");
+                if (monsters.Count > 0)
+                {
+                    Console.WriteLine("（场上的敌人都躲过了你的攻击，试试 AOE 道具）");
+                }
                 return;
             }
 
             int count = 0;
-            foreach (Monster i in monsters)
+            foreach (Monster i in targets)
             {
                 Console.Write(count + "." + " " + i + "   ");
                 count++;
@@ -268,15 +284,15 @@ namespace LostCompound.Tools.Players
             {
                 Console.WriteLine("请选择怪物攻击:");
                 choice = ReadInt("选择目标编号");
-                if (choice >= 0 && choice < monsters.Count) break;
+                if (choice >= 0 && choice < targets.Count) break;
                 // 输入流结束：没有输入就永远选不出目标，再重问就是 ReadInt 立刻返回 -1 的空转。
                 // 本次攻击按取消处理（不消耗回合，也不打错目标），交给战斗循环收场。
                 // 注意手输 -1 走不到这里：那时 _inputClosed 为 false，照旧重问，行为不变。
                 if (_inputClosed) return;
-                Console.WriteLine("您的攻击无效！请重新选择(0-" + (monsters.Count - 1) + "):");
+                Console.WriteLine("您的攻击无效！请重新选择(0-" + (targets.Count - 1) + "):");
             }
 
-            Monster target = monsters[choice];
+            Monster target = targets[choice];
             target.TakeDamage(dmg);
             Console.WriteLine("你攻击了" + target + "!");
 

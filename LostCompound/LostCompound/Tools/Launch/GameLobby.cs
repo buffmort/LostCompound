@@ -52,6 +52,10 @@ namespace LostCompound.Tools.Launch
         /// 而那些道具随时能用，与「开新局 / 继续游戏」无关；先问一次，后面两处都能直接用。
         /// 已经起过名就不再问（改了想改名，删掉 profile.json 即可 —— 不值得为它加一个菜单项）。
         ///
+        /// 三个特例（用户裁定）：
+        ///   · `Hyberty` —— 该名称已经被注册，**拒绝并重问**；
+        ///   · `buffmort` → 称号「开发者?」；`aliamgad` → 称号「老朋友.」。
+        ///     称号**只是显示用**，不带任何权限；原名照旧存着。
         /// 回车 / EOF 都走默认名「玩家」：不能因为玩家没输入名字就把开局拦下来。
         /// </summary>
         private static void AskNameIfNeeded()
@@ -62,14 +66,50 @@ namespace LostCompound.Tools.Launch
             }
 
             Console.WriteLine("请输入你的名字（直接回车 = 用「" + Profile.DefaultName + "」）：");
-            string input = Console.ReadLine();
-            if (string.IsNullOrWhiteSpace(input))
-            {
-                input = Profile.DefaultName;
-            }
 
-            Profile.Rename(input);
-            Console.WriteLine("你好，" + Profile.Name + "！\n");
+            while (true)
+            {
+                string input = Console.ReadLine();
+                if (input == null)
+                {
+                    // 输入流结束：不能再问（ReadLine 会一直返回 null，问下去就是死循环）
+                    input = Profile.DefaultName;
+                }
+
+                string name = input.Trim();
+                if (name.Length == 0)
+                {
+                    name = Profile.DefaultName;
+                }
+
+                // 已经被注册的名字：拒绝，重问（与「重名」无关，纯粹是彩蛋）
+                if (string.Equals(name, "Hyberty", StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine("该名称已经被注册!");
+                    continue;
+                }
+
+                Profile.Rename(name, TitleFor(name));
+                Console.WriteLine("你好，" + Profile.DisplayName + "！\n");
+                return;
+            }
+        }
+
+        /// <summary>
+        /// 名字 → 称号。只有这两条（用户裁定），其余一律没有称号。
+        /// 用 OrdinalIgnoreCase：大小写不同也算同一个名字，免得玩家想触发彩蛋却打错大小写。
+        /// </summary>
+        private static string TitleFor(string name)
+        {
+            if (string.Equals(name, "buffmort", StringComparison.OrdinalIgnoreCase))
+            {
+                return "开发者?";
+            }
+            if (string.Equals(name, "aliamgad", StringComparison.OrdinalIgnoreCase))
+            {
+                return "老朋友.";
+            }
+            return "";
         }
 
         private void PrintMenu()

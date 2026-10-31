@@ -1,5 +1,6 @@
 using LostCompound.MapEnvironment;
 using LostCompound.Monsters;
+using LostCompound.Monsters.Elite;
 using LostCompound.Monsters.Normal;
 
 namespace LostCompound.Rooms
@@ -64,6 +65,11 @@ namespace LostCompound.Rooms
          */
         private static readonly (string Name, Func<Monster> Create, int FromLayer, int ToLayer)[] FloodedCavernPool =
         [
+            // 食人鱼：普通怪，不能被单体选中、只能被 AOE 打；同伴全死时自己消失。
+            ("食人鱼", () => new Piranha(), 1, int.MaxValue),
+
+            // 洞潜僵尸：精英，100 血，每回合 10% 猝死 / 50% 挂 debuff。
+            ("洞潜僵尸", () => new DiverZombie(), 1, int.MaxValue),
         ];
 
         /// <summary>

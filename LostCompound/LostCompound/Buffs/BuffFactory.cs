@@ -30,6 +30,10 @@ namespace LostCompound.Buffs
             (BuffIds.Bleed, "流血", (stacks, turns) => new BleedBuff(stacks, turns)),
             (BuffIds.SuperMale, "超雄综合症", (stacks, turns) => new SuperMaleBuff(stacks, turns)),
             (BuffIds.Sharpen, "锐化", (stacks, turns) => new Sharpen(stacks, turns)),
+            (BuffIds.DecompressionSickness, "减压病", (stacks, turns) => new DecompressionSickness(stacks, turns)),
+            (BuffIds.RespiratoryAlkalosis, "呼吸性碱中毒", (stacks, turns) => new RespiratoryAlkalosis(stacks, turns)),
+            (BuffIds.MuddyWater, "搅乱泥沙", (stacks, turns) => new MuddyWater(stacks, turns)),
+            (BuffIds.Hypoxia, "缺氧", (stacks, turns) => new Hypoxia(stacks, turns)),
         ];
 
         /// <summary>

@@ -47,8 +47,8 @@ namespace LostCompound.Items.Consumables
             // ③ 背包数量轮换（先快照再写，超上限夹住）。
             p.RotateInventoryCounts();
 
-            // ④ 提示语。名字取档案里的玩家名，没起名时回退成「玩家」。
-            Console.WriteLine("你照了照镜子 你现在变成了" + Directions[Random.Shared.Next(Directions.Length)] + "-" + Profile.Name + "！");
+            // ④ 提示语。名字取档案里的玩家显示名（有称号就显示称号，否则名字）。
+            Console.WriteLine("你照了照镜子 你现在变成了" + Directions[Random.Shared.Next(Directions.Length)] + "-" + Profile.DisplayName + "！");
         }
 
         /// <summary>镜子在背包里就能用（不是战斗专属），所以这个分支永远不会被调用。</summary>

@@ -113,6 +113,20 @@ namespace LostCompound.Tools.Players
 
         private void OpenItems(List<Monster> monsters)
         {
+            // 「搅乱泥沙」这类 debuff 会封住背包（Buff.BlocksInventory）。
+            // 口径：**尝试一次就消费一次** —— 挡下来的这一下算它生效，之后 buff 消失
+            // （1 回合的效果因此在玩家真正动手时兑现，而不是在大回合开场就白掉，
+            //  见 MuddyWater 的类注释）。
+            for (int i = 0; i < Buffs.Count; i++)
+            {
+                if (!Buffs[i].BlocksInventory) continue;
+
+                Console.WriteLine("泥沙糊住了你的背包，这一回合打不开！");
+                Buffs.RemoveAt(i);
+                RefreshBuffBox();
+                return;
+            }
+
             int count = 0;
             foreach (Item i in Inventory)
             {
