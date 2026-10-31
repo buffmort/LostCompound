@@ -27,6 +27,11 @@ namespace LostCompound.Rooms
             // 僵尸与骷髅：只在第 1-3 层（闭区间 [1, 3]，第 1 层和第 3 层都算）。
             ("僵尸", () => new Zombie(), 1, 3),
             ("骷髅", () => new Skeleton(), 1, 3),
+
+            // 盾兵：第 1-5 层（闭区间 [1, 5]）。它是**纯辅助**怪 —— 自己不打人，
+            // 每回合给随机一只其它怪加盾（见 ShieldSoldier 的类注释）。
+            // ⚠️「仅在多怪物时出现」不靠这张表表达：单只出场时由 SpawnMany 重抽（见那里）。
+            ("盾兵", () => new ShieldSoldier(), 1, 5),
         ];
 
         /**
@@ -164,8 +169,20 @@ namespace LostCompound.Rooms
             List<Monster> monsters = [];
             for (int i = 0; i < count; i++)
             {
-                monsters.Add(SpawnOne(envType, currentLayer));
+                // 只有「这一整场就 1 只」时才禁止盾兵：多怪物时它才允许出场。
+                // 注意判定依据是 **count**（本场计划生成几只），不是 monsters.Count ——
+                // 后者在循环中还没填满，用它判断会把「多怪」误判成「单怪」。
+                monsters.Add(SpawnOne(envType, currentLayer, allowShieldSoldier: count > 1));
             }
+
+            // 双保险：万一因为兜底逻辑还是抽出了「只有一只盾兵」的场面，重抽一次（最多 8 次）。
+            // 为什么需要它：SpawnOne 的兜底分支会忽略层数过滤，理论上可能绕过上面的 count 判断。
+            // 重抽仍失败就保持原样（宁可出一只盾兵，也不能在这里死循环或崩）。
+            for (int attempt = 0; attempt < 8 && monsters.Count == 1 && monsters[0] is ShieldSoldier; attempt++)
+            {
+                monsters[0] = SpawnOne(envType, currentLayer, allowShieldSoldier: false);
+            }
+
             return monsters;
         }
 
@@ -200,17 +217,24 @@ namespace LostCompound.Rooms
          * 为什么第 1 步不直接回退到岩浆怪：水淹洞穴第 4 层起出岩浆怪（熔岩专属怪）
          * 比出通用池的僵尸 / 骷髅更不符合环境设定；借用通用池的怪是偏差最小的临时解。
          */
-        private static Monster SpawnOne(EnvType envType, int layer)
+        private static Monster SpawnOne(EnvType envType, int layer, bool allowShieldSoldier = true)
         {
             (string Name, Func<Monster> Create, int FromLayer, int ToLayer)[] pool =
                 [.. CommonPool, .. EnvPool(envType)];
+
+            // 「盾兵只在多怪物时出现」：单只出场的场合由调用方传 false，
+            // 这里把池子里的盾兵整条过滤掉（按表里的名字过滤，最直接、也不用 new 一个实例来判类型）。
+            if (!allowShieldSoldier)
+            {
+                pool = pool.Where(m => m.Name != "盾兵").ToArray();
+            }
 
             (string Name, Func<Monster> Create, int FromLayer, int ToLayer)[] available =
                 pool.Where(m => m.FromLayer <= layer && layer <= m.ToLayer).ToArray();
 
             if (available.Length > 0)
             {
-                return available[Random.Shared.Next(available.Length)].Create();
+                return CreateSpawned(available[Random.Shared.Next(available.Length)].Create, layer);
             }
 
             // 兜底 1：忽略层数限制，从「通用池 + 专属池」的全部成员里抽。
@@ -219,13 +243,24 @@ namespace LostCompound.Rooms
                 Console.WriteLine("【警告】" + envType + " 第 " + layer +
                                   " 层没有符合层数区间的怪（专属池为空、通用池又被层数滤掉），" +
                                   "临时忽略层数限制，从全部候选里抽一只。实现该环境的原生怪后不会再走到这里。");
-                return pool[Random.Shared.Next(pool.Length)].Create();
+                return CreateSpawned(pool[Random.Shared.Next(pool.Length)].Create, layer);
             }
 
             // 兜底 2：两张表都空（理论上不该发生）—— 醒目警告 + 岩浆怪（[1, ∞]，永远可用）。
             Console.WriteLine("【警告】" + envType + " 第 " + layer +
                               " 层的候选池完全为空（通用池与环境专属池都没有成员），已回退到岩浆怪。请检查 MobSpawner 的池表！");
-            return new LavaSlime();
+            return CreateSpawned(() => new LavaSlime(), layer);
+        }
+
+        /// <summary>
+        /// 造出来之后补一句 <see cref="Monster.OnSpawn"/>：把「本场层数」告诉怪物。
+        /// 盾兵靠它把血量定成 `10 × 层数`；其它怪默认什么也不做。
+        /// </summary>
+        private static Monster CreateSpawned(Func<Monster> create, int layer)
+        {
+            Monster m = create();
+            m.OnSpawn(layer);
+            return m;
         }
     }
 }

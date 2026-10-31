@@ -74,6 +74,14 @@ namespace LostCompound.Tools.Players
                 [[ItemIds.Sand, 3]],
                 () => new GlassJar(1)));
 
+            // 硫酸剑：铁剑 + 硫酸（文档 ID 44）。玩笑道具 —— 合成出来立刻消失。
+            // 产物工厂写 `() => new SulfuricSword(1)` 而不是持有实例：
+            // 否则第一次合成把实例交给背包、被移除后，第二次合成会拿到同一个已"死"的对象
+            // （与 Recipe.Product 那套工厂模式的理由完全相同）。
+            Recipes.Add(new Recipe("硫酸剑",
+                [[ItemIds.IronSword, 1], [ItemIds.SulfuricAcid, 1]],
+                () => new SulfuricSword(1)));
+
             // 水瓶：1 玻璃罐（按你的决定，文档原本写的是「水淹洞穴空房间掉落」）
             Recipes.Add(new Recipe("水瓶",
                 [[ItemIds.GlassJar, 1]],
@@ -226,6 +234,12 @@ namespace LostCompound.Tools.Players
                 Console.WriteLine("选择无效! 请重新选择(0-" + (available.Count - 1) + ", 255 返回)");
             }
             available[choice].Craft(this);
+
+            // 立刻扫一次「该消失的道具」：硫酸剑(44) 的 ShouldRemove 恒为 true。
+            // 不扫的话它会挂在背包里、直到下一回合开头被 HandleChangeableItems 清掉 ——
+            // 玩家会真的在背包里看到一把"已经飞走"的剑。
+            RemoveConsumedItems();
+
             HandCraft();
         }
         /*

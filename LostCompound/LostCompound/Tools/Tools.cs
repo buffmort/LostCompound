@@ -33,6 +33,14 @@ namespace LostCompound.Tools
 
             // 战斗期间状态栏会显示血量/防御/护盾/攻击力；用 try/finally 保证异常退出也能恢复
             p.SetInBattle(true);
+
+            // 把「本场的队友名单」介绍给每只怪：盾兵要给其它怪加盾、医生要给全员回血，
+            // 而它们的 Attack/OnMonsterTurn 签名里只有玩家，拿不到同伴。
+            // 必须在列表生成完之后注入（第一只创建时后面的还没生成）。
+            foreach (Monster m in monsters)
+            {
+                m.BattleAllies = monsters;
+            }
             try
             {
                 while (p.IsAlive && monsters.Count > 0)

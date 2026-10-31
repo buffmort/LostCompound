@@ -109,5 +109,8 @@ namespace LostCompound.Items
 
         /// <summary>布料（ID 41，按设计文档的编号取；41 超出上面 30-40 的分段，照「允许跳号」直接使用）</summary>
         public const int Cloth = 41;
+
+        /// <summary>硫酸剑（ID 44）：铁剑 + 硫酸合成，**获得即消失**（只是句玩笑，不是真装备）</summary>
+        public const int SulfuricSword = 44;
     }
 }

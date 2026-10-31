@@ -47,5 +47,8 @@ namespace LostCompound.Items
 
         // 配方 0 补全：压缩沙瓶（ID 29）
         CompressedSandBottle,
+
+        // 配方 0 补全：硫酸剑（ID 44）
+        SulfuricSword,
     }
 }

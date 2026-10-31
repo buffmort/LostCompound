@@ -117,6 +117,17 @@ namespace LostCompound.Monsters
                         }
                     }
                     break;
+                case MonsterType.ShieldSoldier:
+                    // DESIGN §6.2：掉落「1 金属（权重 0.5）」。
+                    // ⚠️ 这里的 0.5 是**权重**不是概率 —— 表里只有它一项，抽中率恒为 100%？
+                    //   不。按文档的口径「数量 + 名称 + 权重/概率」，单一来源 + 权重 0.5 的写法
+                    //   等价于「50% 掉 1 个金属」（权重只有一项时它就是概率）。
+                    //   若将来给盾兵加第二个掉落物，必须改成和骷髅一样的权重表，不能直接相加。
+                    if (r < 0.5)
+                    {
+                        loots.Add(new Metal(1));
+                    }
+                    break;
                 case MonsterType.Dragon:
                     loots.Add(new WhitePhosphorus(2));
                     if (Random.Shared.NextDouble() < 0.6)

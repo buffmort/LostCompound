@@ -64,6 +64,33 @@ namespace LostCompound.Monsters
         protected abstract int RollIndex(int count);
 
         /// <summary>
+        /// 本场战斗里的**全体怪物**（含自己），由 `Tools.RunBattle` 在开战时注入一次。
+        ///
+        /// 为什么需要它：有些怪的技能要作用在**队友**身上 —— 盾兵（给随机一只其它怪加盾）、
+        /// 医生（给全部怪物回血）。而 `Attack(Player)` / `OnMonsterTurn(Player)` 的签名里
+        /// 只有玩家，拿不到队友。
+        ///
+        /// 为什么不在构造函数里传：怪物是由 `MobSpawner` 逐个 `Create()` 出来的，
+        /// 创建时整个列表还没生成完（第一只创建时后面的还不存在）。
+        /// 所以只能在列表凑齐后补一句注入，等价于「开战前把队友介绍给它」。
+        ///
+        /// 默认空列表：不关心队友的怪（绝大多数）不用管它。
+        /// </summary>
+        public IReadOnlyList<Monster> BattleAllies { get; internal set; } = [];
+
+        /// <summary>
+        /// 怪物被生成时的钩子：拿到**本场战斗的层数**，用来做「随层数成长」的数值。
+        ///
+        /// 为什么需要它：盾兵的血量是 `10 × 当前层数`、给盾量是 `5 × 当前层数` ——
+        /// 而 `MobSpawner` 的池子里存的是**无参工厂** `() => new ShieldSoldier()`，
+        /// 构造函数拿不到层数。所以在 `Create()` 之后补调一次本方法。
+        ///
+        /// 默认什么也不做：只有随层数缩放的怪才覆写它。
+        /// **不要**在构造函数里写死层数相关数值 —— 那会把「第 1 层」固化进去。
+        /// </summary>
+        public virtual void OnSpawn(int layer) { }
+
+        /// <summary>
         /// 写入「环境赋予本怪物的伤害免疫比例」（0~1），战斗开始时由
         /// <see cref="Tools.ApplyEnvironmentMonsterTraits"/> 按当前环境调用一次。
         ///
