@@ -15,7 +15,7 @@ namespace LostCompound.Items.Materials
     /// 所以本类暂时无法从正常游戏流程拿到（只能调试/以后接开采系统）。
     /// 按约定不擅自加掉落表，缺口在实现报告里单独列出。
     /// </summary>
-    public sealed class RadioactiveOre(int count) : Item(ItemIds.RadioactiveOre, "放射性矿物", 99, true, count), ITurnCount
+    public sealed class RadioactiveOre(int count) : Item(ItemIds.RadioactiveOre, "放射性矿物", 99, true, count), ITurnCount, IItemState
     {
         /// <summary>每多少回合扣一次血（困难模式的「2 点伤害」要等困难模式系统，暂记 TODO）。</summary>
         public const int DamageInterval = 5;
@@ -24,8 +24,24 @@ namespace LostCompound.Items.Materials
         /// 距离下一次扣血还剩几个回合。每个道具实例各算各的计时器，
         /// 而 Player.AddItem 会把同类型可堆叠道具合并进同一个条目（Count 累加），
         /// 所以「可叠加」实际体现为：同一格里的 Count 份，每次结算各扣 1 点。
+        ///
+        /// **必须跨存档保留**：计时器若在读档后重置成 5，玩家可以靠存读档无限推迟辐射发作。
         /// </summary>
         public int Timer { get; set; } = DamageInterval;
+
+        /// <summary>存档键名。**发布后不能改**。</summary>
+        private const string StateKeyTimer = "timer";
+
+        public Dictionary<string, int> SaveState() => new() { [StateKeyTimer] = Timer };
+
+        public void LoadState(IReadOnlyDictionary<string, int> state)
+        {
+            // 缺键 = 旧存档没这一项，保持构造时的默认值 DamageInterval
+            if (state.TryGetValue(StateKeyTimer, out int timer))
+            {
+                Timer = timer;
+            }
+        }
 
         public override ItemType? Type => ItemType.RadioactiveOre;
 

@@ -8,9 +8,27 @@ using LostCompound.Tools.Players;
 
 namespace LostCompound.Items.Consumables
 {
-    public sealed class FushionSluphur(int count) : Item(ItemIds.FushionSluphur, "热硫", 99, true, count), IChangeable, IUseable, ITurnCount
+    public sealed class FushionSluphur(int count) : Item(ItemIds.FushionSluphur, "热硫", 99, true, count), IChangeable, IUseable, ITurnCount, IItemState
     {
+        /// <summary>
+        /// 距离消失还剩几场战斗。**必须跨存档保留**：它决定道具还能不能继续用，
+        /// 不存的话读档后计时器会重置回 3，等于白送保质期。
+        /// </summary>
         public int Timer { get; set; } = 3;
+
+        /// <summary>存档键名。**发布后不能改**。</summary>
+        private const string StateKeyTimer = "timer";
+
+        public Dictionary<string, int> SaveState() => new() { [StateKeyTimer] = Timer };
+
+        public void LoadState(IReadOnlyDictionary<string, int> state)
+        {
+            // 缺键 = 旧存档没这一项，保持构造时的默认值 3（与升级前行为一致）
+            if (state.TryGetValue(StateKeyTimer, out int timer))
+            {
+                Timer = timer;
+            }
+        }
 
         public bool ShouldRemove()
         {

@@ -111,16 +111,22 @@ namespace LostCompound.Save
         /// </summary>
         public string MirrorSide { get; set; } = "";
 
-        public double Hp { get; set; }
+        // ⚠️ 下面这些字段为什么**不升存档版本**也要有初值：
+        //   SaveFile 采用「纯加字段不升版本」，旧存档缺这些字段时反序列化会保留 C# 属性初值。
+        //   若初值是 0，读旧档就会得到 Hp=0（当场判定死亡）或容量 0（背包塞不进任何东西、
+        //   读档时道具全丢）。所以初值必须与 `Player` 的默认值一致 —— 缺字段时退回到
+        //   「一个刚出生的玩家」，而不是 0。改这些默认值时请同步 `Player` / `Player.Inventory` /
+        //   `Player.Equipment` 里的字段初值。
+        public double Hp { get; set; } = 200;
         public double Shield { get; set; }
 
-        public double BaseHp { get; set; }
-        public double BaseStr { get; set; }
-        public double BaseAtk { get; set; }
-        public double BaseDef { get; set; }
+        public double BaseHp { get; set; } = 200;
+        public double BaseStr { get; set; } = 3.0;
+        public double BaseAtk { get; set; } = 20;
+        public double BaseDef { get; set; } = 5;
 
-        public int InventoryCapacity { get; set; }
-        public int AccessorySlots { get; set; }
+        public int InventoryCapacity { get; set; } = 15;
+        public int AccessorySlots { get; set; } = 5;
         public int FightCount { get; set; }
         public int SkipTurn { get; set; }
         public bool IsDead { get; set; }
@@ -168,5 +174,17 @@ namespace LostCompound.Save
         /// 旧存档没有这个字段 → 反序列化成 false，对现有 buff 全部正确（它们都不是跨战斗的）。
         /// </summary>
         public bool SurvivesBattleEnd { get; set; }
+
+        /// <summary>
+        /// buff 的「总回合数」（<see cref="Buffs.Buff.TotalTurns"/>）。
+        ///
+        /// 为什么必须存：缺氧的衰减量是 `-0.1 × (总回合 − 剩余回合)`，
+        /// 而 <see cref="Buffs.BuffFactory"/> 重建时只能传「剩余回合」。若不把总回合存下来，
+        /// 读档后总回合 = 当时剩余回合 → 已累计的衰减量归零（玩家靠存读档白赚属性）。
+        ///
+        /// 旧存档没有这个字段 → 反序列化成 0 = 「不知道」；读档时按当前剩余回合处理，
+        /// 与加这个字段之前的行为一致（不是把总回合当成 0）。
+        /// </summary>
+        public int TotalTurns { get; set; }
     }
 }

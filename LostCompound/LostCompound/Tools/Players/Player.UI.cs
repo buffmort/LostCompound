@@ -57,6 +57,16 @@ namespace LostCompound.Tools.Players
         private bool _inBattle;                 // 是否处于战斗中（决定状态栏是否追加血量等）
 
         /// <summary>
+        /// 「换层之后，等起点房的 OnEnter 走完再存一次档」的牌子。
+        ///
+        /// 为什么不在 <see cref="AdvanceLayer"/> 里直接存：那一刻新层的起点房还没进，
+        /// `StartRoom.StartItemsGiven` 仍是 false。若此时存档、进程随即被杀，
+        /// 读档会得到一个「开局三选一还没发」的状态 —— 而读档路径 pendingEnter=false，
+        /// 不会补发，玩家就白白少了一轮开局道具（要离开再回起始房才会补）。
+        /// </summary>
+        private bool _saveAfterEnter;
+
+        /// <summary>
         /// 玩家的「行动」部分：展示战场与可选项、读取输入并执行。
         /// 回合开始的簿记放在 OnTurnStart，跳过检查由战斗循环统一做 ——
         /// 所以这里只管"没被跳过时该干什么"。
@@ -469,6 +479,14 @@ namespace LostCompound.Tools.Players
                     {
                         pendingEnter = false;
                         map[PlayerRow][PlayerCol].OnEnter(this);
+
+                        // 换层后的那一次存档：等起点房的 OnEnter（开局三选一）走完再存，
+                        // 否则会存下「本层开局道具还没发」的状态（见 _saveAfterEnter 的注释）。
+                        if (_saveAfterEnter)
+                        {
+                            _saveAfterEnter = false;
+                            SaveCurrentProgress(map, tmg);
+                        }
                     }
 
                     // ---- 2.5 换层 / 通关（BossRoom 打完 Boss 时举的牌）----
@@ -660,7 +678,13 @@ namespace LostCompound.Tools.Players
             IReadOnlyList<(string Name, EnvType Type)> catalog = EnvironmentCatalog.All;
             string envName;
             EnvType nextEnvType;
-            if (ProgressUnlocks.CanSelfSelectLayer(GameProgress.Layer))
+            if (catalog.Count == 0)
+            {
+                // 兜底：清单被清空（或所有环境都还没实现）时不能 Random.Shared.Next(0)
+                // —— Next(0) 返回 0，紧接着 catalog[0] 会越界。用「无环境」继续，别把换层卡死。
+                (envName, nextEnvType) = ("无环境", EnvType.None);
+            }
+            else if (ProgressUnlocks.CanSelfSelectLayer(GameProgress.Layer))
             {
                 (envName, nextEnvType) = ChooseNextEnvironment(GameProgress.Layer, catalog);
             }
@@ -688,9 +712,17 @@ namespace LostCompound.Tools.Players
             // 起始房间的 OnEnter 由调用方紧接着的 pendingEnter 触发）。
             JoinMap(map);
 
+            // 换层 = 换了环境，**必须重算派生值**：新环境的 StrModifier（如熔岩瀑布缺水扣 STR）
+            // 只在 RecomputeStats 里被读进去，不重算的话新层的环境加成一整层都不生效，
+            // 要等到下一场战斗的 OnTurnStart 才补上（ContinueGame 里也是这么做的）。
+            RecomputeStats();
+
             // 回血 70% 上限，不超过最大生命（用户裁定）。
-            double heal = BaseHp * NextLayerHealRatio;
-            Hp = Math.Min(BaseHp, Hp + heal);
+            // 报「实际回复量」而不是名义值：血满时会写出「你恢复了 140 点生命」但实际 +0。
+            double nominalHeal = BaseHp * NextLayerHealRatio;
+            double hpBefore = Hp;
+            Hp = Math.Min(BaseHp, Hp + nominalHeal);
+            double actualHeal = Hp - hpBefore;
 
             // 存档会话里存的是「当前这一局的玩家 + 地图 + 生成器」，换图后必须重新登记，
             // 否则关窗口时钩子会拿着上一层的图去存档。
@@ -698,11 +730,18 @@ namespace LostCompound.Tools.Players
 
             Console.WriteLine();
             Console.WriteLine("===== 第 " + GameProgress.Layer + " 层 · " + envName + " =====");
-            Console.WriteLine("你恢复了 " + heal + " 点生命。");
-            RefreshStatus();
+            Console.WriteLine("你恢复了 " + actualHeal + " 点生命。");
 
-            // 换层是一次真正的地图切换，立刻存一次：否则刚打完 Boss 的一层白打。
-            SaveCurrentProgress(map, tmg);
+            // 不在这里 RefreshStatus()：状态栏首行用的是 _lastRoomType，此刻它还是**上一层**的房间
+            // （新图刚重建、还没走 DrawScreen）。主循环紧接着就会 DrawScreen，一并刷对。
+            // 提前刷一次只会让新 screen 先画出「当前房间:Boss」，下一轮再改正（闪一下）。
+
+            // 换层要存一次（否则刚打完 Boss 的一层白打），但**不能在这里存**：
+            // 新层的起点房还没走 OnEnter，`StartRoom.StartItemsGiven` 仍是 false ——
+            // 此刻存档、随后进程被杀，读档会读到一个「开局三选一还没发」的状态，
+            // 而读档路径的 pendingEnter 是 false，不会补发，玩家就少了一轮开局道具。
+            // 所以只举一个「走完起点房就存」的牌子，由 RunMainLoop 在 OnEnter 之后执行。
+            _saveAfterEnter = true;
         }
 
         /// <summary>

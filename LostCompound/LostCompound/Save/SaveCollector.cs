@@ -118,6 +118,7 @@ namespace LostCompound.Save
                     Stacks = buff.Stacks,
                     Turns = buff.RemainingTurns,
                     SurvivesBattleEnd = buff.SurvivesBattleEnd,   // 实例级标记，必须存
+                    TotalTurns = buff.TotalTurns,                 // 缺氧衰减靠它算已过回合数
                 });
             }
             return d;

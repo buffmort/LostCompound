@@ -111,6 +111,12 @@ namespace LostCompound.Save
                 player.AddTier1Recipes();
             }
 
+            // 派生值（Str / Atk / Def）不属于存档：这里按「基础值 + 环境 + buff + 装备」重算一次。
+            // 调用点刻意放在 RestoreFromSave 之后（装备 / buff 都已就位），
+            // 这样绕开 Player.UI.ContinueGame 直接调 TryRestore 的路径也能得到正确数值。
+            // 重算是幂等的（每次都从 BaseXxx 重新加起），ContinueGame 里那次可以保留，不会叠加。
+            player.RecomputeStats();
+
             return true;
         }
 
@@ -192,6 +198,14 @@ namespace LostCompound.Save
                 }
                 // 实例级标记：BuffFactory 只会传 Id/Stacks/Turns，这里把"是否跨战斗"补回去
                 buff.RestoreSurvivesBattleEnd(d.SurvivesBattleEnd);
+
+                // 总回合数（缺氧的衰减靠它算「已过几个回合」）。
+                // 旧存档没有这个字段 → 反序列化成 0 = 不知道；此时**不灌**，
+                // 让 TotalTurns 退回默认的「= 剩余回合」，行为与加字段前一致。
+                if (d.TotalTurns != 0)
+                {
+                    buff.RestoreTotalTurns(d.TotalTurns);
+                }
                 result.Add(buff);
             }
             return result;

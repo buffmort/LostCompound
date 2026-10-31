@@ -79,7 +79,9 @@ namespace LostCompound.Tools
         /// </summary>
         public static void Restore(int layer, long runSeed)
         {
-            Layer = Math.Max(layer, FirstLayer);   // 存档写坏了也别退回到第 0 层
+            // 上下都夹住：下界是第一层（存档写坏成 0/负数），上界是 FinalLayer
+            // （手改成 11 会生成一个设计上不存在的层）。见 EnterNextLayer 的注释。
+            Layer = Math.Clamp(layer, FirstLayer, FinalLayer);
             RunSeed = runSeed;
         }
 
@@ -116,10 +118,15 @@ namespace LostCompound.Tools
         /// 打完 Boss、进入下一层。**这是全项目唯一会让层数 +1 的地方。**
         /// 调用点必须在"真的要换一张图"的那一刻 —— 只加数不换图会让第 N 层的地图
         /// 里刷出第 N+1 层的怪（见 <see cref="Restore"/> 里那条警告）。
+        ///
+        /// ⚠️ **封顶到 <see cref="FinalLayer"/>**：目前唯一的调用点（`BossRoom`）自己用 `>=` 挡着，
+        /// 但那只是一处判断。若将来多一个换层调用点、或存档被手改成 `Layer ≥ 10`，
+        /// 就会生成第 11 层（`MapSizeForLayer` 越界算到 10×10），而它的 Boss 一死就直接通关 ——
+        /// 那种「多出来的一层」既没有设计数值也没有怪物区间。上限写在这里，不依赖调用方自觉。
         /// </summary>
         public static void EnterNextLayer()
         {
-            Layer++;
+            Layer = Math.Min(Layer + 1, FinalLayer);
         }
     }
 }

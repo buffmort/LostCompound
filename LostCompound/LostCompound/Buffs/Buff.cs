@@ -63,6 +63,31 @@ namespace LostCompound.Buffs
         /// </summary>
         internal void RestoreSurvivesBattleEnd(bool survives) => SurvivesBattleEnd = survives;
 
+        /// <summary>
+        /// 这个 buff 的**总回合数**（用于「已经过了几个回合」的结算，如缺氧的逐回合衰减）。
+        /// 默认就是剩余回合 —— 对不区分「已经过多久」的 buff，这两个数本来就是一回事。
+        ///
+        /// 为什么需要单独一个属性：有些 buff 的效果按「已过回合数」计算（缺氧 = -0.1 × 已过回合），
+        /// 它必须记住挂上时的总回合数。读档时 <see cref="BuffFactory"/> 只能按「剩余回合」重建实例，
+        /// 若没有这个值，总回合会被误当成剩余回合 → 已累计的衰减归零（存读档成了免费洗点）。
+        /// 需要区分两者的子类覆写它，并配合 <see cref="RestoreTotalTurns"/>。
+        ///
+        /// 永久 buff 返回 <see cref="Permanent"/>（哨兵），与剩余回合的表示保持一致。
+        /// </summary>
+        public virtual int TotalTurns => IsPermanent ? Permanent : RemainingTurns;
+
+        /// <summary>
+        /// 读档专用：把存档里的总回合数灌回去。默认什么都不做 —— 总回合 = 剩余回合的 buff
+        /// 不需要额外状态。子类若覆写 <see cref="TotalTurns"/>，必须同时覆写本方法把值写进自己的字段，
+        /// 否则读档后「已过回合数」仍会归零。
+        ///
+        /// 用 `internal` 的理由同 <see cref="RestoreSurvivesBattleEnd"/>：这是存档层的例外通道，
+        /// 游戏逻辑不该随手改它。
+        /// </summary>
+        internal virtual void RestoreTotalTurns(int totalTurns)
+        {
+        }
+
         /// <summary>显示名（如「流血」）。</summary>
         public abstract string Name { get; }
 

@@ -18,7 +18,7 @@ namespace LostCompound.Items.Equipment
     /// 为什么不实现 IEquippable：它没有被动数值加成（不加 ATK/DEF/护盾），
     /// 被动清单见 CONVENTIONS 2.4 —— 乱实现会让它出现在饰品栏可装备列表里并打印假的加成描述。
     /// </remarks>
-    public sealed class RadioactiveMetalCan(int count) : Item(ItemIds.RadioactiveMetalCan, "放射金属罐", 10, true, count), ITurnCount
+    public sealed class RadioactiveMetalCan(int count) : Item(ItemIds.RadioactiveMetalCan, "放射金属罐", 10, true, count), ITurnCount, IItemState
     {
         /// <summary>每多少回合扣一次血（覆盖放射性矿物的 5 回合）。</summary>
         public const int DamageInterval = 10;
@@ -26,8 +26,25 @@ namespace LostCompound.Items.Equipment
         /// <summary>每次发作扣几点血（覆盖放射性矿物的 1 点）。</summary>
         public const int DamagePerTick = 2;
 
-        /// <summary>距离下一次扣血还剩几个回合；每个实例各自计时，与放射性矿物同理。</summary>
+        /// <summary>
+        /// 距离下一次扣血还剩几个回合；每个实例各自计时，与放射性矿物同理。
+        /// **必须跨存档保留**：否则读档会把计时器重置成 10，辐射发作被无限推迟。
+        /// </summary>
         public int Timer { get; set; } = DamageInterval;
+
+        /// <summary>存档键名。**发布后不能改**。</summary>
+        private const string StateKeyTimer = "timer";
+
+        public Dictionary<string, int> SaveState() => new() { [StateKeyTimer] = Timer };
+
+        public void LoadState(IReadOnlyDictionary<string, int> state)
+        {
+            // 缺键 = 旧存档没这一项，保持构造时的默认值 DamageInterval
+            if (state.TryGetValue(StateKeyTimer, out int timer))
+            {
+                Timer = timer;
+            }
+        }
 
         public override ItemType? Type => ItemType.RadioactiveMetalCan;
 
