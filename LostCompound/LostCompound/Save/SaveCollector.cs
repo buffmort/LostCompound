@@ -6,6 +6,7 @@ using LostCompound.MapEnvironment;
 using LostCompound.Maps;
 using LostCompound.Rooms;
 using LostCompound.Rooms.Types;
+using LostCompound.Tools;
 using LostCompound.Tools.Players;
 
 namespace LostCompound.Save
@@ -33,6 +34,10 @@ namespace LostCompound.Save
             {
                 // 层数取生成器里那份快照，而不是硬编码 —— 读档时它就是「玩家在第几层」。
                 Layer = tmg.Layer,
+
+                // 总种子要存：每层种子由「总种子 + 层数」派生（GameProgress.SeedForLayer），
+                // 读档后玩家继续下到第 N+1 层时还得靠它算出那一层的种子。
+                RunSeed = GameProgress.RunSeed,
                 EnvType = (env?.Type ?? EnvType.None).ToString(),
                 EnvState = env?.SaveState() ?? [],
 

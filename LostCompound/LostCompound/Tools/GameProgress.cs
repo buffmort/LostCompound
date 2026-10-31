@@ -29,19 +29,60 @@ namespace LostCompound.Tools
         /// <summary>当前所在层数。改动请走本类的三个方法，不要直接赋值。</summary>
         public static int Layer { get; private set; } = FirstLayer;
 
-        /// <summary>开新局：回到第一层。上一局打到哪里都不影响新局。</summary>
-        public static void Reset()
+        /// <summary>
+        /// 本局的**总种子**：开新局时摇一次（`Random.Shared.NextInt64()`），之后整局不变。
+        ///
+        /// 它的作用是「一层一层派生子种子」的来源 —— 每层地图仍然各自有自己的种子
+        /// （<see cref="SeedForLayer"/>），而不是所有层共用同一个种子（那样每层迷宫长得一样）。
+        /// 存档里也要存它：读档后玩家继续往下打时，第 N+1 层的种子还得能算出来。
+        /// </summary>
+        public static long RunSeed { get; private set; }
+
+        /// <summary>当前层的种子（由 <see cref="RunSeed"/> 与 <see cref="Layer"/> 派生）。</summary>
+        public static long LayerSeed => SeedForLayer(RunSeed, Layer);
+
+        /// <summary>开新局：回到第一层，并记下本局总种子。</summary>
+        public static void StartRun(long runSeed)
         {
             Layer = FirstLayer;
+            RunSeed = runSeed;
         }
 
         /// <summary>
-        /// 读档：用存档里记的层数覆盖当前值 —— **不是 +1**。
+        /// 读档：用存档里记的层数与总种子覆盖当前值 —— **不是 +1**。
         /// 存档本来就知道玩家在第几层（<see cref="Save.SaveData.Layer"/>），照抄即可。
         /// </summary>
-        public static void Restore(int layer)
+        public static void Restore(int layer, long runSeed)
         {
             Layer = Math.Max(layer, FirstLayer);   // 存档写坏了也别退回到第 0 层
+            RunSeed = runSeed;
+        }
+
+        /// <summary>
+        /// 由「总种子 + 层数」算出**这一层的种子**。
+        ///
+        /// 为什么是**纯函数**而不是「拿一个 Random 依次 NextInt64()」：后者依赖调用顺序。
+        /// 玩家在第 3 层存档、退出、读档，然后下到第 4 层时，那个 Random 已经从头开始了 ——
+        /// 第 4 层会拿到本该属于第 2 层的种子，两层地图重复。
+        /// 纯函数没有状态：只要 (总种子, 层数) 一样，算出来就一样，读档多少次都一致。
+        ///
+        /// 用的是 SplitMix64 的混合步骤（与 <see cref="Maps.TreeMazeGenerator"/> 把 long 折成
+        /// int 种子时同一个算法族）：先把层数摊进高位，再做三轮异或-乘-右移，
+        /// 让「层数差 1」也能得到完全不相关的种子，而不是相邻的相似种子。
+        /// </summary>
+        public static long SeedForLayer(long runSeed, int layer)
+        {
+            ulong z = (ulong)runSeed + 0x9E3779B97F4A7C15UL * (ulong)(layer + 1);
+            z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;
+            z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;
+            z ^= z >> 31;
+            return (long)z;
+        }
+
+        /// <summary>开新局：回到第一层（不改变总种子，供内部/测试使用）。</summary>
+        public static void Reset()
+        {
+            Layer = FirstLayer;
         }
 
         /// <summary>

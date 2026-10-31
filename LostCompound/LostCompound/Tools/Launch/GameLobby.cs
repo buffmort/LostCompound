@@ -214,16 +214,19 @@ namespace LostCompound.Tools.Launch
                 Console.WriteLine("已取消开局。\n");
                 return;
             }
-            // 摇一个本局种子。**这张地图的一切都由它决定** ——
-            // 存档里只存它，读档时用它重算出同一张图，而不是把 100 格地形都写进文件。
-            long seed = Random.Shared.Next();
+            // 摇一个本局**总种子**。整局的地图都由它派生：
+            //   第 N 层的种子 = GameProgress.SeedForLayer(总种子, N)
+            // 存档里存总种子 + 层数 + 当前层种子，读档时能重算出同一张图，
+            // 而且继续往下打时第 N+1 层的种子也能算出来（不用把 100 格地形写进文件）。
+            long seed = Random.Shared.NextInt64();
             Console.WriteLine("本局种子：" + seed);
 
             // 开新局 = 从第一层开始。上一局打到第几层都不该带进来
             //（读档路径不走这里，它用存档里记的层数，见 SaveRestorer）。
-            GameProgress.Reset();
+            GameProgress.StartRun(seed);
 
-            TreeMazeGenerator tmg = new TreeMazeGenerator(10, 10, envType.Value, seed, GameProgress.Layer);
+            TreeMazeGenerator tmg = new TreeMazeGenerator(
+                10, 10, envType.Value, GameProgress.LayerSeed, GameProgress.Layer);
             tmg.Generate();
             Room[][] map = tmg.Grid;
             Player p = new Player();

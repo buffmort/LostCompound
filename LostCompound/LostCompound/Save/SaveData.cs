@@ -30,10 +30,18 @@ namespace LostCompound.Save
         public string SavedAt { get; set; } = "";
 
         /// <summary>
-        /// 层数。层数系统还没做，目前恒为 1 —— 先占位，
-        /// 等「一局多张地图」实现后这里就是「第几层」，不用改存档格式。
+        /// 层数。现在是真值了（`GameProgress.Layer`），不再是占位。
         /// </summary>
         public int Layer { get; set; } = 1;
+
+        /// <summary>
+        /// 本局**总种子**（`GameProgress.RunSeed`）。每层的种子由它 + 层数派生
+        /// （`GameProgress.SeedForLayer`），所以读档后继续往下打时必须能拿回它，
+        /// 否则第 N+1 层的种子算不出来。
+        ///
+        /// 旧存档没有这个字段 → 读出来是 0，读档时退化成用 <see cref="Seed"/> 当总种子。
+        /// </summary>
+        public long RunSeed { get; set; }
 
         /// <summary>
         /// 环境类型，**存枚举名而不是数字**（如 "LavaWaterfall"）。

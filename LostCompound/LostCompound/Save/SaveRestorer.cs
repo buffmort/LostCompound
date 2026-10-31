@@ -63,7 +63,9 @@ namespace LostCompound.Save
             // 注意：Generate() 必须和「新开局」走同一条路径，否则读档和开局会算出两张图。
             // 层数用存档里记的，并且**先写回 GameProgress 再建图** —— 顺序反了的话
             // 建出来的图会记着旧的层数（快照），之后刷怪就按错层算血量。
-            GameProgress.Restore(data.Layer);
+            // 总种子：旧档没有 RunSeed（0），退化成用这一层的种子 —— 至少读档当场是对的，
+            // 继续往下的派生种子会与"原本该有的"不同，但那是旧档，允许。
+            GameProgress.Restore(data.Layer, data.RunSeed != 0 ? data.RunSeed : data.Seed);
             tmg = new TreeMazeGenerator(data.Rows, data.Cols, envType, data.Seed, GameProgress.Layer);
             tmg.Generate();
             map = tmg.Grid;
