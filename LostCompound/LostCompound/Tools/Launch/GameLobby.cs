@@ -103,11 +103,11 @@ namespace LostCompound.Tools.Launch
         {
             if (string.Equals(name, "buffmort", StringComparison.OrdinalIgnoreCase))
             {
-                return "开发者?";
+                return "「开发者」";
             }
             if (string.Equals(name, "aliamgad", StringComparison.OrdinalIgnoreCase))
             {
-                return "老朋友.";
+                return "「Hyberty-起源」";
             }
             return "";
         }
