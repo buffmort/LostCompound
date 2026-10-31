@@ -5,7 +5,8 @@ using LostCompound.Buffs;   // BuffFactory / Buff：debug 130 的按 ID 挂 buff
 using LostCompound.Items;
 using LostCompound.MapEnvironment;
 using LostCompound.Monsters;
-using LostCompound.Rooms;   // StartRoom：给调试玩家挂假地图用
+using LostCompound.Maps;    // TreeMazeGenerator：调试战斗也要一张真地图来撑版面
+using LostCompound.Rooms;
 using LostCompound.Monsters.Normal;
 using LostCompound.Monsters.Boss;
 using LostCompound.Rooms.Types;
@@ -96,25 +97,21 @@ namespace LostCompound.Tools.Debug
             //   但道具侧（水瓶、硫酸、镐子）用的是 p.CurrentEnvironment，
             //   而它是从 _map[PlayerRow][PlayerCol].Environment 读的 —— 没有地图就恒为 null，
             //   于是「水瓶说这里没有水源」「硫酸说不能饮用」「镐子说没东西可挖」。
-            //   造一张 1×1 的假地图（只放一间起始房、带着同一个 env）就补上了这条路。
+            //
+            // 现在直接用一张**真地图**（10×10），而不是原来那张 1×1 的假图：
+            //   ① 照样满足 CurrentEnvironment；
+            //   ② 更重要的：分栏界面的尺寸是按地图文本算的，1×1 的地图会把框压成一条缝。
             //
             // 为什么这么做是安全的：JoinMap 只调用 StartRoom.MarkArrived()，
             // 不会触发 OnEnter —— 所以不会弹「初始物品选择」、不会重复发初始道具。
-            AttachDebugMap(p, env);
+            TreeMazeGenerator tmg = new(10, 10, env.Type, Random.Shared.Next());
+            tmg.Generate();
+            Room[][] map = tmg.Grid;
+            p.JoinMap(map);
 
-            Tools.RunBattle(p, monsters, env);
-        }
-
-        /// <summary>
-        /// 给调试玩家挂一张 1×1 的假地图，只为了让 <see cref="Player.CurrentEnvironment"/> 能查到环境。
-        /// 调完之后玩家侧的环境道具（水瓶 / 硫酸 / 镐子）才和战斗侧看到的是同一个环境对象。
-        /// </summary>
-        private static void AttachDebugMap(Player p, Environment env)
-        {
-            Room[][] grid = new Room[1][];
-            grid[0] = new Room[1];
-            grid[0][0] = new StartRoom(env);
-            p.JoinMap(grid);
+            // 装上分栏界面再打：这样敌人框 / 状态栏 / Buff 框 / 日志区与正局完全一致
+            // （以前调试战斗直接往控制台打，框相关的排版问题在调试里根本看不见）。
+            p.RunDebugBattleOnScreen(map, tmg, monsters, env);
         }
 
         /// <summary>

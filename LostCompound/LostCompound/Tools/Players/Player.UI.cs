@@ -125,7 +125,7 @@ namespace LostCompound.Tools.Players
                 //   刻意不为这种情况新增任何提示：否则玩家一乱按就能发现「这里藏着东西」，
                 //   而改造前它们是无条件生效的（127/128/129 一个守卫生效都没有）。
                 case 127 when DebugState.Enabled:
-                    AddBuff(new SuperMaleBuff(1,int.MaxValue,true));
+                    AddBuff(new SuperMaleBuff(1,-1,true));
                     Console.WriteLine($"超雄模式：基础 STR 已设为 {BaseStr}（当前 STR {Str}）");
                     break;
                 case 128 when DebugState.Enabled:
@@ -289,6 +289,58 @@ namespace LostCompound.Tools.Players
             RefreshStatus();
         }
 
+        /// <summary>
+        /// 按地图文本算出一个尺寸合适的分栏界面（**只算尺寸，不装**）。
+        ///
+        /// 抽出来的原因：正局（<see cref="RunMainLoop"/>）与调试战斗
+        /// （<see cref="RunDebugBattleOnScreen"/>）都需要同一套尺寸规则 ——
+        /// 各写一遍的话，哪天地图渲染改了列宽，总有一边会错位。
+        /// </summary>
+        private static ConsoleScreen CreateScreenFor(TreeMazeGenerator tmg)
+        {
+            string[] mapLines = tmg.ToDisplayString().Replace("\r", "").Split('\n');
+            int mapColumns = mapLines.Max(line => line.Length);
+            return new ConsoleScreen(mapLines.Length, mapColumns);
+        }
+
+        /// <summary>
+        /// **调试战斗专用**：装上分栏界面打一场，结束后自动还原输出。
+        ///
+        /// 为什么调试战斗也要有框：以前它直接往真实控制台打，敌人框 / 状态框 / Buff 框全都没有，
+        /// 于是「多怪时敌人框自适应」「Buff 框排版」这些**只能在框里看出来的问题**，
+        /// 调试战斗根本验不了 —— 只能开正局碰运气。
+        ///
+        /// 与正局的区别（都是有意为之）：
+        ///   · 不调 SaveSession.Begin —— 调试战斗不是一局，不该被"关窗口自动存档"写进档案；
+        ///   · 不解锁配方、不触发房间事件 —— 这里只打一场战斗，不进入地图循环；
+        ///   · `pendingEnter` 之类的地图循环逻辑一概不参与，地图只用来撑版面 + 提供环境。
+        /// </summary>
+        /// <param name="map">调试用的地图（目前是 10×10 生成图，只为版面与环境）</param>
+        /// <param name="monsters">这一场的敌人</param>
+        /// <param name="env">环境对象（与 <c>map</c> 里房间用的是同一个实例）</param>
+        public void RunDebugBattleOnScreen(Room[][] map, TreeMazeGenerator tmg, List<Monster> monsters, Environment env)
+        {
+            ConsoleScreen screen = CreateScreenFor(tmg);
+            screen.Install();
+            _screen = screen;
+
+            try
+            {
+                // 先把地图与状态画出来，玩家一进场就能看到框（而不是先看到一片空白）
+                DrawScreen(screen, map, tmg);
+
+                // 战斗本体：与正局完全同一条通路（Tools.RunBattle），
+                // 所以敌人框 / 状态栏 / Buff 框 / 日志区在这里的行为与正局一致。
+                Tools.RunBattle(this, monsters, env);
+            }
+            finally
+            {
+                // 与 RunMainLoop 同一顺序：先落标记，再还原输出
+                _screen = null;
+                screen.Uninstall();
+            }
+        }
+
         public void StartGame(Room[][] map, TreeMazeGenerator tmg)
         {
             JoinMap(map);
@@ -325,10 +377,8 @@ namespace LostCompound.Tools.Players
         private void RunMainLoop(Room[][] map, TreeMazeGenerator tmg, bool pendingEnter, bool unlockRecipes)
         {
 
-            // 地图文本的行数/列数决定地图区的大小（行数 = rows*2+1，列数算最长一行）
-            string[] mapLines = tmg.ToDisplayString().Replace("\r", "").Split('\n');
-            int mapColumns = mapLines.Max(line => line.Length);
-            ConsoleScreen screen = new ConsoleScreen(mapLines.Length, mapColumns);
+            // 分栏界面：尺寸由地图文本决定（行数 = rows*2+1，列数算最长一行）
+            ConsoleScreen screen = CreateScreenFor(tmg);
             screen.Install();
             _screen = screen;              // 供 RefreshStatus / ReadInt 使用
 
