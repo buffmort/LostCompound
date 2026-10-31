@@ -28,6 +28,9 @@ namespace LostCompound.Tools.Players
         /// </summary>
         public bool Tier1RecipesUnlocked { get; private set; }
 
+        /// <summary>配方 0 是否已经加过（见 <see cref="AddDefaultRecipes"/> 的幂等守卫）。不进存档：读档时重建。</summary>
+        private bool _defaultRecipesAdded;
+
         public void UnlockAllRecipes()
         {
             // 这道守卫现在**不可达**：唯一的调用点（OnPlayerTurn 的 case 128）自己带了
@@ -47,6 +50,14 @@ namespace LostCompound.Tools.Players
 
         public void AddDefaultRecipes()
         {
+            // ⚠️ 幂等守卫：这个方法可能被调用两次（开局 RunMainLoop 一次 + 调试指令 128
+            //   的 UnlockAllRecipes 再一次）。没有守卫时 `Recipes.Add` 会把同一批配方
+            //   追加第二遍，合成界面就出现两条一模一样的「硫酸剑」——
+            //   玩家选中任意一条都能合，看起来像配方表本身重了。
+            //   为什么用字段而不是「先清空再加」：清空会把调用方之前单独加过的配方也抹掉。
+            if (_defaultRecipesAdded) return;
+            _defaultRecipesAdded = true;
+
             Console.WriteLine("你成功添加了合成表0!");
             // 产物一律传工厂 `() => new Xxx(1)` 而不是 `new Xxx(1)` 实例 ——
             // 配方如果持有实例，那个实例会被 AddItem 直接放进背包，配方与背包同指一个对象，
@@ -134,6 +145,10 @@ namespace LostCompound.Tools.Players
         /// </summary>
         public void AddTier1Recipes()
         {
+            // 幂等守卫：理由同 AddDefaultRecipes（调试指令 128 会再调一次）。
+            // 这里还有第二个理由：那句「你解锁了配方1!」重复打印会误导玩家以为解锁了两次。
+            if (Tier1RecipesUnlocked) return;
+
             Console.WriteLine("你解锁了配方1!");
 
             // 存档只需要知道「解锁到第几档」，不需要把 Recipes 列表本身写进文件
