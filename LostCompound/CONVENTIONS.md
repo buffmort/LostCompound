@@ -380,17 +380,18 @@ int extra = guaranteed + (Random.Shared.NextDouble() < remainder ? 1 : 0);
 
 体积：**15.9 KB → 0.96 KB**，而且地形只有一个真相源（不会出现「存档里的地形与种子算出的不一致」）。
 
-### 存档带校验（签名信封，2026-11-01）
+### 存档带校验（两轮哈希 + 盐，2026-11-01）
 
 `save.json` 不是裸 JSON 了，而是一个**信封**：
 
 ```json
-{ "Version": 3, "Hash": "base64(SHA256(载荷字节 + 固定后缀))", "Payload": "base64(存档 JSON)" }
+{ "Version": 4, "Hash": "base64(SHA256( SHA256(载荷) + 盐 ))", "Payload": "base64(存档 JSON)" }
 ```
 
-- 那个「固定后缀」是 `SaveFile.HashSuffix` 里的常量（**故意不写进文档**）——
+- 签名分**两轮**：`first = SHA256(载荷)` → `salted = first + 盐` → `Hash = base64(SHA256(salted))`。
+  盐是 `SaveFile.HashSuffix` 里的常量。
   它的意义是：别人解开 base64、改完内容、再自己算一遍 SHA256 填回去时，
-  **不知道后缀就算不出能对上的签名**，于是二次解码再编码会失效。
+  **不知道盐就算不出能对上的签名**，于是二次解码再编码会失效。
 - ⚠️ **改了它 = 所有旧档校验失败 → 全部删档**，别随手改。
 - 读档时重算签名，和文件里的比（`CryptographicOperations.FixedTimeEquals`）。
 - **校验不过就删档**（用户 2026-11-01 裁定）：JSON 坏 / 缺字段 / 版本不对 / base64 坏 / 签名对不上，

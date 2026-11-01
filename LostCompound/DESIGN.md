@@ -918,7 +918,7 @@
 | 放射性矿物 (11) 的辐射改成 buff 形态 | 辐射系统（§7.4）。现状是道具自己按 `ITurnCount` 每 5 回合直付扣血（§12.2），**还没有走 buff**。⚠️ 这里**原来记的是一条风险**：「『叠个数』撞 `Player.AddBuff` 的同类合并规则，落地时要覆写 `MergeFrom`」—— 该风险**已澄清、不再成立**：用户已裁定**叠伤害**（新来源只累加「每次扣血的量」），一个 buff 对象 + `MergeFrom` 既有的同类合并语义即可，**不需要覆写 `MergeFrom`**（见 §7.4） |
 | 其余配方 2 / 3 的道具 | 见第九章 |
 | **镜子 (45)** | ✅ 已实现（`Items\Consumables\Mirror.cs` + `Player.SwapBaseStats` / `RotateInventoryCounts`）。三处裁定见 §11 第 7 条 |
-| **存档校验（签名信封）** | ✅ 已实现（2026-11-01）：`save.json` 外层是 `{Version, Hash, Payload}`，Hash = SHA256(载荷字节 + 固定后缀)；读档先验签，**校验不过直接删档**（JSON 坏 / 缺字段 / 版本不对 / 签名不符都走同一出口）。这是完整性校验不是加密。⚠️ 旧格式（裸 JSON）存档读不出来，首次读档即被删除 |
+| **存档校验（签名信封）** | ✅ 已实现（2026-11-01）：`save.json` 外层是 `{Version, Hash, Payload}`，Hash = SHA256( SHA256(载荷) + 盐 )（两轮）；读档先验签，**校验不过直接删档**（JSON 坏 / 缺字段 / 版本不对 / 签名不符都走同一出口）。这是完整性校验不是加密。⚠️ 旧格式（裸 JSON）存档读不出来，首次读档即被删除 |
 | **档案 profile（`profile.json`）** | 玩家名 / 死亡次数 / 转化仓（占位）。与 `save.json` 分开：死亡删 save 但不删 profile。开局第一次运行问名字；死亡时 `Profile.AddDeath()` + 落盘 |
 | **沙漠（Desert）** | ✅ 已实现（`MapEnvironment\Environments\Desert.cs`）：只出沙子、怪物无掉落、战斗菜单第 6 项采沙 5 个 |
 | 其余 4 种环境（矿洞 / 墓地 / 放射性区域 / 雾都城市） | — |

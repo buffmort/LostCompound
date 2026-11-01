@@ -55,38 +55,41 @@ namespace LostCompound.Save
     ///    外层是一个**信封**，存档本体被 base64 包在里面：
     ///    <code>
     ///    {
-    ///      "Version": 3,
-    ///      "Hash": "……base64 的 SHA256(载荷 + 后缀)……",
+    ///      "Version": 4,
+    ///      "Hash": "……base64 的 二次哈希( 一次哈希(载荷) + 盐 )……",
     ///      "Payload": "……base64 的存档 JSON……"
     ///    }
     ///    </code>
     ///    为什么要包一层、而不是在存档 JSON 里加个 hash 字段：
     ///      hash 必须覆盖「存档本体」，而存档本体里如果含 hash 字段，就等于让它自我引用。
     ///      分成「信封 + 载荷」之后，签名对象就是那段字节，干净。
-    ///    代价：**存档不再是人类可读的 JSON**（base64 看着像乱码），
-    ///      想调试就用 <see cref="SaveFile.FormatVersion"/> 之外的临时手段解一下。
+    ///    代价：**存档不再是人类可读的 JSON**（base64 看着像乱码）。
     ///
-    ///    为什么签名要拼一个后缀（<see cref="HashSuffix"/>）、而不是裸 SHA256：
-    ///      裸 SHA256 谁都能重算 —— 改了存档里的血量，重新算一次 SHA256 填回去，
-    ///      校验照样通过，等于没锁。把一段**只在程序里的**固定字符串拼到载荷末尾再算，
-    ///      不知道这段字符串的人算出来的签名必然对不上，二次解码再编码就会失效。
-    ///      （后缀在二进制里，够挡住手改，但不是密码学级别的 secrecy。）
+    ///    签名算法（用户 2026-11-01 定：「字节码 → 一次哈希 → 加盐 → 二次哈希」）：
+    ///      first  = SHA256(载荷字节)
+    ///      salted = first ‖ 盐（<see cref="HashSuffix"/>）
+    ///      Hash   = base64( SHA256(salted) )
+    ///      为什么加盐：裸 SHA256 谁都能重算 —— 改完血量再算一遍填回去，校验照样通过，等于没锁。
+    ///      盐只在程序里，不知道它就算不出能对上的签名，所以二次解码再编码会失效。
+    ///      （盐在二进制里，够挡住手改，但不是密码学级别的 secrecy。）
     ///    这是**完整性校验**，不是加密：没有隐藏内容的意思，只是「内容被动过」。
     /// ─────────────────────────────────────────────────────────────
     /// </summary>
     public static class SaveFile
     {
         /// <summary>
-        /// 当前存档格式版本。**3 = 加了签名信封的格式**（旧版是裸 JSON，读不出来会按校验失败删档）。
+        /// 当前存档格式版本。
+        /// **3 = 加了签名信封（单轮 SHA256 + 盐）**；
+        /// **4 = 签名改成两轮 SHA256（一次哈希 → 加盐 → 二次哈希）** —— 3 版存档读不出来，会被删掉。
         /// </summary>
-        public const int CurrentVersion = 3;
+        public const int CurrentVersion = 4;
 
         /// <summary>
-        /// 签名时**拼在载荷末尾的固定后缀**（用户 2026-11-01 定：用「HYB」当密钥）。
+        /// 签名用的**盐**（用户 2026-11-01 定：用「HYB」）。
         ///
-        /// 它的作用是：别人拿到存档、解开 base64、改完内容再自己算一遍 SHA256 填回去 ——
-        /// **不知道这个后缀就算不出能对上的签名**，所以二次解码再编码会失效。
-        /// （前缀/后缀都行，这里用后缀是因为它对应「解码时反着来」：先验签，验过了才去掉后缀。）
+        /// 它夹在两次哈希之间：`SHA256( SHA256(载荷) ‖ "HYB" )`。
+        /// 作用是：别人拿到存档、解开 base64、改完内容再自己算一遍 SHA256 填回去 ——
+        /// **不知道这串盐就算不出能对上的签名**，所以二次解码再编码会失效。
         ///
         /// ⚠️ 改了它 = 所有旧存档校验失败 → 全部删档，所以不要随手改。
         /// </summary>
@@ -292,18 +295,36 @@ namespace LostCompound.Save
         }
 
         /// <summary>
-        /// 对一段字节算 SHA256（**先把 <see cref="HashSuffix"/> 拼到末尾**），返回 base64。
+        /// 签名：**两轮 SHA256**，盐夹在中间。用户 2026-11-01 定的口径：
+        ///   「先变成一段彻底的字节码 → 一次哈希 → 加盐 → 二次哈希」。
         ///
-        /// 为什么不是裸 SHA256(payload)：任何人解开 base64、改掉血量、再算一次 SHA256 填回去，
-        /// 校验照样通过，等于没锁。拼上一个只在程序里的后缀之后，
-        /// 「不知道后缀的重算」必然对不上，所以二次解码再编码会失效。
+        /// <code>
+        /// first  = SHA256(载荷字节)                 // 第一轮：把原文压成 32 字节
+        /// salted = first ‖ "HYB"                    // 加盐：拼在**哈希值**末尾（不是拼在原文上）
+        /// Hash   = base64( SHA256(salted) )         // 第二轮
+        /// </code>
+        ///
+        /// 为什么要两轮而不是「原文 + 盐」一轮：
+        ///   第一轮之后得到的是长度固定的 32 字节摘要，盐拼在它后面 —— 原文多长都一样，
+        ///   而且就算有人拿到摘要也还原不出原文。两轮也让「改存档」这条路更难走：
+        ///   改原文 → 第一轮变 → 第二轮变 → 签名对不上。
+        /// 为什么要盐：不加盐的话，任何人解开 base64、改完血量、重新算一遍 SHA256 填回去，
+        ///   校验照样通过，等于没锁。盐只在程序里，不知道它就算不出能对上的签名。
+        ///
+        /// ⚠️ 换盐 = 所有旧存档校验失败 → 全部删档。
         /// 这是**完整性校验**，不是加密：内容没被隐藏（base64 解一下就能看）。
         /// </summary>
         private static string ComputeHash(byte[] payload)
         {
-            byte[] salted = new byte[payload.Length + HashSuffixBytes.Length];
-            Buffer.BlockCopy(payload, 0, salted, 0, payload.Length);
-            Buffer.BlockCopy(HashSuffixBytes, 0, salted, payload.Length, HashSuffixBytes.Length);
+            // 第一轮：原文 → 32 字节摘要
+            byte[] firstPass = SHA256.HashData(payload);
+
+            // 加盐：摘要 ‖ 盐
+            byte[] salted = new byte[firstPass.Length + HashSuffixBytes.Length];
+            Buffer.BlockCopy(firstPass, 0, salted, 0, firstPass.Length);
+            Buffer.BlockCopy(HashSuffixBytes, 0, salted, firstPass.Length, HashSuffixBytes.Length);
+
+            // 第二轮：对「摘要 + 盐」再哈希
             return Convert.ToBase64String(SHA256.HashData(salted));
         }
 
