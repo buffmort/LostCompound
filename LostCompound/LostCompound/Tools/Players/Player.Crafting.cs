@@ -117,24 +117,26 @@ namespace LostCompound.Tools.Players
         }
 
         /// <summary>
+        /// 合成列表每页显示几条。与调试的「获取道具」同一节奏（一页 10 条、字母选、n/p 翻页），
+        /// 因为配方会越加越多（现在 21 条，配方 2/3 做完会到 40+），一次刷完会把日志区顶掉。
+        /// </summary>
+        public const int RecipePageSize = 10;
+
+        /// <summary>
         /// 查询合成表：列出**手上全部配方**（含材料不足的），材料不足的标出来。
-        /// 只读，不消耗任何东西，也不改变状态。
+        /// 只读，不消耗任何东西，也不改变状态。翻页浏览，<see cref="MenuBack"/> 退出。
         /// </summary>
         public void ShowRecipeBook()
         {
-            Console.WriteLine("====合成表====");
             if (Recipes.Count == 0)
             {
                 Console.WriteLine("你还不会任何配方。");
                 return;
             }
 
-            for (int i = 0; i < Recipes.Count; i++)
-            {
-                ICraftable recipe = Recipes[i];
-                string mark = recipe.CanCraft(this) ? "  ✔" : "  （材料不足）";
-                Console.WriteLine(i + ". " + recipe.Name + " " + recipe.DescribeMaterials(this) + mark);
-            }
+            // 浏览模式：选中字母什么都不做，翻页才动 —— 这里把"选中"当成"继续看"，
+            // 只有按 -1 才退出。用同一个分页渲染，避免两处各写一套翻页逻辑。
+            PagedRecipeList("====合成表====", Recipes, markCraftable: true, out _);
         }
 
         /// <summary>
@@ -158,26 +160,103 @@ namespace LostCompound.Tools.Players
                 return false;
             }
 
-            for (int i = 0; i < available.Count; i++)
+            int picked = PagedRecipeList("====可合成====", available, markCraftable: false, out int selected);
+            if (picked == MenuBack || selected < 0)
             {
-                ICraftable r = available[i];
-                Console.WriteLine(i + ". " + r.Name + " " + r.DescribeMaterials(this));
+                return false;
             }
-            Console.WriteLine(MenuBack + ". 返回");
 
-            int choice;
+            CraftAndSettle(Recipes.Count > 0 ? available[selected] : available[selected]);
+            return true;
+        }
+
+        /// <summary>
+        /// **分页选择器**：合成表与可合成列表共用。
+        ///
+        /// 交互（与调试的「获取道具」一致）：
+        ///   · 一页 <see cref="RecipePageSize"/> 条，用字母 a/b/c… 选；
+        ///   · `n` 下一页、`p` 上一页（循环，第 1 页按 p 跳到最后一页）；
+        ///   · 数字 = 直接跳页；
+        ///   · <see cref="MenuBack"/>（-1）= 返回。
+        ///
+        /// 返回 <see cref="MenuBack"/> 表示玩家退出；否则返回 0（浏览模式）或选中项的下标
+        /// （通过 <paramref name="selected"/> 传出，-1 表示没选东西）。
+        ///
+        /// 为什么要分页：配方会越加越多，一次刷 21~40 行会把日志区顶掉，
+        /// 「请选择」那句提示直接看不见 —— 跟调试的「获取道具」当初一模一样的问题。
+        /// </summary>
+        private int PagedRecipeList(string title, List<ICraftable> list, bool markCraftable, out int selected)
+        {
+            selected = -1;
+            int pages = Math.Max(1, (list.Count + RecipePageSize - 1) / RecipePageSize);
+            int page = 1;
+
             while (true)
             {
-                Console.WriteLine("请选择..");
-                choice = ReadInt("选择配方编号");
-                if (choice == MenuBack) return false;
-                if (choice >= 0 && choice < available.Count) break;
-                if (_inputClosed) return false;
-                Console.WriteLine("选择无效! 请重新选择(0-" + (available.Count - 1) + ", " + MenuBack + " 返回)");
-            }
+                Console.WriteLine(pages > 1 ? title + "（第 " + page + "/" + pages + " 页）" : title);
 
-            CraftAndSettle(available[choice]);
-            return true;
+                int start = (page - 1) * RecipePageSize;
+                int end = Math.Min(start + RecipePageSize, list.Count);
+                for (int i = start; i < end; i++)
+                {
+                    ICraftable recipe = list[i];
+                    string mark = markCraftable
+                        ? (recipe.CanCraft(this) ? "  ✔" : "  （材料不足）")
+                        : "";
+                    char key = (char)('a' + (i - start));
+                    Console.WriteLine("  " + key + ". " + recipe.Name + " " + recipe.DescribeMaterials(this) + mark);
+                }
+
+                Console.WriteLine(pages > 1
+                    ? "  n=下一页  p=上一页  数字=跳页  " + MenuBack + "=返回"
+                    : "  " + MenuBack + "=返回");
+
+                Console.WriteLine("请选择（字母 / n / p / 数字）:");
+                string line = Console.ReadLine();
+                if (line == null)
+                {
+                    _inputClosed = true;
+                    return MenuBack;
+                }
+
+                string key2 = line.Trim().ToLowerInvariant();
+                if (key2.Length == 0) continue;
+                if (key2 == MenuBack.ToString()) return MenuBack;
+                if (key2 == "n")
+                {
+                    page = page % pages + 1;
+                    continue;
+                }
+                if (key2 == "p")
+                {
+                    page = (page - 2 + pages) % pages + 1;
+                    continue;
+                }
+                if (key2.Length == 1 && key2[0] >= 'a' && key2[0] <= 'z')
+                {
+                    int index = start + (key2[0] - 'a');
+                    if (index < end)
+                    {
+                        selected = index;
+                        // 浏览模式（不可合成标注为 true）选中只是翻页看，不返回
+                        if (markCraftable) continue;
+                        return 0;
+                    }
+                    Console.WriteLine("这一页没有这个字母。");
+                    continue;
+                }
+                if (int.TryParse(key2, out int typed))
+                {
+                    if (typed >= 1 && typed <= pages)
+                    {
+                        page = typed;
+                        continue;
+                    }
+                    Console.WriteLine("没有这一页。");
+                    continue;
+                }
+                Console.WriteLine("输入无法识别，请输入字母 / n / p / 数字。");
+            }
         }
 
         /// <summary>

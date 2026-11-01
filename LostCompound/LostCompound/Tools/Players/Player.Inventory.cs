@@ -449,6 +449,19 @@ namespace LostCompound.Tools.Players
             }
         }
 
+        /// <summary>
+        /// 按道具 ID 取**显示名**（配方材料列表用的就是它）。
+        ///
+        /// 查找顺序：**背包里的实例** → <see cref="ItemFactory"/> 的表 → 「未知道具(ID n)」。
+        ///
+        /// ⚠️ 为什么必须有第二步（这是一个真 bug 的修复）：
+        ///   原先只查背包，查不到就 `return "null"` —— 于是一份配方只要材料还没到手，
+        ///   合成表就显示「(nullx3)」。那个 `"null"` 还是个**字符串**，
+        ///   拼接不会崩、也不会报错，玩家只会以为是界面坏了（探针里全表都是 null）。
+        ///   名字是道具的固有属性，跟玩家有没有它毫无关系 —— 所以应当问工厂，而不是问背包。
+        ///
+        /// 为什么先查背包：将来若允许改名/带词缀（"生锈的铁剑"），实例上的名字优先。
+        /// </summary>
         public string GetItemNameById(int id)
         {
             foreach (Item item in Inventory)
@@ -458,7 +471,14 @@ namespace LostCompound.Tools.Players
                     return item.Name;
                 }
             }
-            return "null";
+            foreach ((int Id, string Name, Func<int, Item> Create) entry in ItemFactory.All)
+            {
+                if (entry.Id == id)
+                {
+                    return entry.Name;
+                }
+            }
+            return "未知道具(" + id + ")";
         }
     }
 }
