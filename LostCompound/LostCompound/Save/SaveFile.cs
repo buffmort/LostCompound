@@ -164,7 +164,7 @@ namespace LostCompound.Save
                 {
                     Version = CurrentVersion,
                     Payload = Convert.ToBase64String(payload),
-                    Hash = ComputeHash(payload),
+                    Hash = HashDoubleHydrolysis(payload),
                 };
                 string json = JsonSerializer.Serialize(envelope, JsonOptions);
 
@@ -233,7 +233,7 @@ namespace LostCompound.Save
                 return RejectSave("存档版本不兼容。");
             }
 
-            // ---- ② 验签：重算 SHA256(载荷 + 后缀)，和文件里写的比 ----
+            // ---- ② 验签：用哈希双水解算法重算一遍签名，和文件里写的比 ----
             byte[] payload;
             try
             {
@@ -244,7 +244,7 @@ namespace LostCompound.Save
                 return RejectSave("存档载荷不是合法的 base64。");
             }
 
-            string expected = ComputeHash(payload);
+            string expected = HashDoubleHydrolysis(payload);
             // FixedTimeEquals：逐字节比较时**不提前返回**，避免按「比较耗时」反推正确签名的长度/前缀。
             // 这里其实没有攻击者能反复试，但这是密码学代码的默认写法，照做不吃亏。
             bool ok = CryptographicOperations.FixedTimeEquals(
@@ -295,36 +295,39 @@ namespace LostCompound.Save
         }
 
         /// <summary>
-        /// 签名：**两轮 SHA256**，盐夹在中间。用户 2026-11-01 定的口径：
-        ///   「先变成一段彻底的字节码 → 一次哈希 → 加盐 → 二次哈希」。
+        /// **哈希双水解算法**（用户 2026-11-01 命名）。
+        /// 口径是用户定的：「先变成一段彻底的字节码 → 一次哈希 → 加盐 → 二次哈希」。
         ///
+        /// 把存档字节「水解」两遍，中间撒一把盐：
         /// <code>
-        /// first  = SHA256(载荷字节)                 // 第一轮：把原文压成 32 字节
-        /// salted = first ‖ "HYB"                    // 加盐：拼在**哈希值**末尾（不是拼在原文上）
-        /// Hash   = base64( SHA256(salted) )         // 第二轮
+        /// 原文 ──水解①──▶ 32 字节摘要 ──加盐(HYB)──▶ 摘要‖盐 ──水解②──▶ 最终签名
         /// </code>
         ///
-        /// 为什么要两轮而不是「原文 + 盐」一轮：
-        ///   第一轮之后得到的是长度固定的 32 字节摘要，盐拼在它后面 —— 原文多长都一样，
-        ///   而且就算有人拿到摘要也还原不出原文。两轮也让「改存档」这条路更难走：
-        ///   改原文 → 第一轮变 → 第二轮变 → 签名对不上。
-        /// 为什么要盐：不加盐的话，任何人解开 base64、改完血量、重新算一遍 SHA256 填回去，
-        ///   校验照样通过，等于没锁。盐只在程序里，不知道它就算不出能对上的签名。
+        /// 名字的来历（化学梗，别当成真的水解）：
+        ///   · 一次 SHA256 就像「水解」一次 —— 原来的分子（原文）被打散，只留下碎片（32 字节摘要）；
+        ///   · 中间的盐（<see cref="HashSuffix"/>）正好在化学里就叫「盐」；
+        ///   · 两次水解 = **双水解**（化学里的双水解反应本来就是「两种盐互相水解」，
+        ///     这里借来调侃「盐 + 两次」）。
         ///
-        /// ⚠️ 换盐 = 所有旧存档校验失败 → 全部删档。
-        /// 这是**完整性校验**，不是加密：内容没被隐藏（base64 解一下就能看）。
+        /// 为什么两轮、为什么中间加盐：
+        ///   ① 第一轮之后是**定长**的 32 字节，「原文多长」这件事就消失了，盐拼在它后面长度稳定；
+        ///   ② 改存档 → 第一轮变 → 第二轮变 → 签名对不上；
+        ///   ③ 不撒盐的话，谁都能解开 base64、改完血量、重新算一遍 SHA256 填回去，校验照样过。
+        ///
+        /// ⚠️ 它是**完整性校验**，不是加密：不隐藏内容，只保证「没被动过」。
+        /// ⚠️ 盐和轮数都别改 —— 改了所有旧存档会被判死并删掉。
         /// </summary>
-        private static string ComputeHash(byte[] payload)
+        private static string HashDoubleHydrolysis(byte[] payload)
         {
-            // 第一轮：原文 → 32 字节摘要
+            // 水解①：原文 → 32 字节摘要
             byte[] firstPass = SHA256.HashData(payload);
 
-            // 加盐：摘要 ‖ 盐
+            // 撒盐：摘要 ‖ 盐（用字节拼接，不经过字符串）
             byte[] salted = new byte[firstPass.Length + HashSuffixBytes.Length];
             Buffer.BlockCopy(firstPass, 0, salted, 0, firstPass.Length);
             Buffer.BlockCopy(HashSuffixBytes, 0, salted, firstPass.Length, HashSuffixBytes.Length);
 
-            // 第二轮：对「摘要 + 盐」再哈希
+            // 水解②：对「摘要 + 盐」再哈希一次
             return Convert.ToBase64String(SHA256.HashData(salted));
         }
 
