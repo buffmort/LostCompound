@@ -23,7 +23,7 @@ namespace LostCompound.MapEnvironment
         ];
 
         /// <summary>
-        /// **第 1 层固定是熔岩瀑布**（用户 2026-11-01 裁定：设计文档 §5.1 的「固定第一层」）。
+        /// **第 1 层固定是熔岩瀑布**（Hyberty 2026-11-01 裁定：设计文档 §5.1 的「固定第一层」）。
         /// 第 2 层起**永远不再是熔岩瀑布**，只在其余环境里随机 / 自选。
         /// </summary>
         public const EnvType FirstLayerEnv = EnvType.LavaWaterfall;

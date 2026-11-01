@@ -255,7 +255,7 @@ namespace LostCompound.Tools.Players
         /// 进房时 <see cref="Rooms.Types.CraftRoom"/> 会把**全部已实现配方 − 已有配方**这个补集
         /// 临时加进来；离开房间时再删掉（徒手没有工具，做不了）。
         ///
-        /// 列表口径与徒手合成一致：**只列材料够的**（用户 2026-11-01 明确）。
+        /// 列表口径与徒手合成一致：**只列材料够的**（Hyberty 2026-11-01 明确）。
         /// 合完回到菜单，可以连续合。
         /// </summary>
         public void CraftWithStation()

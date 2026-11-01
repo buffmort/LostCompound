@@ -83,7 +83,7 @@
 | **枚举成员** | **PascalCase** |
 | **接口** | **`I` 前缀**（`IUseable` / `IChangeable` / `IEquippable` / `ICraftable` / `ITurnCount`） |
 
-**例外（用户明确要求保留原名）**：`Useable` / `Craftable` / `Changeable` / `TurnCount` 曾经是不带 `I` 的，后来已统一加 `I` 前缀。
+**例外（Hyberty明确要求保留原名）**：`Useable` / `Craftable` / `Changeable` / `TurnCount` 曾经是不带 `I` 的，后来已统一加 `I` 前缀。
 
 ## 2.2 语言陷阱（Java → C#）
 
@@ -131,7 +131,7 @@
 | **累加** | **方法** `AddXxx(int v) => Xxx += v;` | `AddSkipTurn` / `Buff.AddTurns`（流血叠加：伤害 min 夹取到 10，剩余回合相加） |
 | **重算** | 先重置再应用 | `ApplyEquipmentPassives()` 每次都从 `BaseAtk` 重新算 |
 
-**同一个概念在不同类里语义可能相反**：历史上 `setDOTdmg` 在 `Monster` 上是**累加**，在 `Player` 上是**赋值**（该 DOT 机制已按用户要求整体删除，周期性伤害全部改用 `Buffs` 包的流血）。改之前必须查原版。
+**同一个概念在不同类里语义可能相反**：历史上 `setDOTdmg` 在 `Monster` 上是**累加**，在 `Player` 上是**赋值**（该 DOT 机制已按Hyberty要求整体删除，周期性伤害全部改用 `Buffs` 包的流血）。改之前必须查原版。
 
 **`Buff.Stacks` 的语义由子类定义 —— 方向也可能相反**（写新 buff 前先查一遍）：
 
@@ -394,7 +394,7 @@ int extra = guaranteed + (Random.Shared.NextDouble() < remainder ? 1 : 0);
   **不知道盐就算不出能对上的签名**，于是二次解码再编码会失效。
 - ⚠️ **改了它 = 所有旧档校验失败 → 全部删档**，别随手改。
 - 读档时重算签名，和文件里的比（`CryptographicOperations.FixedTimeEquals`）。
-- **校验不过就删档**（用户 2026-11-01 裁定）：JSON 坏 / 缺字段 / 版本不对 / base64 坏 / 签名对不上，
+- **校验不过就删档**（Hyberty 2026-11-01 裁定）：JSON 坏 / 缺字段 / 版本不对 / base64 坏 / 签名对不上，
   全部走同一个出口 `SaveFile.RejectSave`（打印原因 → `Delete()` → 返回 null）。
   理由：一份读不出来的档留着只会让「继续游戏」每次都失败一次。
 - 这是**完整性校验**，不是加密：不隐藏内容（载荷 base64 解一下就能看），只保证「没被动过」。
@@ -464,17 +464,17 @@ AOT/裁剪下默认被禁用（运行时报 `Reflection-based serialization has 
 | 现象 | 真相 |
 |---|---|
 | `BossRoom` 打完龙不再 `Exit(114514)` | **已实现换层**：打赢后举牌 `Player.NextLayerRequested`，由 `RunMainLoop` 的 `AdvanceLayer()` 重建下一层；第 10 层打赢则通关（删档 + `Profile.Clears++`） |
-| 一共 10 层（文档原写 10-12 层） | **用户裁定：10 层**（`GameProgress.FinalLayer`） |
+| 一共 10 层（文档原写 10-12 层） | **Hyberty裁定：10 层**（`GameProgress.FinalLayer`） |
 | ~~地图固定 10×10~~ | **已落地**：2026-11-01 按文档改成 7×7~13×13（`GameProgress.MapSizeForLayer`）|
-| 药(20) / 咖啡(30) 的起始道具池状态 | 药**已进开局池**（用户裁定 6）：药已实现（配方 0：红磷 + 水瓶），池中给 **2 药 / 权重 1**（数量 2 按裁定 1 的「全部 +1」）；咖啡(30) 则**完全未实现**，**没进池子**（依赖雾都城市） |
+| 药(20) / 咖啡(30) 的起始道具池状态 | 药**已进开局池**（Hyberty裁定 6）：药已实现（配方 0：红磷 + 水瓶），池中给 **2 药 / 权重 1**（数量 2 按裁定 1 的「全部 +1」）；咖啡(30) 则**完全未实现**，**没进池子**（依赖雾都城市） |
 | 岩浆怪身上的流血也被削 30% | **已知精度损失**：高温免疫在 `TakeDamage` 上生效，无法区分伤害来源。要精确区分需给伤害带来源标记（大改，未做） |
 | `DOT` 字样还出现在若干 `.cs` 注释里 | **历史说明注释**（解释「DOT 机制已删除、改走流血 buff」），不是残留代码 |
 | **换装备 / 开战时护盾清零** | **刻意的游戏设计**：换装等同重新整理防御姿态，战斗外攒的护盾随之失效。`Player.ResetShieldForTurn` 里的 `Shield = 0`（由 `ApplyEquipmentPassives` 在换装/开战时一并调用）是有意为之，**不要当 bug 挪走** |
 | `Str` / `Atk` / `Def` 会被 `RecomputeStats` 覆盖（任何直接赋派生值的改动都只活到下一次重算） | 现算机制的**预期代价**：它们永远等于「基础值 + 当前所有修正」，任何直接赋值都会被下次重算冲掉。要「永久改」得走基础值（`GrowBaseStr` / `GrowBaseAtk` / `GrowBaseDef`），要「临时改」得走修正量（`env.StrModifier` / `buff.StrBonus` 等）—— 见 2.3 的「派生值 vs 资源」 |
 
 **已不是问题（曾经列在这里）：**
-- ~~岩浆怪 HP 15~~ → **已按文档改为 30**（中途一度写成 80，用户裁定 2 后已改回），并接上「熔岩瀑布高温免疫 30%」「水瓶扣当前 70% 血」
-- ~~防御公式不符~~ → **已按文档把代码改为系数 0.5**（`Calculator.DefCoefficient`，用户裁定 3）：`DESIGN.md` 7.2 与 `Calculator.ApplyDefense` 现在一致。**困难模式的 1 还没实现**（缺难度系统）—— 等难度系统做出来时只需把这个常量改成按难度取值，调用点不用动（见 DESIGN 12.5）
+- ~~岩浆怪 HP 15~~ → **已按文档改为 30**（中途一度写成 80，Hyberty裁定 2 后已改回），并接上「熔岩瀑布高温免疫 30%」「水瓶扣当前 70% 血」
+- ~~防御公式不符~~ → **已按文档把代码改为系数 0.5**（`Calculator.DefCoefficient`，Hyberty裁定 3）：`DESIGN.md` 7.2 与 `Calculator.ApplyDefense` 现在一致。**困难模式的 1 还没实现**（缺难度系统）—— 等难度系统做出来时只需把这个常量改成按难度取值，调用点不用动（见 DESIGN 12.5）
 
 ---
 
@@ -490,7 +490,7 @@ AOT/裁剪下默认被禁用（运行时报 `Reflection-based serialization has 
 | 熔岩瀑布 STR 惩罚 | 每损失 1 点水 **-0.01** | DESIGN 5.1 |
 | 水淹洞穴水位 | **15** 判负，50%+1 / 10%+2 / 40% 不变 | DESIGN 5.2 |
 | 开局道具 | 池中随机 **5** 种选 1，共 **3** 轮 | DESIGN 2.2 |
-| 开局道具的数量 | 代码 = DESIGN 2.2 表的**原值 +1**（用户裁定 1：保留 +1，以代码为准）。<br>✅ 已跟进（本次）：DESIGN §2.2 表已改写成 +1 后的**最终值**；两行硫磺的权重按用户裁定**改代码**修回 —— **2 硫磺 = 10 / 3 硫磺 = 8**（`BasicStartWeights = [10, 8, 8, 10, 5, 5, 5, 5, 1]`），逐项核对表见 DESIGN 12.4 末 | DESIGN 2.2 / 12.4 |
-| 开局道具池 · 药 | 药(20) **已进池**：**2 药**，权重 **1** | DESIGN 2.2（用户裁定 6） |
-| DEF 减免系数 | **0.5**（困难 1 待难度系统）；`Calculator.DefCoefficient`，最低取 1 仍生效 | DESIGN 7.2 / 12.5（用户裁定 3） |
-| 岩浆怪血量 | **30** | DESIGN 六（用户裁定 2） |
+| 开局道具的数量 | 代码 = DESIGN 2.2 表的**原值 +1**（Hyberty裁定 1：保留 +1，以代码为准）。<br>✅ 已跟进（本次）：DESIGN §2.2 表已改写成 +1 后的**最终值**；两行硫磺的权重按Hyberty裁定**改代码**修回 —— **2 硫磺 = 10 / 3 硫磺 = 8**（`BasicStartWeights = [10, 8, 8, 10, 5, 5, 5, 5, 1]`），逐项核对表见 DESIGN 12.4 末 | DESIGN 2.2 / 12.4 |
+| 开局道具池 · 药 | 药(20) **已进池**：**2 药**，权重 **1** | DESIGN 2.2（Hyberty裁定 6） |
+| DEF 减免系数 | **0.5**（困难 1 待难度系统）；`Calculator.DefCoefficient`，最低取 1 仍生效 | DESIGN 7.2 / 12.5（Hyberty裁定 3） |
+| 岩浆怪血量 | **30** | DESIGN 六（Hyberty裁定 2） |

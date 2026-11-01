@@ -9,7 +9,7 @@ namespace LostCompound.Monsters.Normal
     /// 骷髅（设计文档 §6.2「普通怪物（全地图可出现）」）：
     /// <c>hp 40</c>、<c>def 1</c>、<c>str 2</c>、<c>atk 10</c>。
     ///
-    /// 文档只给了这四组数值，**没有给技能表**，所以这里按用户的裁定做成
+    /// 文档只给了这四组数值，**没有给技能表**，所以这里按Hyberty的裁定做成
     /// 「只有普通攻击」的怪：伤害走 <see cref="Calculator.CalculateAttack(double, double)"/>，
     /// 与僵尸同一套公式（`2 + STR × √ATK`），不自行发明任何技能 / 概率效果。
     /// </summary>

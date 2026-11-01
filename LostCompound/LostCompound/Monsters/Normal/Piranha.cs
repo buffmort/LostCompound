@@ -12,7 +12,7 @@ namespace LostCompound.Monsters.Normal
     ///
     /// 三条实现口径：
     ///   ① **不能被单体选中** —— 实现 <see cref="ICannotBeTargeted"/>，
-    ///      `Player.Attack` 的目标列表会把它排除。全体 AOE 不受影响（用户裁定）。
+    ///      `Player.Attack` 的目标列表会把它排除。全体 AOE 不受影响（Hyberty裁定）。
     ///   ② **每回合攻击 5** 是**固定伤害**，不是走 `Calculator.CalculateAttack` 的推导值：
     ///      文档给的就是「攻击 5」这一个数，硬套公式（STR 0 时算出 2）反而对不上。
     ///      走 <see cref="Player.TakeDamage"/> 的好处是：照常过 DEF 减免与护盾，

@@ -17,7 +17,7 @@ namespace LostCompound.Rooms
         public Environment Environment { get; }
 
         /// <summary>
-        /// 这间房是不是**高温房间**（用户 2026-11-01 裁定：房间级开关，随机抽约 25% 的房间）。
+        /// 这间房是不是**高温房间**（Hyberty 2026-11-01 裁定：房间级开关，随机抽约 25% 的房间）。
         ///
         /// 改了这一个位，三件事一起变（它们都只看「当前房间热不热」）：
         ///   · 玩家水量消耗 +50%（<see cref="MapEnvironment.Environments.LavaWaterfall"/>）；

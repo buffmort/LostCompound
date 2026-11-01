@@ -248,7 +248,7 @@ namespace LostCompound.Buffs
         /// 这个 buff 是不是**负面**的（减益）。
         ///
         /// 为什么需要它：硫磺（道具 1）的使用效果是「随机一个**负面**状态的剩余回合 -2」
-        /// （用户 2026-11-01 裁定）。判定方（<see cref="Items.Materials.Sulphur.Use"/>）
+        /// （Hyberty 2026-11-01 裁定）。判定方（<see cref="Items.Materials.Sulphur.Use"/>）
         /// 只问「这个是坏状态吗」，不认识具体 buff 类 —— 与 <see cref="BlocksInventory"/> 同一做法，
         /// 以后再加一种 debuff，道具那边一行都不用改。
         ///

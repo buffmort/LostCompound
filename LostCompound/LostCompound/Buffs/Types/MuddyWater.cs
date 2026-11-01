@@ -5,7 +5,7 @@ namespace LostCompound.Buffs.Types
 {
     /// <summary>
     /// 搅乱泥沙（洞潜僵尸的 4 种 debuff 之一，DESIGN §6）。
-    /// 效果：**这一回合打不开背包**（文档：1 回合；用户裁定同上）。
+    /// 效果：**这一回合打不开背包**（文档：1 回合；Hyberty裁定同上）。
     ///
     /// 实现口径：**不按回合数递减，而是在玩家真的去开背包那一刻消费掉。**
     /// 为什么不用「OnTurnTick 里 ConsumeTurn」那套：

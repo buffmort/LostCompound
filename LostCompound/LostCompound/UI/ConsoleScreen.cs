@@ -61,7 +61,7 @@ namespace LostCompound.UI
         /// <summary>地图区内容行数。</summary>
         public int MapRows { get; }
         /// <summary>
-        /// 状态区内容行数。固定 **6** 行（原先 4 行，2026-10-31 按用户裁定加高）。
+        /// 状态区内容行数。固定 **6** 行（原先 4 行，2026-10-31 按Hyberty裁定加高）。
         ///
         /// ⚠️ 这个数字决定了状态栏「最多能显示几行」：
         /// 超出它的行会被 DrawBox 静默丢弃（不报错、不换行），
@@ -89,7 +89,7 @@ namespace LostCompound.UI
         public const int DefaultEnemyRows = 3;
 
         /// <summary>
-        /// 敌人框能长到的最大内容行数（用户要求：自适应、封顶 7）。
+        /// 敌人框能长到的最大内容行数（Hyberty要求：自适应、封顶 7）。
         /// 与 <see cref="Rooms.MobSpawner.MaxMonsters"/> 是同一个数字的两端：生成侧封顶 7 只，
         /// 显示侧封顶 7 行；两者必须一起改，否则会生成第 8 只、框里却只画 7 行（静默丢一行）。
         /// </summary>
@@ -104,7 +104,7 @@ namespace LostCompound.UI
         /// </summary>
         public int EnemyRows { get; private set; } = DefaultEnemyRows;
         /// <summary>
-        /// Buff 框的内容行数。固定 **4** 行（原先 2 行，2026-10-31 按用户裁定加高）。
+        /// Buff 框的内容行数。固定 **4** 行（原先 2 行，2026-10-31 按Hyberty裁定加高）。
         ///
         /// 为什么改成 4：那条「够放当前全部 buff 种类（现在只有流血一种）」的理由早就过时了 ——
         /// 现在有 7 种 buff，洞潜僵尸一场就能给你叠 3~4 个（减压病 / 碱中毒 / 搅乱泥沙 / 缺氧），

@@ -166,7 +166,7 @@ namespace LostCompound.Tools.Players
                     // ⚠️ 时长必须传 Buff.Permanent（-1 这个哨兵），**不能传负数回合**：
                     //   Buff 构造函数里是 `turns == Permanent ? Permanent : Math.Max(turns, 0)`，
                     //   所以 -12 会被夹成 0 → IsExpired 立刻为真 → buff 挂上就被回合管线清掉。
-                    //   原先这里写的是 -12，超雄模式其实一直是「挂上即消失」（用户反馈「buff 没了」）。
+                    //   原先这里写的是 -12，超雄模式其实一直是「挂上即消失」（Hyberty反馈「buff 没了」）。
                     //   SurvivesBattleEnd 仍然为 true：这个调试 buff 本来就是常驻的。
                     AddBuff(new SuperMaleBuff(1, Buff.Permanent, true));
                     // 报「当前 STR」而不是 BaseStr：这个 buff 走的是修正量通道（StrBonus +1000），
@@ -585,7 +585,7 @@ namespace LostCompound.Tools.Players
                         OpenAccessoryMenu();
                         continue;
                     }
-                    // 地图上也能用调试指令（用户要求）：255 开调试、129 拿道具、130 挂 buff、127 超雄、128 全配方。
+                    // 地图上也能用调试指令（Hyberty要求）：255 开调试、129 拿道具、130 挂 buff、127 超雄、128 全配方。
                     // 与战斗里的 case 用同一套 DebugState 守卫 —— 没输 255 时这里什么都不匹配，
                     // 落到下面的 Move 分支（当成无效方向，行为与乱输数字完全一致）。
                     if (direction == 255 && !DebugState.Enabled)
@@ -684,7 +684,7 @@ namespace LostCompound.Tools.Players
             }
         }
 
-        /// <summary>换层时回复的最大生命比例（用户裁定：**恢复 70%**）。</summary>
+        /// <summary>换层时回复的最大生命比例（Hyberty裁定：**恢复 70%**）。</summary>
         private const double NextLayerHealRatio = 0.7;
 
         /// <summary>
@@ -705,7 +705,7 @@ namespace LostCompound.Tools.Players
             // 环境：默认**随机**；若这一层在「可自选」范围内（第十章第 1/3/5/7 次通关解锁，
             // 见 ProgressUnlocks.CanSelfSelectLayer），则让玩家自己挑 —— 菜单里 0 = 仍然随机。
             // ⚠️ 清单必须按**层数**取（EnvironmentCatalog.ForLayer）：
-            //    熔岩瀑布固定第 1 层，第 2 层起永远不再出现（用户裁定 2026-11-01）。
+            //    熔岩瀑布固定第 1 层，第 2 层起永远不再出现（Hyberty裁定 2026-11-01）。
             //    这里若直接用 EnvironmentCatalog.All，自选菜单里就又能选到熔岩瀑布了。
             IReadOnlyList<(string Name, EnvType Type)> catalog = EnvironmentCatalog.ForLayer(GameProgress.Layer);
             string envName;
@@ -749,7 +749,7 @@ namespace LostCompound.Tools.Players
             // 要等到下一场战斗的 OnTurnStart 才补上（ContinueGame 里也是这么做的）。
             RecomputeStats();
 
-            // 回血 70% 上限，不超过最大生命（用户裁定）。
+            // 回血 70% 上限，不超过最大生命（Hyberty裁定）。
             // 报「实际回复量」而不是名义值：血满时会写出「你恢复了 140 点生命」但实际 +0。
             double nominalHeal = BaseHp * NextLayerHealRatio;
             double hpBefore = Hp;

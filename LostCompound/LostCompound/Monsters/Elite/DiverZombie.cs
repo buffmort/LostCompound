@@ -8,7 +8,7 @@ namespace LostCompound.Monsters.Elite
     /// <summary>
     /// 洞潜僵尸（DESIGN §6「地图 2 水淹洞穴」，**精英**）。
     ///
-    /// 数值（文档 + 用户补全）：**100 血**、atk 10、str 5、def 2。
+    /// 数值（文档 + Hyberty补全）：**100 血**、atk 10、str 5、def 2。
     /// 机制（文档原文）：「每回合 10% 自动死亡；50%（困难 70%）上 4 种 debuff 之一」。
     ///
     /// 每回合只做一件事，按顺序判定：
@@ -16,7 +16,7 @@ namespace LostCompound.Monsters.Elite
     ///   ② 否则 **50%** 给玩家挂 4 种 debuff 里的**随机一种**；
     ///   ③ 都没有发生 → 普通攻击。
     ///
-    /// 4 种 debuff 与持续回合（用户裁定：减压病 3 回合、碱中毒 5 回合；
+    /// 4 种 debuff 与持续回合（Hyberty裁定：减压病 3 回合、碱中毒 5 回合；
     /// 缺氧文档写 5、搅乱泥沙文档写 1）：
     ///   · 减压病 <see cref="DecompressionSickness"/>：-1 STR / -2 ATK
     ///   · 呼吸性碱中毒 <see cref="RespiratoryAlkalosis"/>：每回合 -2 血
@@ -33,7 +33,7 @@ namespace LostCompound.Monsters.Elite
         /// <summary>每回合挂 debuff 的概率（文档：50%，困难 70%）。</summary>
         public const double DebuffChance = 0.5;
 
-        /// <summary>各 debuff 的持续回合（用户裁定 / 文档）。</summary>
+        /// <summary>各 debuff 的持续回合（Hyberty裁定 / 文档）。</summary>
         public const int DecompressionTurns = 3;
         public const int AlkalosisTurns = 5;
         public const int MuddyWaterTurns = 1;

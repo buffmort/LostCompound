@@ -11,7 +11,7 @@ namespace LostCompound.Buffs.Types
     ///   直接改 <c>owner.Str</c> 会被下一次 <see cref="Player.RecomputeStats"/> 重算冲掉
     ///   （见 CONVENTIONS 2.3 与 Buff 基类的说明）。走修正量，挂上自动生效、到期自动恢复。
     ///
-    /// 持续时间由施加方决定（用户裁定：**3 回合**，见 <see cref="DiverZombie"/>）。
+    /// 持续时间由施加方决定（Hyberty裁定：**3 回合**，见 <see cref="DiverZombie"/>）。
     /// </summary>
     public sealed class DecompressionSickness(int stacks, int turns, bool survivesBattleEnd = false)
         : Buff(stacks, turns, survivesBattleEnd)

@@ -11,7 +11,7 @@ namespace LostCompound.Items.Consumables
     /// <summary>
     /// 镜子（ID 45，消耗品，堆叠 1）。
     ///
-    /// 文档依据（DESIGN §9 第 45 行，用户原话）：
+    /// 文档依据（DESIGN §9 第 45 行，Hyberty原话）：
     ///   「45 镜子 消耗 1 | 5 压缩沙瓶 + 白磷 + 玻璃罐 + 2 金属
     ///     使用效果：将自己的属性进行下列轮换(base轮换) str与atk / def与hp；
     ///     记录当前道具位置 将第 n 个道具数量变成第 n+1 个道具数量 最后一个与第一个交换；
@@ -33,7 +33,7 @@ namespace LostCompound.Items.Consumables
     {
         public override ItemType? Type => ItemType.Mirror;
 
-        /// <summary>提示语里的「左旋 / 右旋」由 <see cref="Player.NextMirrorSide"/> 决定（用户裁定交替）。</summary>
+        /// <summary>提示语里的「左旋 / 右旋」由 <see cref="Player.NextMirrorSide"/> 决定（Hyberty裁定交替）。</summary>
         public void Use(Player p, List<Monster> m)
         {
             // ① 先把自己拿走（裁定③）。不从背包里移除的话，它会参与下面的数量轮换。
@@ -45,7 +45,7 @@ namespace LostCompound.Items.Consumables
             // ③ 背包数量轮换（先快照再写，超上限夹住）。
             p.RotateInventoryCounts();
 
-            // ④ 朝向：第一次随机，之后与上次相反（用户裁定「若已经变为左旋则固定打印右旋」）。
+            // ④ 朝向：第一次随机，之后与上次相反（Hyberty裁定「若已经变为左旋则固定打印右旋」）。
             //    朝向会改变玩家的**本局显示名**（RunDisplayName → 「左旋-张三」），
             //    状态栏和之后的提示都用那个名字，所以这里不自己拼名字，直接问玩家。
             p.NextMirrorSide();

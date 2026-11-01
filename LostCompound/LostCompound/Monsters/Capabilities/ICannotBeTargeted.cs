@@ -11,7 +11,7 @@ namespace LostCompound.Monsters.Capabilities
     ///
     /// ⚠️ 它只影响**单体选择**（<see cref="Tools.Players.Player.Attack"/>）；
     ///   全体 AOE（毒气弹 / 红磷 / 白磷 / 压缩沙瓶…）**照打不误** ——
-    ///   那些道具直接遍历怪物列表，不经过选择步骤（用户已确认这个口径）。
+    ///   那些道具直接遍历怪物列表，不经过选择步骤（Hyberty已确认这个口径）。
     /// </summary>
     public interface ICannotBeTargeted
     {

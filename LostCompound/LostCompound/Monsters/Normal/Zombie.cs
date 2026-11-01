@@ -16,7 +16,7 @@ namespace LostCompound.Monsters.Normal
         ///     §6.2「普通怪物（全地图可出现）」里另有一只只有血量/掉落的**僵尸**（30 血）。
         ///   · 本类的 30 血正好对上 §6.2 那只「僵尸」，也与 §12.4 的记载一致，
         ///     所以按「§6.2 普通怪物」判为 **Normal**。
-        ///   · 若用户认为代码里的 Zombie 就是要当**洞潜僵尸**（精英）用，
+        ///   · 若Hyberty认为代码里的 Zombie 就是要当**洞潜僵尸**（精英）用，
         ///     那么这一行改成 <c>MonsterRank.Elite</c> 即可，毒气弹的判定会自动跟着走
         ///     （唯一受影响的是「毒气弹 10% 秒杀」对僵尸是否生效）。
         /// </summary>
@@ -78,7 +78,7 @@ namespace LostCompound.Monsters.Normal
                     Attack(p);
                     break;
                 case 1:
-                    // 原为 Block += 1（次数制，一次全免，太超模）；按用户裁定改为加 5 点护盾值。
+                    // 原为 Block += 1（次数制，一次全免，太超模）；按Hyberty裁定改为加 5 点护盾值。
                     AddShield(5);
                     Console.WriteLine(Name + " 增加了 5 点护盾！");
                     break;

@@ -63,7 +63,7 @@ namespace LostCompound.Rooms
                     break;
                 case EnvType.Desert:
                     // 设计文档 5.3 第 1 条「无法获得除沙子以外任何道具」。
-                    // 用户裁定：**所有来源都只给沙子** —— 所以宝箱 / 空房也只放沙子。
+                    // Hyberty裁定：**所有来源都只给沙子** —— 所以宝箱 / 空房也只放沙子。
                     items.Add(new Sand(5));
                     break;
                 // 其余环境（矿洞/墓地/放射性区域/雾都城市）尚未实现，
@@ -110,7 +110,7 @@ namespace LostCompound.Rooms
                     pool.AddRange(BuildFloodedCavernStartPool());
                     break;
                 case EnvType.Desert:
-                    // 沙漠开局也「除沙子外什么都没有」（DESIGN §5.3 第 1 条 + 用户裁定）。
+                    // 沙漠开局也「除沙子外什么都没有」（DESIGN §5.3 第 1 条 + Hyberty裁定）。
                     // 单独给表而不是走 default 的基础池 —— 否则沙漠开局就能领到木头/硫磺。
                     pool.Add(new Sand(5));
                     break;
@@ -160,12 +160,12 @@ namespace LostCompound.Rooms
 
         /// <summary>
         /// 基础池（熔岩瀑布用，也是尚未实现环境的兜底）—— 按设计文档 2.2 的表。
-        /// 共 9 项：文档表的 8 项材料 + 药(20)（用户裁定 6 加进池子）。
+        /// 共 9 项：文档表的 8 项材料 + 药(20)（Hyberty裁定 6 加进池子）。
         /// </summary>
         /// <remarks>
         /// 两行硫磺的顺序是「3 硫磺在前、2 硫磺在后」，权重分别 8 / 10 ——
         /// 数量越多越难抽到（与木头两行同构）。不要看到「3 硫磺 排在权重 10 的那一行旁边」就改回去：
-        /// 这里曾经 3 硫磺 配 10、2 硫磺 配 8，是 `6336536` 搬池子时配反的，已按用户裁定修回。
+        /// 这里曾经 3 硫磺 配 10、2 硫磺 配 8，是 `6336536` 搬池子时配反的，已按Hyberty裁定修回。
         /// 详见 <see cref="BasicStartWeights"/> 的 remarks。
         /// </remarks>
         private static List<Item> BuildBasicStartPool() =>
@@ -179,11 +179,11 @@ namespace LostCompound.Rooms
             new RedPhosphorus(2),     // 权重 5
             new Sand(6),              // 权重 5
 
-            // 药(20)：用户裁定 6 = 加进开局池（位置与权重照设计文档 2.2 的表，权重 1）。
+            // 药(20)：Hyberty裁定 6 = 加进开局池（位置与权重照设计文档 2.2 的表，权重 1）。
             // 数量 2 是按裁定 1「所有道具给的量 +1」的口径（文档 2.2 表写的是「1 药」）。
             // 加这一项的理由：药的类与配方早就实现了（配方 0：红磷 + 水瓶，见
             // Player.AddDefaultRecipes），只差「要不要放到开局」这一条 —— 原先这里只有
-            // 一句 TODO 占位。「要不要加」属于会改开局平衡的事，已由用户裁定，不再由代码自行决定。
+            // 一句 TODO 占位。「要不要加」属于会改开局平衡的事，已由Hyberty裁定，不再由代码自行决定。
             new Medicine(2),          // 权重 1
             // 咖啡(30) **仍然不进池**：它完全未实现（依赖雾都城市，见 DESIGN 12.3）。
             // 将来真要做时按同一口径是「2 咖啡 / 权重 1」（裁定 1 的数量 +1），
@@ -198,7 +198,7 @@ namespace LostCompound.Rooms
         /// <remarks>
         /// 两行硫磺的权重是 [10, 8, 8, 10, ...]（2 硫磺 = 10、3 硫磺 = 8），**不是** [10, 10, 8, 8, ...]。
         /// 理由：文档 2.2 原表是「1 木头 10 / 1 硫磺 10 / 2 木头 8 / 2 硫磺 8」，
-        /// 按用户裁定 1「开局道具数量 +1，以代码为准」逐行 +1 之后，
+        /// 按Hyberty裁定 1「开局道具数量 +1，以代码为准」逐行 +1 之后，
         /// 权重必须跟着**原来的那一行**走，而**不是**跟着「数组里第几个位置」走：
         ///   · 「1 硫磺 / 10」+1 → 「2 硫磺 / 10」 ← 最容易抽到的那一档
         ///   · 「2 硫磺 / 8」 +1 → 「3 硫磺 / 8」  ← 次常见
@@ -207,7 +207,7 @@ namespace LostCompound.Rooms
         /// 曾经这里是 [10, 10, 8, 8]（3 硫磺反而比 2 硫磺容易抽到），
         /// 那是 `6336536`（把池子从 StartRoom 搬进 LootTables、按表序重排）时把这两项配反了 ——
         /// 当时按「表里第 3、4 行」去取权重，而重排后的数组顺序让两行硫磺正好错位。
-        /// 现按用户裁定改代码修回：文档 2.2 表数值暂未改写，但行为已与「原表 +1」一致。
+        /// 现按Hyberty裁定改代码修回：文档 2.2 表数值暂未改写，但行为已与「原表 +1」一致。
         /// </remarks>
         private static readonly int[] BasicStartWeights = [10, 8, 8, 10, 5, 5, 5, 5, 1];
 
@@ -239,7 +239,7 @@ namespace LostCompound.Rooms
         //   不存在这个隐蔽的顺序陷阱。调用方 GetStartWeights 只 AddRange 复制、不改数组。
 
         /// <summary>
-        /// 水淹洞穴的起始池（用户要求自定，数量与权重的设计理由见 <see cref="FloodedCavernStartWeights"/>）。
+        /// 水淹洞穴的起始池（Hyberty要求自定，数量与权重的设计理由见 <see cref="FloodedCavernStartWeights"/>）。
         /// </summary>
         private static List<Item> BuildFloodedCavernStartPool() =>
         [
@@ -257,7 +257,7 @@ namespace LostCompound.Rooms
         /// <summary>
         /// 水淹洞穴的起始权重，与 <see cref="BuildFloodedCavernStartPool"/> 一一对应。
         ///
-        /// 设计理由（数量 / 权重都是自定的，用户授权）：
+        /// 设计理由（数量 / 权重都是自定的，Hyberty授权）：
         ///   · 水瓶 ×2 / 权重 12 —— 本环境的核心。设计文档 5.2 明确「空房间获得水瓶 ×1」，
         ///     且「热硫 + 水瓶 → 硫酸」是这里唯一写明的对策合成链，所以水瓶必须是最容易抽到的。
         ///     一次给 2 个：1 个用于堵水／合成，1 个留作消耗缓冲，避免开局就被水位逼死。

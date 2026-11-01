@@ -9,7 +9,7 @@ namespace LostCompound.Items.Capabilities
     /// <see cref="IEquippable"/>（派生属性加成：STR / ATK / DEF）分开。
     ///
     /// 为什么必须分开（这是一个真 bug 的根因）：
-    ///   Player 每回合开头都要把护盾清空再加回装备给的盾（用户明确要的「护盾每回合重置」），
+    ///   Player 每回合开头都要把护盾清空再加回装备给的盾（Hyberty明确要的「护盾每回合重置」），
     ///   而改造前这件事是靠在 ApplyEquipmentPassives 里顺带重置 Atk/Def 做的。
     ///   于是「消耗 1 块金属永久 +1 DEF」（Items\Materials\Metal.cs 的 `p.Def += 1`）会在**下一回合开头**
     ///   被那句还原冲掉 —— 不报错、不崩溃，只是静默失效。

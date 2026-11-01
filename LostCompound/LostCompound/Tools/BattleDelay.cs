@@ -5,10 +5,10 @@ namespace LostCompound.Tools
     ///
     /// 背景：这一块以前有一整套 `Calculator.Delay`，后来被整体删掉了
     /// （提交 `refactor(battle): 删除全部 Calculator.Delay 调用与方法本身`）。
-    /// 删掉之后战斗日志一闪而过，用户反馈「算得太快」。
+    /// 删掉之后战斗日志一闪而过，Hyberty反馈「算得太快」。
     /// 现在只加回**极少量、可一键关掉**的停顿，不做成满屏都 Delay。
     ///
-    /// 用户裁定：**只在战斗关键节点停，每次 80ms**
+    /// Hyberty裁定：**只在战斗关键节点停，每次 80ms**
     /// （回合分隔、怪物出手、死亡掉落；环境描述与菜单提示不停）。
     ///
     /// ⚠️ 三条纪律：
@@ -19,10 +19,10 @@ namespace LostCompound.Tools
     /// </summary>
     public static class BattleDelay
     {
-        /// <summary>一般节点停多久（毫秒）。用户裁定：每次攻击之后 100ms。</summary>
+        /// <summary>一般节点停多久（毫秒）。Hyberty裁定：每次攻击之后 100ms。</summary>
         public const int NodeDelayMs = 100;
 
-        /// <summary>重要节点停多久（毫秒）。用户裁定：战斗结束等 200ms。</summary>
+        /// <summary>重要节点停多久（毫秒）。Hyberty裁定：战斗结束等 200ms。</summary>
         public const int ImportantDelayMs = 200;
 
         /// <summary>是否启用停顿。由 <see cref="Enable"/> / <see cref="Disable"/> 控制。</summary>

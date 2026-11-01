@@ -1,4 +1,4 @@
-﻿using LostCompound.Monsters;
+using LostCompound.Monsters;
 using LostCompound.Tools;
 using LostCompound.Items;
 using LostCompound.Items.Capabilities;
@@ -13,7 +13,7 @@ namespace LostCompound.Items.Consumables
     /// 文档依据：DESIGN 第九章「20 药 消耗品 5 磷 + 水瓶 | +5 最大生命 +15 血，可用 3 次」。
     ///
     /// 配方：**红磷 × 1 + 水瓶 × 1**（配方 0，见 <see cref="Player.AddDefaultRecipes"/>）。
-    ///   文档写的单字「磷」已由用户裁定为**红磷（ID 31）**，歧义解除，配方已接上。
+    ///   文档写的单字「磷」已由Hyberty裁定为**红磷（ID 31）**，歧义解除，配方已接上。
     ///   数量文档没写，按 DESIGN 第九章的通用规则取 × 1。
     ///
     /// 耐久模型（与碘片一致，见 <see cref="IodineTablet"/> 的注释口径）：

@@ -47,14 +47,14 @@ namespace LostCompound.Monsters
         /// 为什么要给所有怪物引入这一个概念：「毒气弹(26) 10% 对非 Boss 敌人造成 int.MAX_VALUE 伤害」
         /// 需要一个「是不是 Boss」的判据，而在此之前代码里**没有任何表达**
         /// （<see cref="MonsterType"/> 只是种类、也没有 <c>IsBoss</c>、<c>RoomType.Boss</c> 只标房间
-        /// 且道具的 <c>Use(Player, List&lt;Monster&gt;)</c> 拿不到房间）。用户裁定：用 enum 表达。
+        /// 且道具的 <c>Use(Player, List&lt;Monster&gt;)</c> 拿不到房间）。Hyberty裁定：用 enum 表达。
         ///
         /// 为什么是 abstract 而不是「默认 Normal」：漏声明的后果不对称 —— 新怪忘了写档位，
         /// 默认 Normal 会让上面的秒杀效果对一只 Boss 生效（不报错、只是数值不对）。
         /// abstract 让漏声明变成**编译错误**。详见 <see cref="MonsterRank"/> 的注释。
         ///
         /// ⚠️ 注意：目前只加「档位」这一个概念，**不要**顺手给怪物加别的属性
-        /// （用户明确要求：用 enum 标记 Boss 时不要顺带给所有怪物加新属性）。
+        /// （Hyberty明确要求：用 enum 标记 Boss 时不要顺带给所有怪物加新属性）。
         /// </summary>
         public abstract MonsterRank Rank { get; }
 
@@ -127,7 +127,7 @@ namespace LostCompound.Monsters
         /// <summary>
         /// 「先扣盾、再扣血」的统一结算（护盾值制）。
         ///
-        /// 算法（用户裁定：盾 = 额外血量）：
+        /// 算法（Hyberty裁定：盾 = 额外血量）：
         ///   设 dmg 为**已过 DEF 减免/抗性**的最终伤害：
         ///     若 Shield >= dmg → Shield -= dmg，Hp 不变，返回 0
         ///     否则             → 剩余 = dmg - Shield; Shield = 0; Hp -= 剩余；返回 剩余
@@ -267,7 +267,7 @@ namespace LostCompound.Monsters
         /// 叠加规则（伤害取 min、剩余回合相加）写在 Buff.MergeFrom 里，玩家/怪物共用一份。
         ///
         /// ⚠️ 怪物**不吃** buff 的 <see cref="Buff.StrBonus"/> / <see cref="Buff.AtkBonus"/> /
-        /// <see cref="Buff.DefBonus"/>（用户裁定，取「明确写死」而不是给怪物加一套重算）。
+        /// <see cref="Buff.DefBonus"/>（Hyberty裁定，取「明确写死」而不是给怪物加一套重算）。
         /// 也就是说：一个覆写了那三个属性的 buff 挂在怪物身上时，**只有结算部分（如每回合扣血）生效，
         /// 属性修正会被静默忽略**。之所以要在这里写死，是因为这属于「不报错、不崩溃、只是数值不对」
         /// 的那类坑 —— 与当年 `Metal` 里 `p.Def += 1` 被下次 RecomputeStats 冲掉同型。

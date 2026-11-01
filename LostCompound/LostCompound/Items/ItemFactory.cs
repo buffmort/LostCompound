@@ -14,7 +14,7 @@ namespace LostCompound.Items
     /// 都需要这张表。
     ///
     /// 维护约定：新增道具时**必须**在这里补一行，否则它无法被按 ID 创建。
-    /// 顺序固定为 **ID 升序**（调试菜单直接按这个顺序打印，用户要求「for 所有道具 id」）。
+    /// 顺序固定为 **ID 升序**（调试菜单直接按这个顺序打印，Hyberty要求「for 所有道具 id」）。
     /// </summary>
     public static class ItemFactory
     {

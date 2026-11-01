@@ -12,7 +12,7 @@ namespace LostCompound.Items.Materials
     /// <summary>
     /// 硫磺（ID 1，材料，堆叠 99）。
     ///
-    /// 两条规则（用户 2026-11-01 裁定）：
+    /// 两条规则（Hyberty 2026-11-01 裁定）：
     ///   ① **在高温房间被烤成热硫** —— 设计文档 §9 行 1「高温房间 3 回合 → 热硫」，
     ///      实现方式逐字照抄木头（<see cref="Wood"/>）：只有环境自己声明了
     ///      <see cref="MapEnvironment.Environment.BurnsSulphur"/> 时倒计时才推进，
@@ -21,7 +21,7 @@ namespace LostCompound.Items.Materials
     ///      只抽自己身上的、只抽 <see cref="Buff.IsDebuff"/> 为真且不是永久的那些；
     ///      身上没有可削的负面状态时**不消耗**（白扣一个硫磺只会让人不敢用）。
     ///
-    /// 为什么「随机挑一个」而不是「全部 -2」：用户明确说的是随机。
+    /// 为什么「随机挑一个」而不是「全部 -2」：Hyberty明确说的是随机。
     /// 随机也让它不能当万能解药 —— 中了三个 debuff 时它只削掉其中一个。
     /// </summary>
     public sealed class Sulphur(int count)
@@ -73,7 +73,7 @@ namespace LostCompound.Items.Materials
             Count -= 1;
         }
 
-        /// <summary>用户裁定：只能在战斗内使用（地图上选中它会走这条提示）。</summary>
+        /// <summary>Hyberty裁定：只能在战斗内使用（地图上选中它会走这条提示）。</summary>
         public void ExplainBattleOnly(Player p)
         {
             Console.WriteLine("硫磺只能在战斗中使用！");

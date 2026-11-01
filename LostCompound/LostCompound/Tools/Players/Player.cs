@@ -155,14 +155,14 @@ namespace LostCompound.Tools.Players
         }
 
         /// <summary>
-        /// 镜子(45) 的效果①：**两组基础属性对换** —— STR ↔ ATK、DEF ↔ HP（用户裁定）。
+        /// 镜子(45) 的效果①：**两组基础属性对换** —— STR ↔ ATK、DEF ↔ HP（Hyberty裁定）。
         ///
         /// 为什么只能动 Base：`Str` / `Atk` / `Def` 是派生值，下一次
         /// <see cref="RecomputeStats"/> 会从 Base 重算一遍，改它们等于没改（见 CONVENTIONS 2.3）。
         /// 所以这里换的是 Base 四项，然后重算一次派生值。
         ///
         /// ⚠️ 换完 `BaseHp` 可能变得很小（比如和 BaseDef=5 对调），此时**当前 Hp 会超过上限**。
-        ///   口径（用户裁定）：**夹到新上限**，不按比例缩放、不回满。
+        ///   口径（Hyberty裁定）：**夹到新上限**，不按比例缩放、不回满。
         ///   注意方向：只夹「超过上限」，绝不把 Hp 往大改 —— HP 是资源，不是派生值。
         /// </summary>
         public void SwapBaseStats()
@@ -217,10 +217,10 @@ namespace LostCompound.Tools.Players
         /// <summary>
         /// 镜子(45) 留下的「朝向」：空字符串 = 没照过，否则是「左旋」或「右旋」。
         ///
-        /// **只属于这一局**（用户裁定）：死了 / 开新局就清空，不进档案（profile）——
+        /// **只属于这一局**（Hyberty裁定）：死了 / 开新局就清空，不进档案（profile）——
         /// 但**要进存档**，否则存档退出再读档，朝向会丢、下一次照镜子又变回随机。
         ///
-        /// 规则（用户原话）：「下次再使用镜子，若已经变为左旋则固定打印右旋」——
+        /// 规则（Hyberty原话）：「下次再使用镜子，若已经变为左旋则固定打印右旋」——
         /// 也就是**交替**：第一次随机，之后每次都跟上次相反。
         /// </summary>
         public string MirrorSide { get; private set; } = "";
@@ -230,7 +230,7 @@ namespace LostCompound.Tools.Players
             MirrorSide.Length == 0 ? Save.Profile.DisplayName : MirrorSide + "-" + Save.Profile.DisplayName;
 
         /// <summary>
-        /// 取下一次照镜子的朝向并记住它。第一次随机 50/50，之后与上次相反（用户裁定）。
+        /// 取下一次照镜子的朝向并记住它。第一次随机 50/50，之后与上次相反（Hyberty裁定）。
         /// 由 <see cref="Items.Consumables.Mirror"/> 调用。
         /// </summary>
         public string NextMirrorSide()

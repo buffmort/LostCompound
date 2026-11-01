@@ -13,11 +13,11 @@ namespace LostCompound.MapEnvironment.Environments
     ///
     /// 三条怎么落地：
     ///   1 → `LootTables.GetLootTable(Desert)` / `GetStartPool(Desert)` 只返回沙子，
-    ///      于是宝箱房、空房事件、开局道具池**全都**只剩沙子（用户裁定：所有来源都只给沙子）。
+    ///      于是宝箱房、空房事件、开局道具池**全都**只剩沙子（Hyberty裁定：所有来源都只给沙子）。
     ///   2 → <see cref="SuppressMonsterLoot"/> 返回 true，<see cref="Monsters.Monster.Die"/>
     ///      据此跳过掉落表。**不写死 `env is Desert`**：判定方只问「这个环境压不压掉落」。
     ///   3 → <see cref="CanDigSand"/> + <see cref="DigSand"/>；入口是战斗菜单第 6 项
-    ///      （用户裁定：只能战斗中采）。一次采沙就是一个回合。
+    ///      （Hyberty裁定：只能战斗中采）。一次采沙就是一个回合。
     ///
     /// ⚠️ 困难模式的数字（采沙 5→3、骆驼穿模 20%→30%）都还没做，等难度系统。
     /// </summary>

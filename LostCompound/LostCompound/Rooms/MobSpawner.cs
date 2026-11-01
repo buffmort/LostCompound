@@ -98,13 +98,13 @@ namespace LostCompound.Rooms
         /// <summary>每 1 点战斗计数增加的「多出一只」概率。</summary>
         private const double ChancePerFightCount = 0.01;
 
-        /// <summary>Boss 战的概率系数（用户裁定：Boss 战算计数，但概率降为原来的 0.5）。</summary>
+        /// <summary>Boss 战的概率系数（Hyberty裁定：Boss 战算计数，但概率降为原来的 0.5）。</summary>
         private const double BossChanceMultiplier = 0.5;
 
         /**
          * 按环境类型、当前层数与战斗计数生成本轮战斗的怪物列表（普通战斗入口）。
          *
-         * 多怪公式（用户原话换算）：
+         * 多怪公式（Hyberty原话换算）：
          *     chance    = 0.1 + 0.01 × fightCount      // Boss 战再 × 0.5
          *     guaranteed = floor(chance)               // 必然多出的只数
          *     remainder  = chance - guaranteed         // 余数 → 概率多出 1 只

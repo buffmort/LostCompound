@@ -11,7 +11,7 @@ namespace LostCompound.Buffs.Types
     /// 装备的「吸收 DOT」通道（`IDotAbsorber`）只在这条入口上生效
     /// （与 BleedBuff 同一口径）。
     ///
-    /// 持续时间由施加方决定（用户裁定：**5 回合**，见 <see cref="DiverZombie"/>）。
+    /// 持续时间由施加方决定（Hyberty裁定：**5 回合**，见 <see cref="DiverZombie"/>）。
     /// </summary>
     public sealed class RespiratoryAlkalosis(int stacks, int turns, bool survivesBattleEnd = false)
         : Buff(stacks, turns, survivesBattleEnd)

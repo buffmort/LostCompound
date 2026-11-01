@@ -52,7 +52,7 @@ namespace LostCompound.Tools.Launch
         /// 而那些道具随时能用，与「开新局 / 继续游戏」无关；先问一次，后面两处都能直接用。
         /// 已经起过名就不再问（改了想改名，删掉 profile.json 即可 —— 不值得为它加一个菜单项）。
         ///
-        /// 三个特例（用户裁定）：
+        /// 三个特例（Hyberty裁定）：
         ///   · `Hyberty` —— 该名称已经被注册，**拒绝并重问**；
         ///   · `buffmort` → 称号「开发者?」；`aliamgad` → 称号「老朋友.」。
         ///     称号**只是显示用**，不带任何权限；原名照旧存着。
@@ -96,7 +96,7 @@ namespace LostCompound.Tools.Launch
         }
 
         /// <summary>
-        /// 名字 → 称号。只有这两条（用户裁定），其余一律没有称号。
+        /// 名字 → 称号。只有这两条（Hyberty裁定），其余一律没有称号。
         /// 用 OrdinalIgnoreCase：大小写不同也算同一个名字，免得玩家想触发彩蛋却打错大小写。
         /// </summary>
         private static string TitleFor(string name)
@@ -242,7 +242,7 @@ namespace LostCompound.Tools.Launch
             Console.WriteLine(">>> 开始游戏");
             Console.WriteLine();
             Console.WriteLine();
-            // 第 1 层的环境**固定是熔岩瀑布**（用户裁定 2026-11-01：不给选）。
+            // 第 1 层的环境**固定是熔岩瀑布**（Hyberty裁定 2026-11-01：不给选）。
             // 以前这里是「让玩家挑本层环境」，现在只有第 2 层起才会出现选择（见 Player.AdvanceLayer）；
             // 开局直接按 EnvironmentCatalog.FirstLayerEnv 建图。
             // ⚠️ 类型名必须写全 EnvType —— 环境类 LostCompound.MapEnvironment.LavaWaterfall

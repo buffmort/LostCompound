@@ -23,11 +23,11 @@ namespace LostCompound.Rooms.Types
                 // 层数与 FightRoom 同一口径：读全局进度，本房间只读不写。
                 int currentLayer = GameProgress.Layer;
 
-                // Boss 战也吃「战斗计数 → 多出怪」这套规则（概率 ×0.5，用户裁定）。
+                // Boss 战也吃「战斗计数 → 多出怪」这套规则（概率 ×0.5，Hyberty裁定）。
                 // 组合方式是 **[龙] + 额外普通小怪**，不是「龙本身可能有多只」：
                 //   · Boss 是剧情/数值上的唯一单位（MonsterRank.Boss、毒气弹的「非 Boss」判定、
                 //     将来的掉落与通关奖励都按「一只 Boss」记账），复制多只龙会直接改变 Boss 战数值；
-                //   · 用户要的是「怪变多」带来的场面压力，额外的小怪完全能达到这个效果；
+                //   · Hyberty要的是「怪变多」带来的场面压力，额外的小怪完全能达到这个效果；
                 //   · SpawnExtras 已把额外小怪夹到 MaxMonsters - 1 = 6，加上龙总共不超过 7 行。
                 List<Monster> monsters = new() { new Dragon() };
                 monsters.AddRange(MobSpawner.SpawnExtras(EnvKind, currentLayer, p.FightCount));

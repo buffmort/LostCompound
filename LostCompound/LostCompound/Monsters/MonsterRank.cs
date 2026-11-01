@@ -3,7 +3,7 @@ namespace LostCompound.Monsters
     /// <summary>
     /// 怪物的档位 —— 设计文档 §6「特色怪物」表的**「类型」列**（普通 / 精英）与 §6.1 的 **Boss**。
     ///
-    /// 为什么用 enum 而不是 <c>bool IsBoss</c>（用户裁定：用 enum）：
+    /// 为什么用 enum 而不是 <c>bool IsBoss</c>（Hyberty裁定：用 enum）：
     ///   1. 文档本来就是**三档**，不是两档 —— §6 的类型列写着「普通 / 精英」，§6.1 另起一节列 Boss。
     ///      <c>bool</c> 只能表达两档；将来要补「精英」就得再加一个 bool，
     ///      而两个 bool 会出现「IsElite 与 IsBoss 同时为 true」这种表达不出来、也没人校验的组合。

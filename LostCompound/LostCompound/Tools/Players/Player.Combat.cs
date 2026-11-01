@@ -26,7 +26,7 @@ namespace LostCompound.Tools.Players
         ///
         /// 语义：护盾 = 「额外的血量」。受伤时**先扣盾，盾不够扣的部分才扣血**。
         /// 与旧 Block 的区别：旧机制 1 点 Block 完全免疫一次伤害（哪怕 999 点），
-        /// 用户裁定「太超模」，所以改成按点数消耗的护盾值制。
+        /// Hyberty裁定「太超模」，所以改成按点数消耗的护盾值制。
         ///
         /// 为什么是 double：与 Hp / Def / Atk 一致，将来做「按比例给盾」的装备不用再改类型。
         /// </summary>
@@ -212,11 +212,11 @@ namespace LostCompound.Tools.Players
         ///   而这条通道的账本记的是「DOT 这一跳打来多少点」，这个口径最直观、也最好向玩家解释。
         ///
         /// ⚠️ 现状：**目前没有任何道具实现 <see cref="IDotAbsorber"/>** ——
-        ///   斗篷(27) 的破损机制已按用户新裁定从「累计吸收 20 点 DOT」改成「受伤 50 次」
+        ///   斗篷(27) 的破损机制已按Hyberty新裁定从「累计吸收 20 点 DOT」改成「受伤 50 次」
         ///   （走 <see cref="IOnDamaged"/>，那是**结算完之后**的事件通道，与本方法
         ///   「结算之前吃掉伤害」的口径正交，没有合并）。
         ///   所以本方法现在是一条**纯转发**（没有吸收者时 remaining 恒等于 dmg）。
-        ///   它与 IDotAbsorber 的去留（保留作扩展点 / 整体删除）**待用户裁定，先原样保留**。
+        ///   它与 IDotAbsorber 的去留（保留作扩展点 / 整体删除）**待Hyberty裁定，先原样保留**。
         /// </summary>
         public void TakeDotDamage(double dmg)
         {
@@ -374,7 +374,7 @@ namespace LostCompound.Tools.Players
         /// 为什么**不再**复用 ApplyEquipmentPassives（改造前就是那么写的，那是个真 bug）：
         ///   那个方法在「先把 Atk/Def 还原成基础值」的同时会把 Def 也还原掉，于是金属的
         ///   「消耗 1 块永久 +1 DEF」（Items\Materials\Metal.cs）会在下一回合开头被**静默**冲掉。
-        ///   根因是两类东西被混在了一条通道里：护盾是**资源**（每回合重置，用户明确要的），
+        ///   根因是两类东西被混在了一条通道里：护盾是**资源**（每回合重置，Hyberty明确要的），
         ///   Atk/Def 是**派生值**（只在装备变化 / 开战 / 修正量变化时重算）。
         ///   现在拆开：这里只走 IShieldSource 这条「只算盾」的通道，不碰派生值。
         ///

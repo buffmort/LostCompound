@@ -27,7 +27,7 @@ namespace LostCompound.Tools.Players
         /// <summary>
         /// 背包容量（设计文档 8.1）：初始 15 格。
         /// 一格 = 一个 Item 条目（可堆叠的道具多份共用一格）。
-        /// 装不下时超出部分直接丢弃（用户决定）。
+        /// 装不下时超出部分直接丢弃（Hyberty决定）。
         /// </summary>
         public int InventoryCapacity { get; private set; } = 15;
 
@@ -54,7 +54,7 @@ namespace LostCompound.Tools.Players
 
             if (!newItem.IsStackable)
             {
-                // 不可堆叠 = 独占一格。背包满了就丢弃（按用户决定：超过了直接删除）
+                // 不可堆叠 = 独占一格。背包满了就丢弃（按Hyberty决定：超过了直接删除）
                 if (Inventory.Count >= InventoryCapacity)
                 {
                     Console.WriteLine($"背包已满，{newItem.Name} x{newItem.Count} 被丢弃了！");
@@ -268,7 +268,7 @@ namespace LostCompound.Tools.Players
                 // 与回合末那条通路**走同一个判定**，绝不在使用路径上另立一套规则。
                 //
                 // 注意：走到这里意味着上面的 while 已经校验过编号合法，且 branch 确实执行了 Use()。
-                // 用户输入无效编号 / -1 退出 / 非 IUseable 时都不会到这里，不会被误删。
+                // Hyberty输入无效编号 / -1 退出 / 非 IUseable 时都不会到这里，不会被误删。
                 RemoveConsumedItems();
 
                 // 再刷一次界面：Use 可能直接改了玩家状态（镜子的 Base 对换 / Hp 夹取），
@@ -384,19 +384,19 @@ namespace LostCompound.Tools.Players
         /// <summary>
         /// 镜子(45) 的效果②：**背包里各道具的数量整体轮换一格**。
         ///
-        /// 规则（用户原话）：「记录当前道具位置 将第 n 个道具数量变成第 n+1 个道具数量，
+        /// 规则（Hyberty原话）：「记录当前道具位置 将第 n 个道具数量变成第 n+1 个道具数量，
         /// 最后一个与第一个交换（0→1→2→3…）」。
         ///
         /// 两个必须的细节：
         ///   ① **先拍快照再写**。直接一边读一边写会把同一个数量连续搬好几格
         ///      （第 1 格拿到第 2 格、第 2 格又拿到"已经被改过的第 3 格"之类），
-        ///      结果不是轮换而是全变成同一个数。快照 = 用户说的「记录当前道具位置」。
-        ///   ② **超过堆叠上限就夹到上限**（用户裁定）。这样非堆叠道具
+        ///      结果不是轮换而是全变成同一个数。快照 = Hyberty说的「记录当前道具位置」。
+        ///   ② **超过堆叠上限就夹到上限**（Hyberty裁定）。这样非堆叠道具
         ///      （`MaxStack` = 1，`Count` 恒为 1 的不变量，见 CONVENTIONS 2.4）
         ///      不会被赋成 20 这种值 —— 夹一下就不变量也不会破。
         ///
         /// 空背包 / 只有一个道具时轮换没有意义，直接返回（避免下面取模的边界讨论）。
-        /// 镜子自己在调用前已经被移除（用户裁定「镜子先移除再轮」），所以它不占位。
+        /// 镜子自己在调用前已经被移除（Hyberty裁定「镜子先移除再轮」），所以它不占位。
         /// </summary>
         public void RotateInventoryCounts()
         {

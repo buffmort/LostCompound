@@ -28,7 +28,7 @@ namespace LostCompound.Save
 
         /// <summary>
         /// 称号（彩蛋）。空字符串 = 没有称号。目前只有两个：输入 `buffmort` →「开发者?」、
-        /// `aliamgad` →「老朋友.」。**只是显示用，不带任何权限**（用户裁定）。
+        /// `aliamgad` →「老朋友.」。**只是显示用，不带任何权限**（Hyberty裁定）。
         /// 与 <see cref="Name"/> 分开存：玩家输入的原名不因为有个称号就被改写掉。
         /// </summary>
         public string Title { get; set; } = "";

@@ -65,7 +65,7 @@ namespace LostCompound.Rooms.Types
 
         private void GiveStartItems(Player p)
         {
-            // 起始道具池按本层环境决定（用户裁定：StartRoom 每层都有，所以每层都能重新选）。
+            // 起始道具池按本层环境决定（Hyberty裁定：StartRoom 每层都有，所以每层都能重新选）。
             // 池子与权重都来自 LootTables 的两张表，不再在本类里写死。
             // 设计文档 2.2：从池中随机提供 5 种，玩家选 1 种，共执行三次。
             List<Item> startItems = LootTables.GetStartPool(EnvKind);

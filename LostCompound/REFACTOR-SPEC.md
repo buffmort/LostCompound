@@ -87,7 +87,7 @@ namespace LostCompound.Rooms
 - `Player.move(int)` → `Move(Direction direction)`；`Player.checkDirections()` 内部对 `HasDoor` 的调用改用枚举。
   - **注意**：菜单显示的文字 `"0.上"` `"1.下"` `"2.左"` `"3.右"` **必须保持不变**（那是给玩家看的输入编号）。
   - `Move` 里原来的 `if (direction < 0 || direction > 3)` 校验改为 `if (!Enum.IsDefined(direction))`。
-  - 读取用户输入后要 `(Direction)direction` 转换，并保留原有的无效输入提示文本。
+  - 读取Hyberty输入后要 `(Direction)direction` 转换，并保留原有的无效输入提示文本。
 - `TreeMazeGenerator.dfs` 里 `List<int> dirs = ...; Shuffle(dirs, ...)` → `List<Direction>`，`Shuffle` 改为泛型 `Shuffle<T>(IList<T> list)`。
 - `opposite` 映射改为 switch 表达式：
   ```csharp
@@ -210,12 +210,12 @@ public sealed class Charcoal(int count) : Item(3, "木炭", 99, true, count), Tu
 | `tryConsumeSkipTurn()` | `TryConsumeSkipTurn()` |
 | `ToString()` | `public override string ToString() => $"{Name}({Math.Max(Hp, 0):F1}) ";` |
 
-**⭐ 合并重复代码（用户明确要求）**：
+**⭐ 合并重复代码（Hyberty明确要求）**：
 `Zombie`、`Dragon`、`Dummy`、`LavaSlime`、`TwistedPairP1`、`TwistedPairP2` **六个子类里的 `isAlive()` 实现完全相同**（都是 `return hp > 0;`）。
 → 改为基类 `Monster` 上的一个非虚计算属性 `IsAlive`，**把这 6 个重写全部删除**。
 （`Player` 也有 `isAlive()`，但那属于 `Player` 类，改为 `Player.IsAlive` 属性即可。）
 
-**⭐ `Random` 字段改为 `Random.Shared`（用户明确要求）**：
+**⭐ `Random` 字段改为 `Random.Shared`（Hyberty明确要求）**：
 删除以下所有字段，调用处改用 `Random.Shared`：
 - `Zombie.rd`、`Dragon.rd`、`TwistedPairP1.rd`、`TwistedPairP2.rd`
 - `MobSpawner.random` 和 `MobSpawner.rd`

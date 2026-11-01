@@ -26,10 +26,10 @@ namespace LostCompound.Tools
         /// <summary>第一层。层数从 1 开始（设计文档里「出现层数 [1, 5]」的写法同口径）。</summary>
         public const int FirstLayer = 1;
 
-        /// <summary>最后一层（用户裁定：**10 层**）。打完第 10 层的 Boss 就算通关。</summary>
+        /// <summary>最后一层（Hyberty裁定：**10 层**）。打完第 10 层的 Boss 就算通关。</summary>
         public const int FinalLayer = 10;
 
-        /// <summary>第 1 层的地图边长（用户裁定：**7×7 起**，2026-11-01 从 5 放大）。</summary>
+        /// <summary>第 1 层的地图边长（Hyberty裁定：**7×7 起**，2026-11-01 从 5 放大）。</summary>
         public const int BaseMapSize = 7;
 
         /// <summary>
@@ -38,12 +38,12 @@ namespace LostCompound.Tools
         public const int TwoLayerStepUntil = 6;
 
         /// <summary>
-        /// 第 N 层的地图尺寸（用户裁定 2026-11-01）：
+        /// 第 N 层的地图尺寸（Hyberty裁定 2026-11-01）：
         ///
         ///   L1-2 7×7   L3-4 8×8   L5-6 9×9   L7 10×10   L8 11×11   L9 12×12   L10 13×13
         ///
         /// 为什么不是「整局每两层 +1」：那只有 5 次 +1，7 + 5 只能到 11×11，
-        /// 而用户要的是「13×13 收」。所以前 6 层沿用每两层 +1（让玩家在开局四层里
+        /// 而Hyberty要的是「13×13 收」。所以前 6 层沿用每两层 +1（让玩家在开局四层里
         /// 有充裕的时间熟悉规则），第 7 层起改成**每层 +1** —— 后半程压迫感陡增，
         /// 也让「再打一层就到底了」这件事在尺寸上看得见。
         ///
@@ -57,7 +57,7 @@ namespace LostCompound.Tools
         ///    结论：**终端 100×40 就能放下全部 10 层**（80×30 不行）。
         ///    终端更矮时 ConsoleScreen 会把 MapRows 压小，**地图底部会被截掉**（不报错）。
         /// ⚠️ 尺寸只影响「新生成」的地图；旧存档的 Rows/Cols 存在档里，读档仍按原尺寸重建。
-        /// ⚠️ **放射性区域**（未实现）的用户裁定：该环境**固定 10×10**，不吃这个公式 ——
+        /// ⚠️ **放射性区域**（未实现）的Hyberty裁定：该环境**固定 10×10**，不吃这个公式 ——
         ///    实现它的时候要在建图处单独覆盖，而不是改这里。
         /// </summary>
         public static (int Rows, int Cols) MapSizeForLayer(int layer)
@@ -106,7 +106,7 @@ namespace LostCompound.Tools
         /// <summary>
         /// 由「总种子 + 层数」算出**这一层的种子**。
         ///
-        /// 公式（用户裁定）：**总种子 × 层数**。第 1 层就是总种子本身。
+        /// 公式（Hyberty裁定）：**总种子 × 层数**。第 1 层就是总种子本身。
         ///
         /// 为什么是**纯函数**而不是「拿一个 Random 依次 NextInt64()」：后者依赖调用顺序。
         /// 玩家在第 3 层存档、退出、读档，然后下到第 4 层时，那个 Random 已经从头开始了 ——
