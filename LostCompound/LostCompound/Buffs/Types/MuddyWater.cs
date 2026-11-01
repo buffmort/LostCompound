@@ -22,6 +22,9 @@ namespace LostCompound.Buffs.Types
     {
         public override string Name => "搅乱泥沙";
 
+        /// <summary>负面状态（硫磺的随机减益会抽到它）。</summary>
+        public override bool IsDebuff => true;
+
         public override int Id => BuffIds.MuddyWater;
 
         /// <summary>对「能不能开背包」的回答：挂着就挡。</summary>

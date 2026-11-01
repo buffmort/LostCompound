@@ -21,6 +21,9 @@ namespace LostCompound.Buffs.Types
 
         public override string Name => "呼吸性碱中毒";
 
+        /// <summary>负面状态（硫磺的随机减益会抽到它）。</summary>
+        public override bool IsDebuff => true;
+
         public override int Id => BuffIds.RespiratoryAlkalosis;
 
         /// <summary>本跳扣血量。</summary>

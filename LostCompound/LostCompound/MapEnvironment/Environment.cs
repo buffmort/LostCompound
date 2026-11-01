@@ -193,6 +193,15 @@ namespace LostCompound.MapEnvironment
         public virtual bool BurnsWood => false;
 
         /// <summary>
+        /// 本环境的高温是否会把**硫磺烤成热硫**（硫磺道具的倒计时只在这样的环境里推进）。
+        /// 默认 false，熔岩瀑布覆写为 true —— 与 <see cref="BurnsWood"/> 成对出现：
+        /// 高温对木头和硫磺是同一件事，分成两个能力位只是为了让「某环境只烤木头不烤硫磺」
+        /// 这种将来的特例不用改道具。
+        /// 设计文档 §9 行 1：硫磺「高温房间 3 回合 → 热硫」。
+        /// </summary>
+        public virtual bool BurnsSulphur => false;
+
+        /// <summary>
         /// 热硫在本环境被使用时的额外环境效果（设计文档 5.2：堵住水淹洞穴的出水口）。
         /// 默认什么也不做 —— 没有这类规则的环境不受影响。
         ///

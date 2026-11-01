@@ -24,6 +24,9 @@ namespace LostCompound.Buffs.Types
 
         public override string Name => "减压病";
 
+        /// <summary>负面状态（硫磺的随机减益会抽到它）。</summary>
+        public override bool IsDebuff => true;
+
         public override int Id => BuffIds.DecompressionSickness;
 
         public override double StrBonus => -StrLossPerStack * Stacks;

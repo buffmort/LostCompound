@@ -34,6 +34,9 @@ namespace LostCompound.Buffs.Types
     {
         public override string Name => "流血";
 
+        /// <summary>负面状态（硫磺的随机减益会抽到它）。</summary>
+        public override bool IsDebuff => true;
+
         /// <summary>本 buff 的 ID（见 <see cref="BuffIds"/>）。</summary>
         public override int Id => BuffIds.Bleed;
 

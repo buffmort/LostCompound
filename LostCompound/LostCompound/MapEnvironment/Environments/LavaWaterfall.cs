@@ -71,6 +71,11 @@ namespace LostCompound.MapEnvironment.Environments
         public override bool BurnsWood => true;
 
         /// <summary>
+        /// 高温同样把硫磺烤成热硫（设计文档 §9 行 1：硫磺「高温房间 3 回合 → 热硫」）。
+        /// </summary>
+        public override bool BurnsSulphur => true;
+
+        /// <summary>
         /// 熔岩瀑布有水源（满 200），所以水瓶在这里生效。
         /// 覆写基类的 false：这是本属性存在的意义 —— 环境自己声明「我能回水」。
         /// </summary>
