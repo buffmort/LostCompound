@@ -94,7 +94,7 @@ namespace LostCompound.Tools.Players
             RefreshEnemyBox(monsters);
             Console.WriteLine();
             Console.WriteLine("请选择操作");
-            Console.WriteLine("1.攻击  2.防御  3.打开背包  4.徒手合成  5.饰品栏");
+            Console.WriteLine("1.攻击  2.防御  3.打开背包  4.合成  5.饰品栏");
 
             // 第 6 项只在「这里能采东西」时出现（目前只有沙漠，DESIGN §5.3 采沙）。
             // 问的是环境能力位，不是 `env is Desert` —— 将来再有能采的环境不用改这里。
@@ -139,7 +139,7 @@ namespace LostCompound.Tools.Players
                     OpenItems(monsters);
                     break;
                 case 4:
-                    HandCraft();
+                    CraftMenu();
                     break;
                 case 5:
                     OpenAccessoryMenu();
@@ -517,11 +517,11 @@ namespace LostCompound.Tools.Players
                     ShowAvailableDirections();
 
                     // 地图上也能用的三项（原先只有战斗菜单里才有 —— 玩家反馈「发现只有战斗才能
-                    // 装配道具 / 合成」，这是真的：OpenItems / HandCraft / OpenAccessoryMenu
+                    // 装配道具 / 合成」，这是真的：OpenItems / CraftMenu / OpenAccessoryMenu
                     // 之前只挂在 OnPlayerTurn 的战斗 switch 里）。
                     // 放这里而不是让它们在别处各调一次：地图循环每回合都会回到这里，
                     // 与方向输入共用同一个 ReadLine，行为统一（输入 5/6/7 不移动，直接 continue）。
-                    Console.WriteLine("5.使用道具  6.徒手合成  7.饰品栏");
+                    Console.WriteLine("5.使用道具  6.合成  7.饰品栏");
 
                     // 方向提示**不再塞进输入框**（输入框只画 ">"，避免提示与回显叠加导致错位）。
                     // 可走方向已经由 ShowAvailableDirections 写进日志了，这里再写一遍只会每回合刷屏；
@@ -571,7 +571,7 @@ namespace LostCompound.Tools.Players
                     }
                     if (direction == 6)
                     {
-                        HandCraft();
+                        CraftMenu();
                         continue;
                     }
                     if (direction == 7)
