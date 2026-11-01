@@ -533,24 +533,17 @@ namespace LostCompound.Maps
                     int centerRow = 2 * (r - rowOffset) + 1;
                     int centerCol = RoomCellWidth * (c - colOffset) + 2;
                     if (!InDisplay(centerRow, centerCol)) continue;
-                    // 调试全图时把未访问的房间也按真实类型显示（否则整屏都是 ?，全图就没意义了）
-                    bool known = _grid[r][c].IsVisited || reveal;
+                    // 能画出来 = 已经探索过，或者与已探索的房间**隔着门相邻**。
+                    // 用户裁定（2026-11-01）：相邻房间**不要迷雾**，直接显示真实类型，不再显示「?」。
+                    // 也就是说「走到哪、隔壁是什么房间」一眼就能看清，探索只剩「往哪边走」这一层决策。
                     string label;
                     if (_grid[r][c].IsVisited && _grid[r][c].IsPlayerHere)
                     {
                         label = "  *  ";
                     }
-                    else if (known)
-                    {
-                        label = GetRoomTypeLabel(_grid[r][c].Type);
-                    }
-                    else if (_grid[r][c].Type == RoomType.Boss)
-                    {
-                        label = "  B  ";
-                    }
                     else
                     {
-                        label = "  ?  ";   // 未访问但可见，显示未知符号
+                        label = GetRoomTypeLabel(_grid[r][c].Type);
                     }
 
                     display[centerRow][centerCol - 1] = label[0];
