@@ -142,7 +142,7 @@ namespace LostCompound.Buffs
         ///   哨兵让「永久」成为显式表达的意图，显示层也能写成「永久」。
         ///
         /// 注意用 -1 而不是 0：0 已经是「已到期」的含义，不能复用。
-        /// </summary>
+        /// </summary> 
         public const int Permanent = -1;
 
         /// <summary>本 buff 是否为永久（构造时传了 <see cref="Permanent"/>）。</summary>

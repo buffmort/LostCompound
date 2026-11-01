@@ -3,6 +3,7 @@ using System.Text;
 using LostCompound.MapEnvironment;
 using LostCompound.Rooms;
 using LostCompound.Rooms.Types;
+using LostCompound.Tools.Debug;   // DebugState：调试模式下全图可见（去迷雾）
 
 namespace LostCompound.Maps
 {
@@ -398,11 +399,20 @@ namespace LostCompound.Maps
             {
                 visible[r] = new bool[_cols];
             }
+            // 调试模式：**全图可见**（去掉迷雾）。
+            // 只影响"这一次绘制"，**不改 IsVisited** —— 那是进度，会被存档采集，
+            // 改了等于用调试模式永久探索了整层（而且关掉调试后迷雾再也回不来）。
+            bool reveal = DebugState.Enabled;
+
             for (int r = 0; r < _rows; r++)
             {
                 for (int c = 0; c < _cols; c++)
                 {
-                    if (_grid[r][c] == null || !_grid[r][c].IsVisited) continue;
+                    if (_grid[r][c] == null) continue;
+                    // 没有房间的格子（BlankRoom）永远不画：空盒子和「 . 」只会把地图糊成一片网格，
+                    // 真正要看的「哪些格子有房间、房间怎么连」反而看不清。
+                    if (_grid[r][c].Type == RoomType.Blank) continue;
+                    if (!reveal && !_grid[r][c].IsVisited) continue;
 
                     // 标记自身
                     MarkVisible(visible, r, c);
@@ -425,12 +435,14 @@ namespace LostCompound.Maps
 
                     int centerRow = 2 * r + 1;
                     int centerCol = 4 * c + 2;
+                    // 调试全图时把未访问的房间也按真实类型显示（否则整屏都是 ?，全图就没意义了）
+                    bool known = _grid[r][c].IsVisited || reveal;
                     string label;
                     if (_grid[r][c].IsVisited && _grid[r][c].IsPlayerHere)
                     {
                         label = " * ";
                     }
-                    else if (_grid[r][c].IsVisited)
+                    else if (known)
                     {
                         label = GetRoomTypeLabel(_grid[r][c].Type);
                     }
