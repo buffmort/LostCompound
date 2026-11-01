@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -49,15 +50,45 @@ namespace LostCompound.Save
     ///    做法：先写 `save.json.tmp`，写成功了再 `File.Move(tmp, 目标, overwrite: true)`。
     ///    同目录内的改名在操作系统层面是原子的，所以目标文件要么是旧的完整内容、
     ///    要么是新的完整内容，不存在「半截」。
+    ///
+    /// 7) 文件长什么样（2026-11-01 起：带校验，用户要求「验证过不去就删档」）
+    ///    外层是一个**信封**，存档本体被 base64 包在里面：
+    ///    <code>
+    ///    {
+    ///      "Version": 3,
+    ///      "Hash": "……base64 的 HMAC-SHA256……",
+    ///      "Payload": "……base64 的存档 JSON……"
+    ///    }
+    ///    </code>
+    ///    为什么要包一层、而不是在存档 JSON 里加个 hash 字段：
+    ///      hash 必须覆盖「存档本体」，而存档本体里如果含 hash 字段，就等于让它自我引用。
+    ///      分成「信封 + 载荷」之后，签名对象就是那段字节，干净。
+    ///    代价：**存档不再是人类可读的 JSON**（base64 看着像乱码），
+    ///      想调试就用 <see cref="SaveFile.FormatVersion"/> 之外的临时手段解一下。
+    ///
+    ///    为什么用 HMAC 而不是裸 SHA256：
+    ///      裸 SHA256 谁都能重算 —— 改了存档里的血量，重新算一次 SHA256 填回去，
+    ///      校验照样通过，等于没锁。HMAC 掺了一个**只在程序里**的密钥，
+    ///      不知道密钥就算不出正确的签名（密钥在二进制里，够挡住手改，但不是密码学级别的 secrecy）。
+    ///    这是**完整性校验**，不是加密：没有隐藏内容的意思，只是「内容被动过」。
     /// ─────────────────────────────────────────────────────────────
     /// </summary>
     public static class SaveFile
     {
         /// <summary>
-        /// 当前存档格式版本。
-        /// 改了 `SaveData` 的字段含义才需要动它；纯加字段可以不升（旧档缺的字段用默认值）。
+        /// 当前存档格式版本。**3 = 加了 HMAC 信封的格式**（旧版是裸 JSON，读不出来会按校验失败删档）。
         /// </summary>
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
+
+        /// <summary>
+        /// 签名密钥。⚠️ 改了它 = 所有旧存档校验失败 → 全部删档，所以不要随手改。
+        /// 它不是「密码」：真正想作弊的人可以反编译把密钥挖出来 —— 这里挡的是手改存档。
+        /// </summary>
+        private static readonly byte[] HashKey =
+        [
+            0x4C, 0x6F, 0x73, 0x74, 0x43, 0x6F, 0x6D, 0x70, 0x6F, 0x75, 0x6E, 0x64,   // "LostCompound"
+            0x2D, 0x53, 0x61, 0x76, 0x65, 0x2D, 0x76, 0x33,                               // "-Save-v3"
+        ];
 
         /// <summary>存档文件名。</summary>
         private const string FileName = "save.json";
@@ -67,7 +98,7 @@ namespace LostCompound.Save
 
         /// <summary>
         /// JSON 序列化选项：
-        ///   · `WriteIndented` —— 缩进换行，存档可以人眼阅读 / 手改（调试时很有用）
+        ///   · `WriteIndented` —— 缩进换行，外层信封可以人眼阅读（调试时很有用）
         ///   · `UnsafeRelaxedJsonEscaping` —— 让中文原样写进文件，而不是变成 `\u6597\u7BF7`。
         ///     （名字里的 Unsafe 指的是「不转义 &lt; &gt; &amp; 等字符对注入不安全」，
         ///       我们是写本地文件、不嵌网页，所以安全。）
@@ -77,6 +108,17 @@ namespace LostCompound.Save
             WriteIndented = true,
             Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         };
+
+        /// <summary>
+        /// 存档文件的信封：版本 + 签名 + 载荷（base64 的存档 JSON）。
+        /// 加字段不会破坏旧档（缺的字段是默认值），但改**语义**要升 <see cref="CurrentVersion"/>。
+        /// </summary>
+        private sealed class SaveEnvelope
+        {
+            public int Version { get; set; }
+            public string Hash { get; set; } = "";
+            public string Payload { get; set; } = "";
+        }
 
         /// <summary>存档所在目录（`%APPDATA%\LostCompound`）。</summary>
         public static string DirectoryPath => Path.Combine(
@@ -109,7 +151,15 @@ namespace LostCompound.Save
                 // 目录不存在时 CreateDirectory 会建出来；已存在则什么也不做（幂等）
                 Directory.CreateDirectory(DirectoryPath);
 
-                string json = JsonSerializer.Serialize(data, JsonOptions);
+                // ① 存档本体 → 字节 → base64；② 对**那段字节**签名；③ 一起塞进信封
+                byte[] payload = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(data, JsonOptions));
+                SaveEnvelope envelope = new()
+                {
+                    Version = CurrentVersion,
+                    Payload = Convert.ToBase64String(payload),
+                    Hash = ComputeHash(payload),
+                };
+                string json = JsonSerializer.Serialize(envelope, JsonOptions);
 
                 // 先写临时文件，再原子改名覆盖 —— 见类注释第 6 条
                 File.WriteAllText(tempPath, json, new UTF8Encoding(false));
@@ -127,8 +177,11 @@ namespace LostCompound.Save
         }
 
         /// <summary>
-        /// 读存档。返回 <c>null</c> 表示「没有存档 / 存档坏了 / 版本不对」，
-        /// 三种情况都会打印一句人能看懂的话，调用方只需判断 null。
+        /// 读存档。返回 <c>null</c> 表示「没有存档 / 存档坏了 / 版本不对 / **校验没过**」。
+        ///
+        /// ⚠️ 除了「没有存档」，其它情况都会**把这张存档删掉**（用户裁定 2026-11-01）：
+        ///    文件被改过、或版本不认，都是「这份档不可信」，留着只会在下一次「继续游戏」时
+        ///    又失败一次。宁可让人重开一局，也不要把一份坏档反复塞给玩家。
         /// </summary>
         public static SaveData Load()
         {
@@ -148,36 +201,103 @@ namespace LostCompound.Save
                 return null;
             }
 
-            SaveData data;
+            // ---- ① 拆信封 ----
+            SaveEnvelope envelope;
             try
             {
-                data = JsonSerializer.Deserialize<SaveData>(json, JsonOptions);
+                envelope = JsonSerializer.Deserialize<SaveEnvelope>(json, JsonOptions);
             }
             catch (JsonException)
             {
-                // 文件在、但不是合法 JSON：写了一半 / 被人手改坏了
-                Console.WriteLine("[存档] 存档文件已损坏，无法读取。");
-                return null;
+                return RejectSave("存档文件已损坏（不是合法 JSON）。");
+            }
+
+            if (envelope == null || string.IsNullOrEmpty(envelope.Payload) || string.IsNullOrEmpty(envelope.Hash))
+            {
+                // 旧版（裸 JSON 的存档）也会走到这里：没有 Payload / Hash 字段
+                return RejectSave("存档格式不认识或缺少校验信息。");
+            }
+
+            if (envelope.Version != CurrentVersion)
+            {
+                // 版本不同就**直接拒绝并删档**，不做「尽力而为」的部分读取：
+                // 半懂不懂地读进来，往往比明确拒绝更糟（玩家会带着错乱的状态继续玩）。
+                Console.WriteLine($"[存档] 存档版本是 {envelope.Version}，游戏需要 {CurrentVersion}。");
+                return RejectSave("存档版本不兼容。");
+            }
+
+            // ---- ② 验签：重算 HMAC，和文件里写的比 ----
+            byte[] payload;
+            try
+            {
+                payload = Convert.FromBase64String(envelope.Payload);
+            }
+            catch (FormatException)
+            {
+                return RejectSave("存档载荷不是合法的 base64。");
+            }
+
+            string expected = ComputeHash(payload);
+            // FixedTimeEquals：逐字节比较时**不提前返回**，避免按「比较耗时」反推正确签名的长度/前缀。
+            // 这里其实没有攻击者能反复试，但这是密码学代码的默认写法，照做不吃亏。
+            bool ok = CryptographicOperations.FixedTimeEquals(
+                Encoding.ASCII.GetBytes(expected), Encoding.ASCII.GetBytes(envelope.Hash));
+            if (!ok)
+            {
+                return RejectSave("存档校验失败（文件被改动过）。");
+            }
+
+            // ---- ③ 载荷 → 存档对象 ----
+            SaveData data;
+            try
+            {
+                data = JsonSerializer.Deserialize<SaveData>(Encoding.UTF8.GetString(payload), JsonOptions);
+            }
+            catch (JsonException)
+            {
+                // 签名对但解析不了：只可能是程序自己写坏了（例如改结构时忘了升版本）
+                return RejectSave("存档内容无法解析。");
             }
 
             if (data == null)
             {
-                Console.WriteLine("[存档] 存档文件是空的。");
-                return null;
+                return RejectSave("存档内容是空的。");
             }
 
             if (data.Version != CurrentVersion)
             {
-                // 版本不同就**直接拒绝**，不做「尽力而为」的部分读取：
-                // 半懂不懂地读进来，往往比明确拒绝更糟（玩家会带着错乱的状态继续玩）。
-                Console.WriteLine($"[存档] 存档版本是 {data.Version}，游戏需要 {CurrentVersion}，无法读取。");
-                return null;
+                Console.WriteLine($"[存档] 存档版本是 {data.Version}，游戏需要 {CurrentVersion}。");
+                return RejectSave("存档版本不兼容。");
             }
 
             return data;
         }
 
-        /// <summary>删除存档（玩家死亡时调用）。删除失败不影响游戏。</summary>
+        /// <summary>
+        /// 校验失败的统一出口：**先删档，再返回 null**。
+        ///
+        /// 为什么集中成一处：校验失败的入口有五六条（JSON 坏、缺字段、版本不对、base64 坏、
+        /// 签名对不上……），每条都写一遍「打印 + 删除」必然有一天漏掉一条 ——
+        /// 漏掉的那条就会留下一个永远读不出来的档，每次「继续游戏」都失败一次。
+        /// </summary>
+        private static SaveData RejectSave(string reason)
+        {
+            Console.WriteLine("[存档] " + reason + "这张存档已删除。");
+            Delete();
+            return null;
+        }
+
+        /// <summary>
+        /// 对一段字节算 HMAC-SHA256，返回 base64。
+        /// `using` 用来保证 HMACSHA256 用完释放（它内部持有非托管资源）。
+        /// </summary>
+        private static string ComputeHash(byte[] payload)
+        {
+            using HMACSHA256 hmac = new(HashKey);
+            return Convert.ToBase64String(hmac.ComputeHash(payload));
+        }
+
+        /// <summary>删除存档（玩家死亡时调用；校验失败时也走它）。删除失败不影响游戏。</summary>
         public static void Delete()
         {
             TryDelete(FilePath);

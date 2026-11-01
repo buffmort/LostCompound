@@ -374,11 +374,27 @@ int extra = guaranteed + (Random.Shared.NextDouble() < remainder ? 1 : 0);
 | 字段 | 作用 |
 |---|---|
 `Seed` / `GeneratorVersion` | 重建地形的全部参数 |
-`Rows` / `Cols` | 尺寸（目前固定 10×10，但存下来才算诚实重建） |
+`Rows` / `Cols` | 尺寸（随层数 7×7~13×13，存下来才算诚实重建） |
 `Visited` / `Cleaned` | **压平坐标**数组，`编号 = row * Cols + col`，只记变了的格子 |
 `StartItemsGiven` | 整层只有一个起始房间，一个 bool 够用 |
 
 体积：**15.9 KB → 0.96 KB**，而且地形只有一个真相源（不会出现「存档里的地形与种子算出的不一致」）。
+
+### 存档带校验（HMAC 信封，2026-11-01）
+
+`save.json` 不是裸 JSON 了，而是一个**信封**：
+
+```json
+{ "Version": 3, "Hash": "base64(HMAC-SHA256(密钥, 载荷字节))", "Payload": "base64(存档 JSON)" }
+```
+
+- 密钥是 `SaveFile.HashKey` 里的常量 —— **改了它 = 所有旧档校验失败 → 全部删档**，别随手改。
+- 读档时重算 HMAC，和文件里的比（`CryptographicOperations.FixedTimeEquals`）。
+- **校验不过就删档**（用户 2026-11-01 裁定）：JSON 坏 / 缺字段 / 版本不对 / base64 坏 / 签名对不上，
+  全部走同一个出口 `SaveFile.RejectSave`（打印原因 → `Delete()` → 返回 null）。
+  理由：一份读不出来的档留着只会让「继续游戏」每次都失败一次。
+- 这是**完整性校验**，不是加密：不隐藏内容（载荷 base64 解一下就能看），只保证「没被动过」。
+- ⚠️ 格式从「裸 JSON」变成信封，旧存档一律读不了 → 首次读档时会被删掉。
 
 ### 五条硬规则
 
