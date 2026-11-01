@@ -467,8 +467,19 @@ namespace LostCompound.Maps
 
         public string ToDisplayString()
         {
-            int displayRows = _rows * 2 + 1;
-            int displayCols = _cols * RoomCellWidth + 1;
+            // ── 先裁掉空白行列 ──
+            // 房间是从地图中心长出来的，只占中间一小块：13×13 的图里常常只有 8×8 有内容。
+            // 不裁的话地图文本会带上大片空行空列 —— 既把地图框撑宽撑高、又可能直接顶出终端边界。
+            // 裁切按**所有房间**的包围盒算（而不是「已访问的房间」）：
+            //   用已访问算的话，边走地图边走大，框会一路抖着变宽变高。
+            (int MinRow, int MaxRow, int MinCol, int MaxCol) box = RoomBounds();
+            int rowOffset = box.MinRow;
+            int colOffset = box.MinCol;
+            int rows = box.MaxRow - box.MinRow + 1;
+            int cols = box.MaxCol - box.MinCol + 1;
+
+            int displayRows = rows * 2 + 1;
+            int displayCols = cols * RoomCellWidth + 1;
             // Java: new char[displayRows][displayCols]；C# 保持交错数组，需要逐行分配并初始化
             char[][] display = new char[displayRows][];
 
@@ -519,8 +530,9 @@ namespace LostCompound.Maps
                 {
                     if (!visible[r][c] || _grid[r][c] == null) continue;
 
-                    int centerRow = 2 * r + 1;
-                    int centerCol = RoomCellWidth * c + 2;
+                    int centerRow = 2 * (r - rowOffset) + 1;
+                    int centerCol = RoomCellWidth * (c - colOffset) + 2;
+                    if (!InDisplay(centerRow, centerCol)) continue;
                     // 调试全图时把未访问的房间也按真实类型显示（否则整屏都是 ?，全图就没意义了）
                     bool known = _grid[r][c].IsVisited || reveal;
                     string label;
@@ -550,13 +562,14 @@ namespace LostCompound.Maps
             // 3. 设置水平墙（上下墙）
             for (int r = 0; r <= _rows; r++)
             {
-                int wallRow = 2 * r;
+                int wallRow = 2 * (r - rowOffset);
                 for (int c = 0; c < _cols; c++)
                 {
-                    int wallCol = RoomCellWidth * c + 1;
+                    int wallCol = RoomCellWidth * (c - colOffset) + 1;
                     bool topVisible = (r > 0) && visible[r - 1][c];
                     bool bottomVisible = (r < _rows) && visible[r][c];
                     if (!topVisible && !bottomVisible) continue;
+                    if (wallRow < 0 || wallRow >= displayRows) continue;
 
                     bool hasDoor = false;
                     if (topVisible) hasDoor |= _grid[r - 1][c].HasDoor(Direction.Down);
@@ -568,8 +581,10 @@ namespace LostCompound.Maps
                     // 看起来像一整块区域而不是「一间间房 + 一道门」。
                     for (int k = 0; k < RoomCellWidth - 1; k++)
                     {
+                        int col = wallCol + k;
+                        if (col < 0 || col >= displayCols) continue;
                         bool isDoorGap = hasDoor && k > 0 && k < RoomCellWidth - 2;
-                        display[wallRow][wallCol + k] = isDoorGap ? ' ' : '-';
+                        display[wallRow][col] = isDoorGap ? ' ' : '-';
                     }
                     // 两个墙角：左边在 wallCol-1，右边**正好是 wallCol + RoomCellWidth - 1**
                     // （也就是那道竖墙所在的列）。原先写成 +RoomCellWidth 会多推一格，
@@ -582,13 +597,15 @@ namespace LostCompound.Maps
             // 4. 设置垂直墙（左右墙）
             for (int r = 0; r < _rows; r++)
             {
-                int roomRow = 2 * r + 1;
+                int roomRow = 2 * (r - rowOffset) + 1;
+                if (roomRow < 0 || roomRow >= displayRows) continue;
                 for (int c = 0; c <= _cols; c++)
                 {
-                    int wallCol = RoomCellWidth * c;
+                    int wallCol = RoomCellWidth * (c - colOffset);
                     bool leftVisible = (c > 0) && visible[r][c - 1];
                     bool rightVisible = (c < _cols) && visible[r][c];
                     if (!leftVisible && !rightVisible) continue;
+                    if (wallCol < 0 || wallCol >= displayCols) continue;
 
                     bool hasDoor = false;
                     if (leftVisible) hasDoor |= _grid[r][c - 1].HasDoor(Direction.Right);
@@ -601,10 +618,12 @@ namespace LostCompound.Maps
             // 5. 设置四个角的交叉点（有相邻可见房间才出现）
             for (int r = 0; r <= _rows; r++)
             {
+                int crossRow = 2 * (r - rowOffset);
+                if (crossRow < 0 || crossRow >= displayRows) continue;
                 for (int c = 0; c <= _cols; c++)
                 {
-                    int crossRow = 2 * r;
-                    int crossCol = RoomCellWidth * c;
+                    int crossCol = RoomCellWidth * (c - colOffset);
+                    if (crossCol < 0 || crossCol >= displayCols) continue;
                     bool upLeft = (r > 0 && c > 0) && visible[r - 1][c - 1];
                     bool upRight = (r > 0 && c < _cols) && visible[r - 1][c];
                     bool downLeft = (r < _rows && c > 0) && visible[r][c - 1];
@@ -624,6 +643,33 @@ namespace LostCompound.Maps
                 sb.Append(new string(display[i])).Append('\n');
             }
             return sb.ToString();
+
+            // 局部函数：坐标是否落在裁切后的画布内
+            bool InDisplay(int rr, int cc) => rr >= 0 && rr < displayRows && cc >= 0 && cc < displayCols;
+        }
+
+        /// <summary>
+        /// 所有**真房间**（不含 BlankRoom）的包围盒。地图是从中心长出来的，
+        /// 外围一圈常常全是空格 —— 绘制前按这个盒子裁掉空白行列，地图文本才不会虚胖。
+        /// 一张空图（没有任何房间）时退回整幅地图，避免返回一个空盒子。
+        /// </summary>
+        private (int MinRow, int MaxRow, int MinCol, int MaxCol) RoomBounds()
+        {
+            int minRow = _rows, maxRow = -1, minCol = _cols, maxCol = -1;
+            for (int r = 0; r < _rows; r++)
+            {
+                for (int c = 0; c < _cols; c++)
+                {
+                    if (_grid[r][c] == null) continue;
+                    if (_grid[r][c].Type == RoomType.Blank) continue;
+                    if (r < minRow) minRow = r;
+                    if (r > maxRow) maxRow = r;
+                    if (c < minCol) minCol = c;
+                    if (c > maxCol) maxCol = c;
+                }
+            }
+            if (maxRow < 0) return (0, _rows - 1, 0, _cols - 1);
+            return (minRow, maxRow, minCol, maxCol);
         }
 
         // 辅助方法：安全地标记 visible 数组
