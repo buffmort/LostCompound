@@ -55,9 +55,9 @@ namespace LostCompound.Save
     ///    外层是一个**信封**，存档本体被 base64 包在里面：
     ///    <code>
     ///    {
-    ///      "Version": 4,
+    ///      "Version": 5,
     ///      "Hash": "……base64 的 二次哈希( 一次哈希(载荷) + 盐 )……",
-    ///      "Payload": "……base64 的存档 JSON……"
+    ///      "Payload": "……base64( base64(存档 JSON) )……两层"
     ///    }
     ///    </code>
     ///    为什么要包一层、而不是在存档 JSON 里加个 hash 字段：
@@ -80,9 +80,10 @@ namespace LostCompound.Save
         /// <summary>
         /// 当前存档格式版本。
         /// **3 = 加了签名信封（单轮 SHA256 + 盐）**；
-        /// **4 = 签名改成两轮 SHA256（一次哈希 → 加盐 → 二次哈希）** —— 3 版存档读不出来，会被删掉。
+        /// **4 = 签名改成两轮 SHA256（一次哈希 → 加盐 → 二次哈希）** —— 3 版存档读不出来，会被删掉。<br>
+        /// **5 = Payload 改成两层 base64**（Hyberty：单 base 两次，盐不进存档）。
         /// </summary>
-        public const int CurrentVersion = 4;
+        public const int CurrentVersion = 5;
 
         /// <summary>
         /// 签名用的**盐**（Hyberty 2026-11-01 定：用「HYB」）。
@@ -158,12 +159,13 @@ namespace LostCompound.Save
                 // 目录不存在时 CreateDirectory 会建出来；已存在则什么也不做（幂等）
                 Directory.CreateDirectory(DirectoryPath);
 
-                // ① 存档本体 → 字节 → base64；② 对**那段字节**签名；③ 一起塞进信封
+                // ① 存档本体 → 字节；② 对那段字节签名；③ Payload 存**两层 base64**
+                //    （Hyberty 2026-11-01：单 base 两次，不加盐 —— 让随手解一次的人解不出明文）
                 byte[] payload = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(data, JsonOptions));
                 SaveEnvelope envelope = new()
                 {
                     Version = CurrentVersion,
-                    Payload = Convert.ToBase64String(payload),
+                    Payload = EncodePayload(payload),
                     Hash = HashDoubleHydrolysis(payload),
                 };
                 string json = JsonSerializer.Serialize(envelope, JsonOptions);
@@ -233,17 +235,18 @@ namespace LostCompound.Save
                 return RejectSave("存档版本不兼容。");
             }
 
-            // ---- ② 验签：用哈希双水解算法重算一遍签名，和文件里写的比 ----
+            // ---- ② 拆两层 base64，拿回原始载荷字节 ----
             byte[] payload;
             try
             {
-                payload = Convert.FromBase64String(envelope.Payload);
+                payload = DecodePayload(envelope.Payload);
             }
             catch (FormatException)
             {
                 return RejectSave("存档载荷不是合法的 base64。");
             }
 
+            // ---- ③ 验签：用哈希双水解算法重算一遍签名，和文件里写的比 ----
             string expected = HashDoubleHydrolysis(payload);
             // FixedTimeEquals：逐字节比较时**不提前返回**，避免按「比较耗时」反推正确签名的长度/前缀。
             // 这里其实没有攻击者能反复试，但这是密码学代码的默认写法，照做不吃亏。
@@ -254,7 +257,7 @@ namespace LostCompound.Save
                 return RejectSave("存档校验失败（文件被改动过）。");
             }
 
-            // ---- ③ 载荷 → 存档对象 ----
+            // ---- ④ 载荷 → 存档对象 ----
             SaveData data;
             try
             {
@@ -292,6 +295,35 @@ namespace LostCompound.Save
             Console.WriteLine("[存档] " + reason + "这张存档已删除。");
             Delete();
             return null;
+        }
+
+        /// <summary>
+        /// 载荷编码：**单 base 两次**（Hyberty 2026-11-01 定）。
+        ///
+        /// <code>
+        /// 原始字节 ──base64──▶ 第一层字符串 ──base64──▶ Payload 字段
+        /// </code>
+        ///
+        /// 为什么套两层：存档文件里本来看一层 base64 就该是明文；再套一层之后，
+        /// 随手解一次得到的是**另一串 base64**，而不是 JSON —— 让「直接看 / 直接改」多绕一道。
+        /// （⚠️ 这是绕路，不是保护：解第二次就是明文。真正的防改靠 <see cref="HashDoubleHydrolysis"/>。）
+        /// 为什么不把盐也拼进来：盐一旦写进 Payload 就等于公开，校验形同虚设 ——
+        /// 盐只在算签名时用，**不进存档**。
+        /// </summary>
+        private static string EncodePayload(byte[] payload)
+        {
+            string first = Convert.ToBase64String(payload);                // 第一层：字节 → base64
+            return Convert.ToBase64String(Encoding.UTF8.GetBytes(first));  // 第二层：把那串再 base64
+        }
+
+        /// <summary>
+        /// 载荷解码：<see cref="EncodePayload"/> 的逆过程（解两次，拿回原始字节）。
+        /// base64 不合法时抛 <see cref="FormatException"/>，由调用方转成「删档」。
+        /// </summary>
+        private static byte[] DecodePayload(string encoded)
+        {
+            string first = Encoding.UTF8.GetString(Convert.FromBase64String(encoded));   // 解外层
+            return Convert.FromBase64String(first);                                      // 解内层
         }
 
         /// <summary>

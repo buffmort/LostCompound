@@ -385,9 +385,11 @@ int extra = guaranteed + (Random.Shared.NextDouble() < remainder ? 1 : 0);
 `save.json` 不是裸 JSON 了，而是一个**信封**：
 
 ```json
-{ "Version": 4, "Hash": "base64(SHA256( SHA256(载荷) + 盐 ))", "Payload": "base64(存档 JSON)" }
+{ "Version": 5, "Hash": "base64(SHA256( SHA256(载荷) + 盐 ))", "Payload": "base64( base64(存档 JSON) )" }
 ```
 
+- `Payload` 用**两层 base64**（Hyberty 2026-11-01：单 base 两次）：解一次得到的是另一串 base64，解两次才是 JSON。
+  ⚠️ 盐**不进 Payload** —— 写进 Payload 就等于公开，校验形同虚设。
 - 签名分**两轮**：`first = SHA256(载荷)` → `salted = first + 盐` → `Hash = base64(SHA256(salted))`。
   盐是 `SaveFile.HashSuffix` 里的常量。
   它的意义是：别人解开 base64、改完内容、再自己算一遍 SHA256 填回去时，
