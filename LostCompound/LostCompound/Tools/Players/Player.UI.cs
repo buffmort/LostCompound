@@ -348,7 +348,7 @@ namespace LostCompound.Tools.Players
 
             // 只记「在哪个房间」；状态栏首行由 RefreshStatus 现拼（房间 + 玩家名）。
             // 「当前位置」已按要求去掉：地图上玩家所在格子本来就有 * 标记，再报坐标是冗余。
-            _lastRoomType = map[PlayerRow][PlayerCol].Type ?? RoomType.Blank;
+            _lastRoomType = map[PlayerRow][PlayerCol].Type;
 
             RefreshStatus();
         }

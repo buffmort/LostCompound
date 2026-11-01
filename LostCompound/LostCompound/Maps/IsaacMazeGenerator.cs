@@ -13,8 +13,8 @@ namespace LostCompound.Maps
      * 与旧版（树状窄通道）的根本区别：
      *   · 旧版把**每一个格子**都变成房间，再用 DFS 挖成一棵树 —— 任意两格之间只有一条路，
      *     「要不要绕」不构成决策，而且 10 层要清约 490 间房、打约 320 场仗。
-     *   · 新版只挑**一部分格子**变成房间（每层 14~26 间），房间之间隔着一格**走廊**连起来，
-     *     再随机打通一些环 —— 于是有多条路可选，还有天然的死胡同
+     *   · 新版只挑**一部分格子**变成房间（每层 14~26 间），再从中心随机生长、随机加环，
+     *     于是有多条路可选，还有天然的死胡同
      *     （死胡同末端放宝物房 / 合成台，正是以撒的布局逻辑）。
      *
      * 数值口径（用户 2026-11-01 定，p0）：
@@ -22,9 +22,8 @@ namespace LostCompound.Maps
      *   · 战斗房占普通房间的 **45%**（其余空房）→ 一局约 85 场战斗；
      *   · 环的比例 20%（相邻但没门的两间房里打通两成）。
      *
-     * 空间布局：房间只落在「行列都是偶数」的格子上，所以任意两间房之间必然隔着一格，
-     * 那格就是走廊（<see cref="CorridorRoom"/>）—— **永远不会出现 2×2 的房间块**。
-     * 以撒的楼层里从来没有并排贴在一起的房间，那才是「看上去密集」的根源。
+     * 外观的关键约束：**禁止 2×2 的房间块**。以撒的楼层里房间永远是一格宽的一条条分叉，
+     * 一旦允许四间贴成方块，整张图就成了蜂窝 —— 这才是「看上去太密集」的真正来源。
      *
      * ⚠️ 没被选中的格子放 <see cref="BlankRoom"/>：它**没有门**，所以走不进去，
      *   在地图上显示成「 . 」。这是「房间少了但地图还很大」的实现方式。
@@ -95,9 +94,10 @@ namespace LostCompound.Maps
         /// 版本历史：
         ///   1 = 旧的树状窄通道（每个格子都是房间 + DFS 挖通）
         ///   2 = 以撒式（挑格子生长 + 加环 + 45% 战斗房）—— 2026-11-01 p0 重做
-        ///   3 = 以撒式·稀疏走廊版（房间隔走廊 + 层尺寸 7→13 + 格子宽 5）—— 2026-11-01 p0 第二版
+        ///   3 = 以撒式·稀疏走廊版（房间隔走廊 + 层尺寸 7→13 + 格子宽 5）—— 2026-11-01 当天被用户否掉
+        ///   4 = 以撒式·**无走廊**版（房间相邻 + 禁止 2×2 房间块 + 层尺寸 7→13 + 格子宽 5）
         /// </summary>
-        public const int GeneratorVersion = 3;
+        public const int GeneratorVersion = 4;
 
         public IsaacMazeGenerator(int rows, int cols, EnvType envType, long seed, int layer)
         {
@@ -164,10 +164,8 @@ namespace LostCompound.Maps
         /// 按比例算会让第 9/10 层变成 40 间以上，一局又回到两三百场战斗。
         /// 按边长线性给，10 层合计约 188 间（战斗房约 45% → 85 场）。
         ///
-        /// ⚠️ 稀疏走廊版里只有「行列都是偶数」的格子能当房间，所以实际可用的候选位是
-        ///    `(边长+1)/2` 的平方（7×7 → 16 个，13×13 → 49 个）。返回值会被
-        ///    <see cref="Generate"/> 再按候选位数量夹一次 —— 第 1~2 层 14/16 接近铺满，
-        ///    到第 10 层 26/49 只剩一半，层数越大越疏。
+        /// ⚠️ 实际能放多少间还受「禁止 2×2 房间块」限制：格子上限大约是 `rows × cols / 2`，
+        ///    14~26 间远没到上限，所以这个公式不会被约束卡住。
         /// 返回前夹到 `[4, rows*cols]`：小图别超出格子数，也别少于 4 间（起点 + Boss + 2 间）。
         /// </summary>
         public static int RoomCountForLayer(int rows, int cols)
@@ -184,131 +182,75 @@ namespace LostCompound.Maps
         public const double LoopChance = 0.2;
 
         /// <summary>
-        /// 生成整层（**以撒式连通房间图**）。六步，顺序不能换：
-        ///   ① 先定每格是「房间 / 走廊 / 空」，保证**没有 2×2 的房间块**（以撒从不并排）；
-        ///   ② 从一个池子里随机「挖」出目标数量的房间，挖的时候把路线上的格子标成走廊；
-        ///   ③ 随机加环（走廊上也开门）—— 多条路可走；
-        ///   ④ 删掉所有「死区」：不属于任何房间路径的空格变回空白；
-        ///   ⑤ 每个只连着一个门的房间，再补一条走廊伸出去（死胡同要能挂奖励）；
-        ///   ⑥ 最远的房间给 Boss；死胡同给宝物 / 合成台；其余按 45% 给战斗。
+        /// 生成整层（**以撒式房间图**）。三步：
+        ///   ① 从地图中心随机生长出目标数量的房间，**且不许出现 2×2 的房间块**；
+        ///   ② 随机加环（相邻但没门的两间房里打通两成）—— 多条路可走；
+        ///   ③ 最远的房间给 Boss；死胡同给宝物 / 合成台；其余按 45% 给战斗、55% 空房。
         ///
-        /// 与上一版（贴在一起长成一片）的区别：
-        ///   上一版房间网格是**紧密相连**的，所以看起来像蜂巢；
-        ///   这一版房间四周**一律留空格或走廊**，房间是「一座座孤岛」，
-        ///   靠细走廊和门连起来 —— 这才是以撒那种稀疏、能看清一张「房间图」的样子。
+        /// 为什么禁止 2×2 房间块：一旦允许四间房贴成一个方块，地图看上去就是一整片蜂窝 ——
+        ///   而**以撒的楼层里任何位置都不会出现 2×2 的房间块**，房间永远是一格宽的一条条分叉。
+        ///   这条规则比任何随机权重都更能决定「像不像以撒」，所以放在生长的第一顺位。
+        ///
+        /// 房间之间**没有走廊**：相邻的两间房共用一道墙，墙上有门就通，玩家一步走一间房。
+        /// （2026-11-01 早先做过「房间之间隔一格走廊」的版本，用户否掉了：不要走廊。）
         /// </summary>
         public void Generate()
         {
-            // ── ① 先决定每个格子是「候选房间位」还是「永久空」──
-            // 规则：候选位之间的行列距离必须是偶数，这样任意两个候选位的坐标差都是偶数，
-            // 中间的奇数列/行就自动成为走廊。
-            // 为什么这样做：如果允许房间紧挨着，就会出现 2×2 的房间块 ——
-            //   以撒的楼层里从来没有并排贴在一起的房间，那是「看上去密集」的根源。
-            bool[][] candidate = new bool[_rows][];
-            for (int r = 0; r < _rows; r++)
-            {
-                candidate[r] = new bool[_cols];
-                for (int c = 0; c < _cols; c++)
-                {
-                    candidate[r][c] = (r % 2 == 0) && (c % 2 == 0);
-                }
-            }
-            // 网格尺寸是奇数时，最后一行/列也会被留成走廊，没问题；
-            // 尺寸不大于 2 时没有任何候选位，直接退化成「只有起点」。
-            List<(int Row, int Col)> candidates = [];
-            for (int r = 0; r < _rows; r++)
-            {
-                for (int c = 0; c < _cols; c++)
-                {
-                    if (candidate[r][c]) candidates.Add((r, c));
-                }
-            }
-            if (candidates.Count == 0)
-            {
-                _grid[0][0] = new StartRoom(_env);
-                return;
-            }
+            int target = Math.Min(RoomCountForLayer(_rows, _cols), _rows * _cols);
 
-            int target = Math.Min(RoomCountForLayer(_rows, _cols), candidates.Count);
-
-            // ── ② 随机挖房间 ──
-            // 起点 = 坐标最接近地图中心的候选位
-            (int Row, int Col) origin = candidates
-                .OrderBy(p => Math.Abs(p.Row - _rows / 2) + Math.Abs(p.Col - _cols / 2))
-                .First();
-
-            Dictionary<(int Row, int Col), bool> isRoom = [];
+            // 房间占用表：生长时既要查「这格有没有房」，也要查「放了它会不会凑成 2×2」
+            bool[][] occupied = new bool[_rows][];
+            for (int r = 0; r < _rows; r++) occupied[r] = new bool[_cols];
             List<(int Row, int Col)> rooms = [];
 
-            MakeRoom(origin);
-            while (rooms.Count < target)
+            // 起点放地图正中心：从角落长会全挤在左上角，大图上看起来「房间只占了一小块」
+            (int Row, int Col) origin = (_rows / 2, _cols / 2);
+            Place(origin);
+
+            int guard = 0;
+            while (rooms.Count < target && guard++ < _rows * _cols * 40)
             {
-                // 从「已有房间」里挑一个，朝一个随机方向走两格挖过去。
-                // 走两格 = 中间那格是走廊，终点是新房间；这正是以撒「门 → 走廊 → 门」的形状。
                 (int Row, int Col) from = rooms[_rng.Next(rooms.Count)];
+
                 List<(int Row, int Col, Direction Dir)> options = [];
                 foreach (Direction dir in AllDirections)
                 {
-                    (int Row, int Col) to = (from.Row + 2 * DRows[(int)dir], from.Col + 2 * DCols[(int)dir]);
-                    if (!IsInside(to.Row, to.Col)) continue;
-                    if (isRoom.ContainsKey(to)) continue;          // 已经是房间了
-                    options.Add((to.Row, to.Col, dir));
+                    int nr = from.Row + DRows[(int)dir];
+                    int nc = from.Col + DCols[(int)dir];
+                    if (!IsInside(nr, nc)) continue;
+                    if (occupied[nr][nc]) continue;
+                    if (WouldMake2x2(occupied, nr, nc)) continue;
+                    options.Add((nr, nc, dir));
                 }
-                if (options.Count == 0)
-                {
-                    // 这个房间四周都挖过了：换一个。若所有房间都没路可走就提前收工。
-                    if (rooms.All(p => !HasFreeNeighbor(p, isRoom))) break;
-                    continue;
-                }
+                if (options.Count == 0) continue;      // 这间房四周都长不了，换一间
 
                 (int Row, int Col, Direction Dir) pick = options[_rng.Next(options.Count)];
-                MakeRoom((pick.Row, pick.Col));
-                Connect(from, (pick.Row, pick.Col), pick.Dir);
+                Place((pick.Row, pick.Col));
+                OpenDoor(from, pick.Dir);
             }
 
-            // ── ③ 加环 ──
-            // 只往「右 / 下」看，避免同一对房间被处理两次。环让「绕不绕」成为真决策。
+            // ── ② 加环 ──
+            // 只往「右 / 下」看，避免同一对房间算两次。没有这一步整张图是一棵树，
+            // 「要不要绕」就不构成决策。
             foreach ((int Row, int Col) cell in rooms)
             {
                 foreach (Direction dir in RingDirections)
                 {
-                    (int Row, int Col) to = (cell.Row + 2 * DRows[(int)dir], cell.Col + 2 * DCols[(int)dir]);
-                    if (!IsInside(to.Row, to.Col)) continue;
-                    if (!isRoom.ContainsKey(to)) continue;
+                    int nr = cell.Row + DRows[(int)dir];
+                    int nc = cell.Col + DCols[(int)dir];
+                    if (!IsInside(nr, nc)) continue;
+                    if (!occupied[nr][nc]) continue;
                     if (_grid[cell.Row][cell.Col].HasDoor(dir)) continue;
                     if (_rng.NextDouble() >= LoopChance) continue;
-                    Connect(cell, to, dir);
+                    OpenDoor(cell, dir);
                 }
             }
 
-            // ── ④ 删死区 ──
-            // 挖房间时路过的走廊格（除了被真正用到的）会留下一堆孤立小段。
-            // 规则：走廊格必须**至少连着两扇门**（一进一出），否则它就是个摆设，抹回空白。
-            // 这一步让地图从「一堆零碎线条」变成「干净的房间 + 走道」。
-            for (int r = 0; r < _rows; r++)
-            {
-                for (int c = 0; c < _cols; c++)
-                {
-                    if (candidate[r][c]) continue;              // 候选位不在这里处理
-                    if (_grid[r][c].Type != RoomType.Blank) continue;
-                    if (DoorCount(_grid[r][c]) < 2)
-                    {
-                        // 抹掉这条走廊上残留的门（只可能来自没走完的挖路）
-                        ClearDoors(_grid[r][c]);
-                    }
-                }
-            }
-
-            // ── ⑤ 死胡同补走廊 ──
-            // 目标是让**每个只连一个门的房间**都变成真正的死胡同末端：
-            // 它自己就是路的尽头，宝物房 / 合成台挂在这里。
-            // 以撒里这类房间是「门 → 房间」，不需要额外的走廊，所以这一步只要保证
-            // 至少存在足够多的单门房间 —— 不够时把多余的环砍掉，自然就长出死胡同。
-            TrimLoopsToMakeDeadEnds(rooms, minDeadEnds: 2);
-
-            // ── ⑥ 分配类型 ──
+            // ── ③ 定 Boss 与房间类型 ──
             (int Row, int Col) bossCell = FarthestFrom(origin, rooms);
 
+            // 死胡同（只有一个门）挂奖励房：先宝物、再合成台。
+            // 进去要原路返回，「要不要拐这一下」才是真的选择。
             List<(int Row, int Col)> deadEnds = [];
             foreach ((int Row, int Col) cell in rooms)
             {
@@ -319,135 +261,102 @@ namespace LostCompound.Maps
             }
             Shuffle(deadEnds);
 
-            int deadEndIndex = 0;
+            // 死胡同不够两间（环加多了会这样）时，用最靠外的房间补足 ——
+            // 宝物房和合成台每层必须各有一间，不能让环把它们吃掉。
+            while (deadEnds.Count < 2)
+            {
+                (int Row, int Col) pick = (-1, -1);
+                int best = -1;
+                foreach ((int Row, int Col) cell in rooms)
+                {
+                    if (cell == origin) continue;
+                    if (cell == bossCell) continue;
+                    if (deadEnds.Contains(cell)) continue;
+                    int score = Math.Abs(cell.Row - origin.Row) + Math.Abs(cell.Col - origin.Col);
+                    if (score > best)
+                    {
+                        best = score;
+                        pick = cell;
+                    }
+                }
+                if (pick.Row < 0) break;   // 房间太少，补不出来
+                deadEnds.Add(pick);
+            }
+
             foreach ((int Row, int Col) cell in rooms)
             {
-                if (cell == origin) continue;
-                if (cell == bossCell) continue;
-
-                if (DoorCount(_grid[cell.Row][cell.Col]) == 1)
+                if (cell == origin)
                 {
-                    Room special = deadEndIndex switch
-                    {
-                        0 => new TreasureRoom(_env),
-                        1 => new CraftRoom(_env),
-                        _ => new EmptyRoom(_env),
-                    };
-                    deadEndIndex++;
-                    ReplaceRoom(cell, special);
+                    _grid[cell.Row][cell.Col] = CreateKeepingDoors(cell, new StartRoom(_env));
+                    continue;
+                }
+                if (cell == bossCell)
+                {
+                    _grid[cell.Row][cell.Col] = CreateKeepingDoors(cell, new BossRoom(_env));
                     continue;
                 }
 
-                Room normal = _rng.NextDouble() < FightRoomRatio
-                    ? new FightRoom(_env)
-                    : new EmptyRoom(_env);
-                ReplaceRoom(cell, normal);
+                int index = deadEnds.IndexOf(cell);
+                Room replacement = index switch
+                {
+                    0 => new TreasureRoom(_env),
+                    1 => new CraftRoom(_env),
+                    _ when index > 1 => new EmptyRoom(_env),
+                    _ => _rng.NextDouble() < FightRoomRatio ? new FightRoom(_env) : new EmptyRoom(_env),
+                };
+                _grid[cell.Row][cell.Col] = CreateKeepingDoors(cell, replacement);
             }
 
-            // 起点最后放：前面的 ReplaceRoom 会保留门，但起点必须保持 StartRoom 类型
-            _grid[origin.Row][origin.Col] = CreateKeepingDoors(origin, new StartRoom(_env));
-            _grid[bossCell.Row][bossCell.Col] = CreateKeepingDoors(bossCell, new BossRoom(_env));
-
             // ── 局部函数 ──
-            void MakeRoom((int Row, int Col) cell)
+            void Place((int Row, int Col) cell)
             {
-                Room room = new EmptyRoom(_env);
-                _grid[cell.Row][cell.Col] = room;
-                isRoom[cell] = true;
+                _grid[cell.Row][cell.Col] = new EmptyRoom(_env);
+                occupied[cell.Row][cell.Col] = true;
                 rooms.Add(cell);
             }
 
-            void Connect((int Row, int Col) from, (int Row, int Col) to, Direction dir)
+            // 两间相邻的房之间开门：两边各开一半，玩家一步就能走过去
+            void OpenDoor((int Row, int Col) cell, Direction dir)
             {
-                // 两端开门
-                _grid[from.Row][from.Col].SetDoor(dir, true);
-                _grid[to.Row][to.Col].SetDoor(Opposite(dir), true);
-                // 中间那格是走廊：它要开两个反向的门（进来的方向 + 出去的方向）
-                (int Row, int Col) mid = (from.Row + DRows[(int)dir], from.Col + DCols[(int)dir]);
-                // 走廊换成 **Type 为 null 的空壳**：既不画在地图上，玩家也不会"走进去"（它只是个门洞）。
-                // 为什么不用 BlankRoom：Blank 表示「这格没有房间」，会被画成「 . 」，也参与各种判断；
-                // 走廊是第三种东西 —— 有门、但不是房间。
-                if (_grid[mid.Row][mid.Col].Type == RoomType.Blank)
-                {
-                    _grid[mid.Row][mid.Col] = new CorridorRoom(_env);
-                }
-                _grid[mid.Row][mid.Col].SetDoor(dir, true);
-                _grid[mid.Row][mid.Col].SetDoor(Opposite(dir), true);
-            }
-
-            bool HasFreeNeighbor((int Row, int Col) cell, Dictionary<(int Row, int Col), bool> map)
-            {
-                foreach (Direction dir in AllDirections)
-                {
-                    (int Row, int Col) to = (cell.Row + 2 * DRows[(int)dir], cell.Col + 2 * DCols[(int)dir]);
-                    if (!IsInside(to.Row, to.Col)) continue;
-                    if (!map.ContainsKey(to)) return true;
-                }
-                return false;
+                int nr = cell.Row + DRows[(int)dir];
+                int nc = cell.Col + DCols[(int)dir];
+                _grid[cell.Row][cell.Col].SetDoor(dir, true);
+                _grid[nr][nc].SetDoor(Opposite(dir), true);
             }
         }
 
         /// <summary>
-        /// 死胡同不足 <paramref name="minDeadEnds"/> 个时，随机砍掉一些环，把房间变回单门。
+        /// 在 (row, col) 放一间房**会不会凑出 2×2 的房间块**。
         ///
-        /// 为什么要砍：宝物房 / 合成台必须挂在**死胡同**上（进去要原路返回，才需要奖励），
-        /// 而环加多了以后所有房间都至少两个门，死胡同可能一个都不剩。
-        /// 砍环只会让地图变简单，不会产生孤立房间 —— 因此永远安全。
+        /// 检查包含这一格的 4 个 2×2 方块：只要任何一个的另外三格都已经是房间，
+        /// 放下去就凑成实心方块了 —— 以撒的楼层从不出现这种形状。
+        /// 这条约束同时决定了地图「条状分叉」的外观，是整层像不像以撒的关键。
         /// </summary>
-        private void TrimLoopsToMakeDeadEnds(List<(int Row, int Col)> rooms, int minDeadEnds)
+        private bool WouldMake2x2(bool[][] occupied, int row, int col)
         {
-            int guard = 0;
-            while (CountDeadEnds(rooms) < minDeadEnds && guard++ < rooms.Count * 4)
+            for (int dr = -1; dr <= 0; dr++)
             {
-                // 找一间门数 ≥ 3 的房间，砍掉它一个「不影响连通性」的门不方便判断，
-                // 所以这里从最外侧的门下手：优先砍连接「两间房」的环（中间格是走廊的那种最容易认）。
-                bool trimmed = false;
-                foreach ((int Row, int Col) cell in rooms)
+                for (int dc = -1; dc <= 0; dc++)
                 {
-                    if (DoorCount(_grid[cell.Row][cell.Col]) < 3) continue;
-                    foreach (Direction dir in AllDirections)
+                    int top = row + dr;
+                    int left = col + dc;
+                    if (top < 0 || left < 0 || top + 1 >= _rows || left + 1 >= _cols) continue;
+
+                    int filled = 0;
+                    for (int i = 0; i < 2; i++)
                     {
-                        if (!_grid[cell.Row][cell.Col].HasDoor(dir)) continue;
-                        (int Row, int Col) mid = (cell.Row + DRows[(int)dir], cell.Col + DCols[(int)dir]);
-                        if (!IsInside(mid.Row, mid.Col)) continue;
-                        if (isCorridorBetweenRooms(cell, dir))
+                        for (int j = 0; j < 2; j++)
                         {
-                            _grid[cell.Row][cell.Col].SetDoor(dir, false);
-                            _grid[mid.Row][mid.Col].SetDoor(dir, false);
-                            trimmed = true;
-                            break;
+                            int rr = top + i;
+                            int cc = left + j;
+                            if (rr == row && cc == col) continue;   // 自己那一格不当邻居算
+                            if (occupied[rr][cc]) filled++;
                         }
                     }
-                    if (trimmed) break;
+                    if (filled == 3) return true;
                 }
-                if (!trimmed) break;   // 已经没有环可砍了
             }
-
-            bool isCorridorBetweenRooms((int Row, int Col) cell, Direction dir)
-            {
-                (int Row, int Col) to = (cell.Row + 2 * DRows[(int)dir], cell.Col + 2 * DCols[(int)dir]);
-                return IsInside(to.Row, to.Col) && _grid[to.Row][to.Col].Type != RoomType.Blank;
-            }
-        }
-
-        /// <summary>房间列表里有几间是死胡同（只开一个门）。</summary>
-        private int CountDeadEnds(List<(int Row, int Col)> rooms)
-        {
-            int count = 0;
-            foreach ((int Row, int Col) cell in rooms)
-            {
-                if (DoorCount(_grid[cell.Row][cell.Col]) == 1) count++;
-            }
-            return count;
-        }
-
-        /// <summary>把一间房的门全部关掉（用于抹掉残留走廊）。</summary>
-        private static void ClearDoors(Room room)
-        {
-            foreach (Direction dir in AllDirections)
-            {
-                room.SetDoor(dir, false);
-            }
+            return false;
         }
 
         /// <summary>新建一个房间实例，但把旧格子上的门照搬过去（换类型不能把路断掉）。</summary>
@@ -478,21 +387,6 @@ namespace LostCompound.Maps
         /// <summary>四个方向（顺序固定，用于遍历；需要随机时另外 Shuffle）。</summary>
         private static readonly Direction[] AllDirections =
             [Direction.Up, Direction.Down, Direction.Left, Direction.Right];
-
-        /// <summary>这格周围**还没有房间**的邻格（连同要开哪个方向的门）。</summary>
-        private List<(int Row, int Col, Direction Dir)> FreeNeighbors(int row, int col)
-        {
-            List<(int Row, int Col, Direction Dir)> result = [];
-            foreach (Direction dir in AllDirections)
-            {
-                int nr = row + DRows[(int)dir];
-                int nc = col + DCols[(int)dir];
-                if (!IsInside(nr, nc)) continue;
-                if (_grid[nr][nc].Type != RoomType.Blank) continue;
-                result.Add((nr, nc, dir));
-            }
-            return result;
-        }
 
         /// <summary>这间房开了几个门（死胡同 = 1）。</summary>
         private static int DoorCount(Room room)
@@ -601,11 +495,9 @@ namespace LostCompound.Maps
             {
                 for (int c = 0; c < _cols; c++)
                 {
-                    // 只画**真正的房间**：走廊格（Type 为 null、只开门）与空白格都不画。
-                    // 走廊如果也画出来，地图上会多出一堆「 . 」把房间图糊成棋盘 —— 以撒的地图上也只有房间。
-                    // ⚠️ 判断必须写 `is null`：走廊的 Type 是 null，而 null != RoomType.Blank，
-                    //    只判 Blank 会把走廊漏进来（它会被当成「 . 」画出来）。
-                    if (_grid[r][c] is null || _grid[r][c].Type is null || _grid[r][c].Type == RoomType.Blank) continue;
+                    // 只画**真正的房间**：空白格（BlankRoom）不画 —— 空盒子和「 . 」只会把地图糊成网格，
+                    // 真正要看的「哪些格子有房间、房间怎么连」反而看不清。
+                    if (_grid[r][c] == null || _grid[r][c].Type == RoomType.Blank) continue;
                     if (!reveal && !_grid[r][c].IsVisited) continue;
 
                     // 标记自身
@@ -613,25 +505,10 @@ namespace LostCompound.Maps
                     // 只沿「有门」的正交方向可见：不隔墙看、也不穿对角看。
                     // 原实现标记整个 3x3 区域，导致实体墙另一侧和对角房间都会显示为 ?。
                     Room room = _grid[r][c];
-                    foreach (Direction dir in AllDirections)
-                    {
-                        if (!room.HasDoor(dir)) continue;
-                        int nr = r + DRows[(int)dir];
-                        int nc = c + DCols[(int)dir];
-                        if (!IsInside(nr, nc)) continue;
-
-                        // 稀疏版里门后面先是一格**走廊**：走廊本身不画（画出来会把地图糊成棋盘），
-                        // 所以要顺着门的方向**再走一格**，把走廊那头的房间标成可见（未知则显示 ?）。
-                        // 这样「从这间房能看见隔壁有间房」的探索感还在。
-                        if (_grid[nr][nc] is not null && _grid[nr][nc].Type is null)
-                        {
-                            int fr = nr + DRows[(int)dir];
-                            int fc = nc + DCols[(int)dir];
-                            if (IsInside(fr, fc)) MarkVisible(visible, fr, fc);
-                            continue;
-                        }
-                        MarkVisible(visible, nr, nc);
-                    }
+                    if (room.HasDoor(Direction.Up)) MarkVisible(visible, r - 1, c);
+                    if (room.HasDoor(Direction.Down)) MarkVisible(visible, r + 1, c);
+                    if (room.HasDoor(Direction.Left)) MarkVisible(visible, r, c - 1);
+                    if (room.HasDoor(Direction.Right)) MarkVisible(visible, r, c + 1);
                 }
             }
 
@@ -640,11 +517,7 @@ namespace LostCompound.Maps
             {
                 for (int c = 0; c < _cols; c++)
                 {
-                    if (!visible[r][c] || _grid[r][c] is null) continue;
-                    // 走廊格 / 空白格**不画**：以撒的地图上只有房间，走廊只体现为两间房之间的空隙。
-                    // ⚠️ 走廊的 Type 是 null，而 null != RoomType.Blank —— 少判 `is null` 会让走廊
-                    //    每格都画成一个「 . 」盒子，整张图糊成棋盘（这就是第二版最初的样子）。
-                    if (_grid[r][c].Type is null || _grid[r][c].Type == RoomType.Blank) continue;
+                    if (!visible[r][c] || _grid[r][c] == null) continue;
 
                     int centerRow = 2 * r + 1;
                     int centerCol = RoomCellWidth * c + 2;
@@ -657,7 +530,7 @@ namespace LostCompound.Maps
                     }
                     else if (known)
                     {
-                        label = GetRoomTypeLabel(_grid[r][c].Type ?? RoomType.Blank);
+                        label = GetRoomTypeLabel(_grid[r][c].Type);
                     }
                     else if (_grid[r][c].Type == RoomType.Boss)
                     {
@@ -690,9 +563,13 @@ namespace LostCompound.Maps
                     if (bottomVisible) hasDoor |= _grid[r][c].HasDoor(Direction.Up);
 
                     // 横墙占 `RoomCellWidth - 1` 个字符（右端那一格留给竖墙）。
+                    // 有门时**只挖中间一段**（两边仍留 '-'），画出来是「+-  -+」这种窄门洞。
+                    // 为什么不能整面墙都留空：相邻两间房的墙被整段抹掉后，几间房会连成一条长条，
+                    // 看起来像一整块区域而不是「一间间房 + 一道门」。
                     for (int k = 0; k < RoomCellWidth - 1; k++)
                     {
-                        display[wallRow][wallCol + k] = hasDoor ? ' ' : '-';
+                        bool isDoorGap = hasDoor && k > 0 && k < RoomCellWidth - 2;
+                        display[wallRow][wallCol + k] = isDoorGap ? ' ' : '-';
                     }
                     // 两个墙角：左边在 wallCol-1，右边**正好是 wallCol + RoomCellWidth - 1**
                     // （也就是那道竖墙所在的列）。原先写成 +RoomCellWidth 会多推一格，
@@ -737,50 +614,6 @@ namespace LostCompound.Maps
                     {
                         display[crossRow][crossCol] = '+';
                     }
-                }
-            }
-
-            // 5b. 画走廊：**只画一根连接线**，不画格子。
-            //     稀疏版里两间房中间隔着一格走廊，它如果画成方框，整张图就糊成棋盘；
-            //     画成「横 '-' / 竖 '|'」这一根线，读起来正是以撒那种「房间 + 一段走道」。
-            //     ⚠️ 这一步必须在墙之后：墙会把整行（整列）按门洞填成空格，先画线会被盖掉。
-            for (int r = 0; r < _rows; r++)
-            {
-                for (int c = 0; c < _cols; c++)
-                {
-                    Room cell = _grid[r][c];
-                    if (cell is null || cell.Type is not null) continue;   // 不是走廊
-
-                    // 走廊两端至少有一头是真房间，才值得画（否则是删死区漏下的残渣）
-                    bool touchesVisible = false;
-                    foreach (Direction dir in AllDirections)
-                    {
-                        if (!cell.HasDoor(dir)) continue;
-                        int nr = r + DRows[(int)dir];
-                        int nc = c + DCols[(int)dir];
-                        if (IsInside(nr, nc) && visible[nr][nc]) touchesVisible = true;
-                    }
-                    if (!touchesVisible) continue;
-
-                    bool horizontal = cell.HasDoor(Direction.Left) || cell.HasDoor(Direction.Right);
-                    bool vertical = cell.HasDoor(Direction.Up) || cell.HasDoor(Direction.Down);
-                    int centerRow = 2 * r + 1;
-                    int centerCol = RoomCellWidth * c + 2;
-
-                    if (horizontal)
-                    {
-                        // 横走廊：把这一格的中间一行填满，正好接通左右两间房的门洞
-                        for (int k = 1; k < RoomCellWidth; k++)
-                            display[centerRow][RoomCellWidth * c + k] = '-';
-                    }
-                    if (vertical)
-                    {
-                        // 竖走廊：只在走廊格自己那一行画一根 '|'。
-                        // 上下两条墙的门洞本来就是空着的，线条穿过它们反而会变成「+ |  +」这种噪音。
-                        display[centerRow][centerCol] = '|';
-                    }
-                    if (horizontal && vertical)
-                        display[centerRow][centerCol] = '+';
                 }
             }
 
