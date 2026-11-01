@@ -378,10 +378,18 @@ namespace LostCompound.Maps
 
         public Room[][] Grid => _grid;
 
+        /// <summary>
+        /// 每格房间在图上的**字符宽度**（含右侧那道竖墙）。
+        /// 原来是 4（房间内容 3 字符，只能放下 " F "）—— 用户要求「房间大一点」，改成 6：
+        /// 房间内容 5 字符（"  F  "），看起来是正经一个方框而不是窄缝。
+        /// 代价：地图文本宽度 = cols × 6 + 1，9×9 时是 55 列（原来 37 列）。
+        /// </summary>
+        private const int RoomCellWidth = 6;
+
         public string ToDisplayString()
         {
             int displayRows = _rows * 2 + 1;
-            int displayCols = _cols * 4 + 1;
+            int displayCols = _cols * RoomCellWidth + 1;
             // Java: new char[displayRows][displayCols]；C# 保持交错数组，需要逐行分配并初始化
             char[][] display = new char[displayRows][];
 
@@ -434,13 +442,13 @@ namespace LostCompound.Maps
                     if (!visible[r][c] || _grid[r][c] == null) continue;
 
                     int centerRow = 2 * r + 1;
-                    int centerCol = 4 * c + 2;
+                    int centerCol = RoomCellWidth * c + 2;
                     // 调试全图时把未访问的房间也按真实类型显示（否则整屏都是 ?，全图就没意义了）
                     bool known = _grid[r][c].IsVisited || reveal;
                     string label;
                     if (_grid[r][c].IsVisited && _grid[r][c].IsPlayerHere)
                     {
-                        label = " * ";
+                        label = "  *  ";
                     }
                     else if (known)
                     {
@@ -448,11 +456,11 @@ namespace LostCompound.Maps
                     }
                     else if (_grid[r][c].Type == RoomType.Boss)
                     {
-                        label = " B ";
+                        label = "  B  ";
                     }
                     else
                     {
-                        label = " ? ";   // 未访问但可见，显示未知符号
+                        label = "  ?  ";   // 未访问但可见，显示未知符号
                     }
 
                     display[centerRow][centerCol - 1] = label[0];
@@ -467,7 +475,7 @@ namespace LostCompound.Maps
                 int wallRow = 2 * r;
                 for (int c = 0; c < _cols; c++)
                 {
-                    int wallCol = 4 * c + 1;
+                    int wallCol = RoomCellWidth * c + 1;
                     bool topVisible = (r > 0) && visible[r - 1][c];
                     bool bottomVisible = (r < _rows) && visible[r][c];
                     if (!topVisible && !bottomVisible) continue;
@@ -476,12 +484,16 @@ namespace LostCompound.Maps
                     if (topVisible) hasDoor |= _grid[r - 1][c].HasDoor(Direction.Down);
                     if (bottomVisible) hasDoor |= _grid[r][c].HasDoor(Direction.Up);
 
-                    for (int k = 0; k < 3; k++)
+                    // 横墙占 `RoomCellWidth - 1` 个字符（右端那一格留给竖墙）。
+                    for (int k = 0; k < RoomCellWidth - 1; k++)
                     {
                         display[wallRow][wallCol + k] = hasDoor ? ' ' : '-';
                     }
+                    // 两个墙角：左边在 wallCol-1，右边**正好是 wallCol + RoomCellWidth - 1**
+                    // （也就是那道竖墙所在的列）。原先写成 +RoomCellWidth 会多推一格，
+                    // 在窄格子(4)时刚好落在下一个横墙的起点、看不出来；格子加宽(6)之后就多出一个「++」。
                     SetCross(display, wallRow, wallCol - 1);
-                    SetCross(display, wallRow, wallCol + 3);
+                    SetCross(display, wallRow, wallCol + RoomCellWidth - 1);
                 }
             }
 
@@ -491,7 +503,7 @@ namespace LostCompound.Maps
                 int roomRow = 2 * r + 1;
                 for (int c = 0; c <= _cols; c++)
                 {
-                    int wallCol = 4 * c;
+                    int wallCol = RoomCellWidth * c;
                     bool leftVisible = (c > 0) && visible[r][c - 1];
                     bool rightVisible = (c < _cols) && visible[r][c];
                     if (!leftVisible && !rightVisible) continue;
@@ -510,7 +522,7 @@ namespace LostCompound.Maps
                 for (int c = 0; c <= _cols; c++)
                 {
                     int crossRow = 2 * r;
-                    int crossCol = 4 * c;
+                    int crossCol = RoomCellWidth * c;
                     bool upLeft = (r > 0 && c > 0) && visible[r - 1][c - 1];
                     bool upRight = (r > 0 && c < _cols) && visible[r - 1][c];
                     bool downLeft = (r < _rows && c > 0) && visible[r][c - 1];

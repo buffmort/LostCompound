@@ -19,8 +19,11 @@ namespace LostCompound.Tools
     /// </summary>
     public static class BattleDelay
     {
-        /// <summary>关键节点停多久（毫秒）。用户裁定 80。</summary>
-        public const int NodeDelayMs = 80;
+        /// <summary>一般节点停多久（毫秒）。用户裁定：每次攻击之后 100ms。</summary>
+        public const int NodeDelayMs = 100;
+
+        /// <summary>重要节点停多久（毫秒）。用户裁定：战斗结束等 200ms。</summary>
+        public const int ImportantDelayMs = 200;
 
         /// <summary>是否启用停顿。由 <see cref="Enable"/> / <see cref="Disable"/> 控制。</summary>
         public static bool Enabled { get; private set; }

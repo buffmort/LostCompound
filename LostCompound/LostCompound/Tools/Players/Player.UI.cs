@@ -579,6 +579,22 @@ namespace LostCompound.Tools.Players
                         OpenAccessoryMenu();
                         continue;
                     }
+                    // 地图上也能用调试指令（用户要求）：255 开调试、129 拿道具、130 挂 buff、127 超雄、128 全配方。
+                    // 与战斗里的 case 用同一套 DebugState 守卫 —— 没输 255 时这里什么都不匹配，
+                    // 落到下面的 Move 分支（当成无效方向，行为与乱输数字完全一致）。
+                    if (direction == 255 && !DebugState.Enabled)
+                    {
+                        DebugState.Enable();
+                        Console.WriteLine("已进入 debug 模式！");
+                        DrawScreen(screen, map, tmg);   // 立刻重画：全图可见要马上生效
+                        continue;
+                    }
+                    if (direction is 127 or 128 or 129 or 130 && DebugState.Enabled)
+                    {
+                        RunMapDebugCommand(direction);
+                        DrawScreen(screen, map, tmg);   // 状态可能变了（STR / 配方 / 道具 / buff），立刻刷新
+                        continue;
+                    }
 
                     if (Move((Direction)direction))
                     {
@@ -749,6 +765,35 @@ namespace LostCompound.Tools.Players
             // 而读档路径的 pendingEnter 是 false，不会补发，玩家就少了一轮开局道具。
             // 所以只举一个「走完起点房就存」的牌子，由 RunMainLoop 在 OnEnter 之后执行。
             _saveAfterEnter = true;
+        }
+
+        /// <summary>
+        /// 地图上执行调试指令（与战斗菜单里的 127/128/129/130 同一套行为）。
+        ///
+        /// 为什么抽出来：两个入口（地图方向菜单 / 战斗菜单）都调它，避免两处各写一份。
+        /// 守卫在外层（`case ... when DebugState.Enabled` / `if (DebugState.Enabled)`），
+        /// 这里只负责执行 —— 所以不重复判开关，否则「为什么按了没反应」会多一个来源。
+        /// </summary>
+        private void RunMapDebugCommand(int code)
+        {
+            switch (code)
+            {
+                case 127:
+                    // 时长必须传 Buff.Permanent（-1 哨兵）：传负数会被 Math.Max(turns,0) 夹成 0，
+                    // buff 挂上就判定到期、当场被清掉（这个坑在战斗里修过一次）。
+                    AddBuff(new SuperMaleBuff(1, Buff.Permanent, true));
+                    Console.WriteLine($"超雄模式：STR +1000（永久，跨战斗保留）。当前 STR {Str}");
+                    break;
+                case 128:
+                    UnlockAllRecipes();
+                    break;
+                case 129:
+                    DebugMenu.GiveItems(this);
+                    break;
+                case 130:
+                    DebugMenu.AddBuffTo(this);
+                    break;
+            }
         }
 
         /// <summary>

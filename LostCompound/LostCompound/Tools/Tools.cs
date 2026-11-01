@@ -92,6 +92,7 @@ namespace LostCompound.Tools
                     if (!p.TryConsumeSkipTurn())
                     {
                         p.OnPlayerTurn(monsters, env?.Type ?? EnvType.None);
+                        BattleDelay.Tick();      // 玩家这次行动（攻击/用道具/防御）之后停 100ms
                     }
                     // 输入流已结束（EOF）：玩家已经没法再操作了，继续循环只会一回合接一回合地
                     // 「自动跳过/放弃行动」空转到死。这里直接结束这场战斗 —— 既不算赢也不算输。
@@ -119,6 +120,9 @@ namespace LostCompound.Tools
             }
             finally
             {
+                // 战斗结束是**重要节点**：停 200ms，让「你赢了 / 你死了」和最后一行伤害看得清。
+                BattleDelay.Tick(BattleDelay.ImportantDelayMs);
+
                 // 战斗结束：清空双方的状态效果。
                 // 为什么必须清：流血只在「剩余回合」走完时才消失，而 Player 是跨战斗复用的
                 // 同一个对象 —— 不清的话，上一场战斗里没走完的流血会跟着他进后面每一场战斗，
