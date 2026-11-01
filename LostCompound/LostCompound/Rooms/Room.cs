@@ -8,8 +8,7 @@ namespace LostCompound.Rooms
 {
     public abstract class Room
     {
-        /// <summary>房间类型。**可以为 null**：走廊格不是房间（见 Rooms\Types\CorridorRoom）。</summary>
-        public RoomType? Type { get; }
+        public RoomType Type { get; }
         private readonly bool[] _doors = new bool[4]; // 0上 1下 2左 3右
         public bool IsVisited { get; set; }
         public bool IsCleaned { get; set; }
@@ -20,7 +19,7 @@ namespace LostCompound.Rooms
         // 便捷属性：原来需要枚举的地方（掉落表、怪物生成、环境相关结算等）用它取环境类型
         public EnvType EnvKind => Environment?.Type ?? EnvType.None;
 
-        public Room(RoomType? type, Environment environment)
+        public Room(RoomType type, Environment environment)
         {
             Type = type;
             Environment = environment;
