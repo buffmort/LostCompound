@@ -265,7 +265,7 @@ namespace LostCompound.Tools.Launch
             //（读档路径不走这里，它用存档里记的层数，见 SaveRestorer）。
             GameProgress.StartRun(seed);
 
-            // 地图尺寸随层数长大（GameProgress.MapSizeForLayer，第 1 层 5×5）。
+            // 地图尺寸随层数长大（GameProgress.MapSizeForLayer，第 1 层 7×7，第 10 层 13×13）。
             (int rows, int cols) = GameProgress.MapSizeForLayer(GameProgress.Layer);
             IsaacMazeGenerator tmg = new IsaacMazeGenerator(
                 rows, cols, envType.Value, GameProgress.LayerSeed, GameProgress.Layer);

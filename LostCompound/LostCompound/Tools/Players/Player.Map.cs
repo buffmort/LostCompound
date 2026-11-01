@@ -100,6 +100,44 @@ namespace LostCompound.Tools.Players
                 return false;
             }
 
+            // 稀疏地图里房间之间隔着一格**走廊**（IsaacMazeGenerator 的 CorridorRoom）。
+            // 玩家不该停在走廊里 —— 走廊不画在地图上，`*` 会凭空消失，而且「当前房间」会变成空。
+            // 所以碰到走廊就顺势再走一格：**一次移动 = 从一间房直接到下一间房**。
+            Room firstStep = _map[newRow][newCol];
+            if (firstStep is not null && firstStep.Type is null)
+            {
+                if (!firstStep.HasDoor(direction))
+                {
+                    Console.WriteLine("前面的过道走不通。");
+                    return false;
+                }
+                int farRow = newRow + direction switch
+                {
+                    Direction.Up => -1,
+                    Direction.Down => 1,
+                    _ => 0,
+                };
+                int farCol = newCol + direction switch
+                {
+                    Direction.Left => -1,
+                    Direction.Right => 1,
+                    _ => 0,
+                };
+                if (farRow < 0 || farRow >= _map.Length || farCol < 0 || farCol >= _map[0].Length)
+                {
+                    Console.WriteLine("撞墙了！");
+                    return false;
+                }
+                Room far = _map[farRow][farCol];
+                if (far is null || far.Type is null || far.Type == RoomType.Blank)
+                {
+                    Console.WriteLine("过道那头没有房间。");
+                    return false;
+                }
+                newRow = farRow;
+                newCol = farCol;
+            }
+
             // 离开旧房间（清除玩家标记，触发 OnLeave）
             current.LeaveSetup(this);
 

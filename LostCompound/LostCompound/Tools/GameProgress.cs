@@ -29,25 +29,43 @@ namespace LostCompound.Tools
         /// <summary>最后一层（用户裁定：**10 层**）。打完第 10 层的 Boss 就算通关。</summary>
         public const int FinalLayer = 10;
 
-        /// <summary>第 1 层的地图边长（用户裁定：5×5 起）。</summary>
-        public const int BaseMapSize = 5;
+        /// <summary>第 1 层的地图边长（用户裁定：**7×7 起**，2026-11-01 从 5 放大）。</summary>
+        public const int BaseMapSize = 7;
 
         /// <summary>
-        /// 第 N 层的地图尺寸（用户裁定，方案 **A**：**每两层，行列各 +1**）。
+        /// 「每两层 +1」这条规则用到的最后一层。之后改成**每层 +1**（见 <see cref="MapSizeForLayer"/>）。
+        /// </summary>
+        public const int TwoLayerStepUntil = 6;
+
+        /// <summary>
+        /// 第 N 层的地图尺寸（用户裁定 2026-11-01）：
         ///
-        ///   L1-2  5×5   L3-4  6×6   L5-6  7×7   L7-8  8×8   L9-10 9×9
+        ///   L1-2 7×7   L3-4 8×8   L5-6 9×9   L7 10×10   L8 11×11   L9 12×12   L10 13×13
         ///
-        /// 为什么用 A 而不是「行先行、列后列」的 B：方图换层时「整体放大一圈」读起来更自然，
-        /// 长条形（6×5、7×6）会让玩家觉得某个方向莫名其妙地短一截。
-        /// 第 10 层是 9×9，比原来固定 10×10 还小一档，分栏界面的排版一定放得下。
+        /// 为什么不是「整局每两层 +1」：那只有 5 次 +1，7 + 5 只能到 11×11，
+        /// 而用户要的是「13×13 收」。所以前 6 层沿用每两层 +1（让玩家在开局四层里
+        /// 有充裕的时间熟悉规则），第 7 层起改成**每层 +1** —— 后半程压迫感陡增，
+        /// 也让「再打一层就到底了」这件事在尺寸上看得见。
         ///
+        /// 为什么不用「行先行、列后列」：方图换层时「整体放大一圈」读起来更自然，
+        /// 长条形（8×7、9×8）会让玩家觉得某个方向莫名其妙地短一截。
+        ///
+        /// ⚠️ **宽度是硬约束**：地图文本宽 = 边长 × 5 + 1（见 IsaacMazeGenerator.RoomCellWidth）。
+        ///    13×13 → 66 列，而地图框在 100 列终端里的上限是 72 列（= 100 − 2 − 26），刚好放得下。
+        ///    再大（14×14 = 71 列内容 → 需要 77 列框）就会被裁掉右边一列房间。
+        /// ⚠️ **高度也是硬约束**：地图文本高 = 边长 × 2 + 1（走廊占一整格）。13×13 → 27 行，
+        ///    右列还要再占 状态框6 + Buff框4 + 6 = 16 行，所以终端至少 43 行才不裁下边缘。
+        ///    终端更矮时 ConsoleScreen 会把 MapRows 压小，**地图底部会被截掉**（不报错）。
         /// ⚠️ 尺寸只影响「新生成」的地图；旧存档的 Rows/Cols 存在档里，读档仍按原尺寸重建。
         /// ⚠️ **放射性区域**（未实现）的用户裁定：该环境**固定 10×10**，不吃这个公式 ——
         ///    实现它的时候要在建图处单独覆盖，而不是改这里。
         /// </summary>
         public static (int Rows, int Cols) MapSizeForLayer(int layer)
         {
-            int size = BaseMapSize + (Math.Max(layer, FirstLayer) - 1) / 2;   // 每两层 +1
+            int l = Math.Max(layer, FirstLayer);
+            int size = l <= TwoLayerStepUntil
+                ? BaseMapSize + (l - 1) / 2                                       // 每两层 +1
+                : BaseMapSize + (TwoLayerStepUntil - 1) / 2 + (l - TwoLayerStepUntil); // 每层 +1
             return (size, size);
         }
 

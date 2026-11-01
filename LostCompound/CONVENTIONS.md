@@ -298,7 +298,7 @@ public sealed class Xxx(int count) : Item(ItemIds.Xxx, "名称", 堆叠上限, �
 | `MapEnvironment\` | `LostCompound.MapEnvironment` | `Environment` / `EnvType` / `EnvironmentFactory` / `EnvironmentCatalog` |
 | `MapEnvironment\Environments\` | `LostCompound.MapEnvironment.Environments` | `LavaWaterfall` / `FloodedCavern` |
 | `UI\` | `LostCompound.UI` | `ConsoleScreen` / `LogRegionWriter` |
-| `Maps\` | `LostCompound.Maps` | `TreeMazeGenerator` |
+| `Maps\` | `LostCompound.Maps` | `IsaacMazeGenerator` |
 | `Save\` | `LostCompound.Save` | `SaveData`（DTO）/ `SaveFile`（IO）/ `SaveCollector` / `SaveRestorer` |
 
 ### `Player` 的拆分（partial class）
@@ -368,7 +368,7 @@ int extra = guaranteed + (Random.Shared.NextDouble() < remainder ? 1 : 0);
 
 ### 地图**不存**，只存「种子 + 进度」
 
-地形（房间类型、门的连通）完全由 `TreeMazeGenerator` 的种子决定：**算得出来的东西不进存档。**
+地形（房间类型、门的连通）完全由 `IsaacMazeGenerator` 的种子决定：**算得出来的东西不进存档。**
 所以存档里只有：
 
 | 字段 | 作用 |
@@ -389,11 +389,11 @@ int extra = guaranteed + (Random.Shared.NextDouble() < remainder ? 1 : 0);
    否则读档后「快坏的镐子」会变回满耐久。
 3. **枚举一律存名字，不存数字**（`"LavaWaterfall"` 而非 `0`）。
    存数字的话，将来往枚举中间插一个成员，旧档会整体错位且不报错。
-4. **⚠️ 改了建图逻辑，必须把 `TreeMazeGenerator.GeneratorVersion` + 1。**
+4. **⚠️ 改了建图逻辑，必须把 `IsaacMazeGenerator.GeneratorVersion` + 1。**
    种子的全部魔力是「同一种子 + 同一算法 = 同一张图」。改了任何掷点顺序、概率、房间比例，
    旧档的种子就指向**另一张图** —— 玩家可能站进墙里、宝箱房凭空消失，而且全程不报错。
    版本不符时 `SaveRestorer` 会明确拒绝，这是有意的：宁可读不了，不要安静地变一张图。
-5. **`TreeMazeGenerator` 只能用注入的 `_rng`，绝不能用 `Random.Shared`。**
+5. **`IsaacMazeGenerator` 只能用注入的 `_rng`，绝不能用 `Random.Shared`。**
    后者是进程级实例、**无法播种**，用了它「种子复现」就不成立。
    连带后果：`Shuffle` 必须从 `static` 改成实例方法（它要够到 `_rng`）。
 
@@ -445,7 +445,7 @@ AOT/裁剪下默认被禁用（运行时报 `Reflection-based serialization has 
 |---|---|
 | `BossRoom` 打完龙不再 `Exit(114514)` | **已实现换层**：打赢后举牌 `Player.NextLayerRequested`，由 `RunMainLoop` 的 `AdvanceLayer()` 重建下一层；第 10 层打赢则通关（删档 + `Profile.Clears++`） |
 | 一共 10 层（文档原写 10-12 层） | **用户裁定：10 层**（`GameProgress.FinalLayer`） |
-| 地图固定 10×10（文档 7×7~13×13） | **用户已裁定：不变**，文档与实现的不一致保留 |
+| ~~地图固定 10×10~~ | **已落地**：2026-11-01 按文档改成 7×7~13×13（`GameProgress.MapSizeForLayer`）|
 | 药(20) / 咖啡(30) 的起始道具池状态 | 药**已进开局池**（用户裁定 6）：药已实现（配方 0：红磷 + 水瓶），池中给 **2 药 / 权重 1**（数量 2 按裁定 1 的「全部 +1」）；咖啡(30) 则**完全未实现**，**没进池子**（依赖雾都城市） |
 | 岩浆怪身上的流血也被削 30% | **已知精度损失**：高温免疫在 `TakeDamage` 上生效，无法区分伤害来源。要精确区分需给伤害带来源标记（大改，未做） |
 | `DOT` 字样还出现在若干 `.cs` 注释里 | **历史说明注释**（解释「DOT 机制已删除、改走流血 buff」），不是残留代码 |
