@@ -173,10 +173,9 @@ namespace LostCompound.Tools.Players
         /// <summary>
         /// **分页选择器**：合成表与可合成列表共用。
         ///
-        /// 交互（与调试的「获取道具」一致）：
-        ///   · 一页 <see cref="RecipePageSize"/> 条，用字母 a/b/c… 选；
+        /// 交互：
+        ///   · 一页 <see cref="RecipePageSize"/> 条，用**本页内编号 0~9** 选；
         ///   · `n` 下一页、`p` 上一页（循环，第 1 页按 p 跳到最后一页）；
-        ///   · 数字 = 直接跳页；
         ///   · <see cref="MenuBack"/>（-1）= 返回。
         ///
         /// 返回 <see cref="MenuBack"/> 表示玩家退出；否则返回 0（浏览模式）或选中项的下标
@@ -203,15 +202,16 @@ namespace LostCompound.Tools.Players
                     string mark = markCraftable
                         ? (recipe.CanCraft(this) ? "  ✔" : "  （材料不足）")
                         : "";
-                    char key = (char)('a' + (i - start));
-                    Console.WriteLine("  " + key + ". " + recipe.Name + " " + recipe.DescribeMaterials(this) + mark);
+                    // **编号是本页内的 0 起序号**（0~9），不是全局下标 ——
+                    // 屏幕上一眼能看到的就是这个数，不会出现「翻到第 3 页却要输 23」这种别扭事。
+                    Console.WriteLine("  " + (i - start) + ". " + recipe.Name + " " + recipe.DescribeMaterials(this) + mark);
                 }
 
                 Console.WriteLine(pages > 1
-                    ? "  n=下一页  p=上一页  数字=跳页  " + MenuBack + "=返回"
+                    ? "  n=下一页  p=上一页  " + MenuBack + "=返回"
                     : "  " + MenuBack + "=返回");
 
-                Console.WriteLine("请选择（字母 / n / p / 数字）:");
+                Console.WriteLine("请选择（编号 / n / p）:");
                 string line = Console.ReadLine();
                 if (line == null)
                 {
@@ -232,30 +232,21 @@ namespace LostCompound.Tools.Players
                     page = (page - 2 + pages) % pages + 1;
                     continue;
                 }
-                if (key2.Length == 1 && key2[0] >= 'a' && key2[0] <= 'z')
+                if (int.TryParse(key2, out int typed))
                 {
-                    int index = start + (key2[0] - 'a');
-                    if (index < end)
+                    int local = typed;                 // 本页内序号（0 起）
+                    int index = start + local;
+                    if (local >= 0 && index < end)
                     {
                         selected = index;
-                        // 浏览模式（不可合成标注为 true）选中只是翻页看，不返回
+                        // 浏览模式（markCraftable = true）选中只是继续看，不返回
                         if (markCraftable) continue;
                         return 0;
                     }
-                    Console.WriteLine("这一页没有这个字母。");
+                    Console.WriteLine("这一页没有这个编号（0-" + (end - start - 1) + "）。");
                     continue;
                 }
-                if (int.TryParse(key2, out int typed))
-                {
-                    if (typed >= 1 && typed <= pages)
-                    {
-                        page = typed;
-                        continue;
-                    }
-                    Console.WriteLine("没有这一页。");
-                    continue;
-                }
-                Console.WriteLine("输入无法识别，请输入字母 / n / p / 数字。");
+                Console.WriteLine("输入无法识别，请输入编号 / n / p。");
             }
         }
 
