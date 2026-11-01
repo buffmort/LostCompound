@@ -23,7 +23,7 @@ namespace LostCompound.Save
     {
         private static Player _player;
         private static Room[][] _map;
-        private static TreeMazeGenerator _tmg;
+        private static IsaacMazeGenerator _tmg;
 
         /// <summary>当前是否处在「可以安全存档」的瞬间（方向菜单等输入时）。</summary>
         private static volatile bool _safe;
@@ -44,7 +44,7 @@ namespace LostCompound.Save
         private static SaveData _lastSafeSnapshot;
 
         /// <summary>进入对局：登记当前玩家 / 地图 / 生成器。</summary>
-        public static void Begin(Player player, Room[][] map, TreeMazeGenerator tmg)
+        public static void Begin(Player player, Room[][] map, IsaacMazeGenerator tmg)
         {
             _player = player;
             _map = map;
@@ -105,7 +105,7 @@ namespace LostCompound.Save
                 // 万一此时主线程正在 End()，局部快照保证我们不会拿着半空的对象去用。
                 Player player = _player;
                 Room[][] map = _map;
-                TreeMazeGenerator tmg = _tmg;
+                IsaacMazeGenerator tmg = _tmg;
 
                 if (player == null || map == null || tmg == null) return;   // 不在对局里
                 if (!player.IsAlive) return;                               // 死人不存档

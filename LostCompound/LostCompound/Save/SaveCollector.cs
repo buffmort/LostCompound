@@ -23,9 +23,9 @@ namespace LostCompound.Save
         /// <param name="p">玩家</param>
         /// <param name="map">当前地图（环境对象可从任意房间拿到，同一层共享一个实例）</param>
         /// <param name="tmg">生成器 —— 存档要它的种子，而不是地图本身</param>
-        public static SaveData Capture(Player p, Room[][] map, TreeMazeGenerator tmg)
+        public static SaveData Capture(Player p, Room[][] map, IsaacMazeGenerator tmg)
         {
-            // 环境对象：TreeMazeGenerator 建图时创建一次、所有房间共享，
+            // 环境对象：IsaacMazeGenerator 建图时创建一次、所有房间共享，
             // 所以取哪一格都一样。取 [0][0] 是因为它一定存在（起点房间）。
             Environment env = map[0][0].Environment;
             int cols = map.Length > 0 ? map[0].Length : 0;
@@ -43,7 +43,7 @@ namespace LostCompound.Save
 
                 // 地图只存"能重建它"的参数：种子 + 尺寸 + 算法版本
                 Seed = tmg.Seed,
-                GeneratorVersion = TreeMazeGenerator.GeneratorVersion,
+                GeneratorVersion = IsaacMazeGenerator.GeneratorVersion,
                 Rows = map.Length,
                 Cols = cols,
 

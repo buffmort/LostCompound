@@ -223,7 +223,7 @@ namespace LostCompound.Tools.Launch
 
             Player p = new Player();
             // 地图在 Restorer 里用**种子重新生成**，所以它会连生成器一起交回来
-            if (!SaveRestorer.TryRestore(data, p, out Room[][] map, out TreeMazeGenerator tmg))
+            if (!SaveRestorer.TryRestore(data, p, out Room[][] map, out IsaacMazeGenerator tmg))
             {
                 Console.WriteLine("存档内容无法还原，已返回主菜单。\n");
                 return;
@@ -267,7 +267,7 @@ namespace LostCompound.Tools.Launch
 
             // 地图尺寸随层数长大（GameProgress.MapSizeForLayer，第 1 层 5×5）。
             (int rows, int cols) = GameProgress.MapSizeForLayer(GameProgress.Layer);
-            TreeMazeGenerator tmg = new TreeMazeGenerator(
+            IsaacMazeGenerator tmg = new IsaacMazeGenerator(
                 rows, cols, envType.Value, GameProgress.LayerSeed, GameProgress.Layer);
             tmg.Generate();
             Room[][] map = tmg.Grid;

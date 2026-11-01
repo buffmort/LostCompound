@@ -8,7 +8,7 @@ namespace LostCompound.Save
     /// ─────────────────────────────────────────────────────────────
     /// 【设计核心】地图**不存**，只存「种子 + 进度」。
     ///
-    /// 地形（房间类型、门的连通关系）完全由 `TreeMazeGenerator` 的种子决定：
+    /// 地形（房间类型、门的连通关系）完全由 `IsaacMazeGenerator` 的种子决定：
     /// 种子 + 同一版本的算法 → 必然算出同一张图。既然算得出来，就没必要占存档。
     ///
     /// 但**进度算不出来** —— 「走过哪几格」「搜刮过哪几格」「开局道具发过没」
@@ -61,7 +61,7 @@ namespace LostCompound.Save
         public long Seed { get; set; }
 
         /// <summary>
-        /// 建图算法的版本（`TreeMazeGenerator.GeneratorVersion`）。
+        /// 建图算法的版本（`IsaacMazeGenerator.GeneratorVersion`）。
         /// 与当前代码不一致时，读档会**拒绝**：同一个种子在新算法下是另一张图，
         /// 硬读进来会让玩家站进墙里或让宝箱房凭空消失，而且全程不报错。
         /// </summary>

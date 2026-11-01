@@ -26,7 +26,7 @@ namespace LostCompound.Save
         /// 返回 false 表示存档不可用（调用方负责提示）。
         /// </summary>
         /// <param name="tmg">重建出来的生成器 —— 主循环画地图要用它的 <c>ToDisplayString()</c></param>
-        public static bool TryRestore(SaveData data, Player player, out Room[][] map, out TreeMazeGenerator tmg)
+        public static bool TryRestore(SaveData data, Player player, out Room[][] map, out IsaacMazeGenerator tmg)
         {
             map = null;
             tmg = null;
@@ -40,10 +40,10 @@ namespace LostCompound.Save
             // ---- 1. 算法版本必须先对 ----
             // 种子只有在「同一份建图算法」下才有意义。版本不符时算出来的是另一张图，
             // 静默读进来会让玩家站进墙里、或者让宝箱房凭空消失，而且全程不报错。
-            if (data.GeneratorVersion != TreeMazeGenerator.GeneratorVersion)
+            if (data.GeneratorVersion != IsaacMazeGenerator.GeneratorVersion)
             {
                 Console.WriteLine(
-                    $"[存档] 地图生成算法已更新（存档 {data.GeneratorVersion} / 当前 {TreeMazeGenerator.GeneratorVersion}），" +
+                    $"[存档] 地图生成算法已更新（存档 {data.GeneratorVersion} / 当前 {IsaacMazeGenerator.GeneratorVersion}），" +
                     "旧存档的地形无法还原，本次无法继续。");
                 return false;
             }
@@ -66,7 +66,7 @@ namespace LostCompound.Save
             // 总种子：旧档没有 RunSeed（0），退化成用这一层的种子 —— 至少读档当场是对的，
             // 继续往下的派生种子会与"原本该有的"不同，但那是旧档，允许。
             GameProgress.Restore(data.Layer, data.RunSeed != 0 ? data.RunSeed : data.Seed);
-            tmg = new TreeMazeGenerator(data.Rows, data.Cols, envType, data.Seed, GameProgress.Layer);
+            tmg = new IsaacMazeGenerator(data.Rows, data.Cols, envType, data.Seed, GameProgress.Layer);
             tmg.Generate();
             map = tmg.Grid;
 

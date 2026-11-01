@@ -18,7 +18,7 @@ namespace LostCompound.Tools
     ///      **不提供** `Layer = 5` 这样的 setter；
     ///   ② 改它只该发生在两个时机：**读档**（<see cref="Restore"/>）与
     ///      **打完 Boss 进入下一层**（<see cref="EnterNextLayer"/>）。
-    ///      绝对不要写在 TreeMazeGenerator 的构造函数里 —— 读档会重建地图，
+    ///      绝对不要写在 IsaacMazeGenerator 的构造函数里 —— 读档会重建地图，
     ///      那样「存一次读一次」层数就凭空涨一层。
     /// </summary>
     public static class GameProgress
@@ -97,7 +97,7 @@ namespace LostCompound.Tools
         ///
         /// ⚠️ 乘法会**溢出**（long 只有 64 位，总种子 × 3 就可能越界）。这在 C# 里是
         ///   回绕（unchecked）而不是异常，结果仍是一个「看起来随机」的 64 位数 ——
-        ///   而 <see cref="Maps.TreeMazeGenerator"/> 本来就会把它折成 32 位种子，
+        ///   而 <see cref="Maps.IsaacMazeGenerator"/> 本来就会把它折成 32 位种子，
         ///   所以回绕不影响可用性。唯一要挡的是**乘积恰好为 0**（总种子为 0、或低位的
         ///   2 的因子被乘光）：那会让该层与后续所有层的种子都变成 0，地图全部重复。
         ///   这一句兜底把它退回总种子。

@@ -5,7 +5,7 @@ using LostCompound.Buffs;   // BuffFactory / Buff：debug 130 的按 ID 挂 buff
 using LostCompound.Items;
 using LostCompound.MapEnvironment;
 using LostCompound.Monsters;
-using LostCompound.Maps;    // TreeMazeGenerator：调试战斗也要一张真地图来撑版面
+using LostCompound.Maps;    // IsaacMazeGenerator：调试战斗也要一张真地图来撑版面
 using LostCompound.Rooms;
 using LostCompound.Monsters.Normal;
 using LostCompound.Monsters.Boss;
@@ -105,7 +105,7 @@ namespace LostCompound.Tools.Debug
             // 为什么这么做是安全的：JoinMap 只调用 StartRoom.MarkArrived()，
             // 不会触发 OnEnter —— 所以不会弹「初始物品选择」、不会重复发初始道具。
             // 层数用当前值（调试不推进度）：这样在调试菜单里也能看到「第 N 层的盾兵是 N×10 血」。
-            TreeMazeGenerator tmg = new(10, 10, env.Type, Random.Shared.NextInt64(), GameProgress.Layer);
+            IsaacMazeGenerator tmg = new(10, 10, env.Type, Random.Shared.NextInt64(), GameProgress.Layer);
             tmg.Generate();
             Room[][] map = tmg.Grid;
             p.JoinMap(map);

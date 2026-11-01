@@ -342,7 +342,7 @@ namespace LostCompound.Tools.Players
         /// 用分区布局重画「地图」与「状态」两块固定区域。
         /// 注意这里不再清屏：地图固定在屏幕上方，日志在下方滚动，两者互不影响。
         /// </summary>
-        private void DrawScreen(ConsoleScreen screen, Room[][] map, TreeMazeGenerator tmg)
+        private void DrawScreen(ConsoleScreen screen, Room[][] map, IsaacMazeGenerator tmg)
         {
             screen.DrawMap(tmg.ToDisplayString());
 
@@ -360,7 +360,7 @@ namespace LostCompound.Tools.Players
         /// （<see cref="RunDebugBattleOnScreen"/>）都需要同一套尺寸规则 ——
         /// 各写一遍的话，哪天地图渲染改了列宽，总有一边会错位。
         /// </summary>
-        private static ConsoleScreen CreateScreenFor(TreeMazeGenerator tmg)
+        private static ConsoleScreen CreateScreenFor(IsaacMazeGenerator tmg)
         {
             string[] mapLines = tmg.ToDisplayString().Replace("\r", "").Split('\n');
             int mapColumns = mapLines.Max(line => line.Length);
@@ -382,7 +382,7 @@ namespace LostCompound.Tools.Players
         /// <param name="map">调试用的地图（目前是 10×10 生成图，只为版面与环境）</param>
         /// <param name="monsters">这一场的敌人</param>
         /// <param name="env">环境对象（与 <c>map</c> 里房间用的是同一个实例）</param>
-        public void RunDebugBattleOnScreen(Room[][] map, TreeMazeGenerator tmg, List<Monster> monsters, Environment env)
+        public void RunDebugBattleOnScreen(Room[][] map, IsaacMazeGenerator tmg, List<Monster> monsters, Environment env)
         {
             ConsoleScreen screen = CreateScreenFor(tmg);
             screen.Install();
@@ -405,7 +405,7 @@ namespace LostCompound.Tools.Players
             }
         }
 
-        public void StartGame(Room[][] map, TreeMazeGenerator tmg)
+        public void StartGame(Room[][] map, IsaacMazeGenerator tmg)
         {
             // 第十章「进度解锁」：按累计通关次数补背包容量 / 自带玻璃罐 / 初始 DEF·HP / 配方 1。
             // 只在新开局套用 —— 读档走 ContinueGame，那些加成已经在存档的 BaseXxx 里了。
@@ -424,7 +424,7 @@ namespace LostCompound.Tools.Players
         ///    否则一读档就又打一场已经打过的战斗、再搜一遍已经搜过的空房间。
         /// 3. **站回存档时的格子**，而不是起始房间。
         /// </summary>
-        public void ContinueGame(Room[][] map, TreeMazeGenerator tmg, int row, int col)
+        public void ContinueGame(Room[][] map, IsaacMazeGenerator tmg, int row, int col)
         {
             // 直接落在存档那一格：地图是刚用种子重建的空地图（没有任何 * 标记），
             // 所以不需要「先清标记再补一个」那套麻烦事。
@@ -442,7 +442,7 @@ namespace LostCompound.Tools.Players
         /// 两个入口的差异全部收成参数，**循环本身只有一份** ——
         /// 否则以后改循环（加楼层、加存档点）会漏掉其中一条路径。
         /// </summary>
-        private void RunMainLoop(Room[][] map, TreeMazeGenerator tmg, bool pendingEnter, bool unlockRecipes)
+        private void RunMainLoop(Room[][] map, IsaacMazeGenerator tmg, bool pendingEnter, bool unlockRecipes)
         {
 
             // 分栏界面：尺寸由地图文本决定（行数 = rows*2+1，列数算最长一行）
@@ -676,7 +676,7 @@ namespace LostCompound.Tools.Players
         ///   ① 先 <see cref="GameProgress.EnterNextLayer"/>（层数 +1），
         ///      ② 再用 <see cref="GameProgress.LayerSeed"/> 取新种子 —— 反了就会拿上一层的种子建新图。
         /// </summary>
-        private void AdvanceLayer(ref Room[][] map, ref TreeMazeGenerator tmg, ref ConsoleScreen screen)
+        private void AdvanceLayer(ref Room[][] map, ref IsaacMazeGenerator tmg, ref ConsoleScreen screen)
         {
             GameProgress.EnterNextLayer();
 
@@ -700,7 +700,7 @@ namespace LostCompound.Tools.Players
                 (envName, nextEnvType) = catalog[Random.Shared.Next(catalog.Count)];
             }
 
-            TreeMazeGenerator newTmg =
+            IsaacMazeGenerator newTmg =
                 new(GameProgress.MapSizeForLayer(GameProgress.Layer).Rows,
                     GameProgress.MapSizeForLayer(GameProgress.Layer).Cols,
                     nextEnvType, GameProgress.LayerSeed, GameProgress.Layer);
@@ -757,7 +757,7 @@ namespace LostCompound.Tools.Players
         /// 这里只做「采集 + 写入」两件事，具体怎么采集在 <see cref="SaveCollector"/>，
         /// 怎么落盘在 <see cref="SaveFile"/> —— 本方法不认识 JSON、也不认识文件路径。
         /// </summary>
-        private void SaveCurrentProgress(Room[][] map, TreeMazeGenerator tmg)
+        private void SaveCurrentProgress(Room[][] map, IsaacMazeGenerator tmg)
         {
             if (!IsAlive || map == null)
             {
