@@ -260,31 +260,40 @@ namespace LostCompound.Tools.Players
 
         /// <summary>
         /// 标准合成（合成台，DESIGN §4.2）—— 与「徒手合成」的区别只有一条：
-        /// **能看到的配方 = 全部已实现配方 − 玩家当前已有的配方**（补集）。
+        /// **能拿到的配方 = 全部已实现配方 − 玩家当前已有的配方**（补集）。
         ///
         /// 为什么要补集：合成台是「有工具的地方」，能做出徒手做不了的东西；
         /// 徒手合成没有工具，所以那些配方**离开房间就没了**（用户原话：
         /// 「删除 因为徒手合成没工具所以你合成不了很合理吧」）。
         /// 临时加进来的配方由 <see cref="CraftRoom"/> 在 OnLeave 时移除。
         ///
-        /// 注意：这里的「可合成」仍然看材料够不够 —— 补集里但材料不足的配方照样列出来
-        /// （标「材料不足」），让玩家知道合成台能做什么，而不是把选项藏起来。
+        /// ⚠️ 列表口径与徒手合成**完全一致：只列材料够的**（用户 2026-11-01 明确
+        /// 「Craft 还是一样 只打印能合成的啊」）。补集只影响「有哪些配方可选项」，
+        /// 不影响「列不列出来」—— 材料不足的那些照样出现不了。
         /// </summary>
         public void CraftWithStation()
         {
             Console.WriteLine("====标准合成（合成台）====");
 
-            if (Recipes.Count == 0)
+            List<ICraftable> available = [];
+            foreach (ICraftable recipe in Recipes)
             {
-                Console.WriteLine("你还不会任何配方。");
+                if (recipe.CanCraft(this))
+                {
+                    available.Add(recipe);
+                }
+            }
+
+            if (available.Count == 0)
+            {
+                Console.WriteLine("你没有任何道具合成!");
                 return;
             }
 
-            for (int i = 0; i < Recipes.Count; i++)
+            for (int i = 0; i < available.Count; i++)
             {
-                ICraftable r = Recipes[i];
-                string mark = r.CanCraft(this) ? "" : "（材料不足）";
-                Console.WriteLine(i + ". " + r.Name + " " + r.DescribeMaterials(this) + mark);
+                ICraftable r = available[i];
+                Console.WriteLine(i + ". " + r.Name + " " + r.DescribeMaterials(this));
             }
 
             Console.WriteLine("255. 返回");
@@ -295,18 +304,12 @@ namespace LostCompound.Tools.Players
                 Console.WriteLine("请选择..");
                 choice = ReadInt("选择配方编号");
                 if (choice == 255) return;
-                if (choice >= 0 && choice < Recipes.Count) break;
+                if (choice >= 0 && choice < available.Count) break;
                 if (_inputClosed) return;
-                Console.WriteLine("选择无效! 请重新选择(0-" + (Recipes.Count - 1) + ", 255 返回)");
+                Console.WriteLine("选择无效! 请重新选择(0-" + (available.Count - 1) + ", 255 返回)");
             }
 
-            ICraftable picked = Recipes[choice];
-            if (!picked.CanCraft(this))
-            {
-                Console.WriteLine("材料不足，无法合成" + picked.Name + "!");
-                return;
-            }
-            CraftAndSettle(picked);
+            CraftAndSettle(available[choice]);
         }
 
         /// <summary>
