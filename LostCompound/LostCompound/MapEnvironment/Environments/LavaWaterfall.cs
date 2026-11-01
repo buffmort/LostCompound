@@ -46,10 +46,14 @@ namespace LostCompound.MapEnvironment.Environments
 
         public LavaWaterfall() : base(EnvType.LavaWaterfall) { }
 
-        public override void OnBattleTurn()
+        public override void OnBattleTurn(bool hotRoom)
         {
             // Random.Shared.Next(min, max) 是左闭右开区间，所以要 +1 才包含上限
             int drop = Random.Shared.Next(MinWaterDrop, MaxWaterDrop + 1);
+            // 高温房间：水量消耗**额外 +50%**（设计文档 §5.1）。
+            // 用 Math.Round 而不是直接截断：5~10 的 1.5 倍是 7.5~15，截断会让 5 变成 7、
+            // 7 变成 10，长期下来比「一半的 1.5 倍」少掉一截。四舍五入才是真的 +50%。
+            if (hotRoom) drop = (int)Math.Round(drop * HotRoomWaterMultiplier);
             Water -= drop;
             if (Water < 0) Water = 0;
             // 这里不再直接改玩家：STR 的削弱由 StrModifier 暴露出去，
@@ -65,15 +69,13 @@ namespace LostCompound.MapEnvironment.Environments
         public override double StrModifier => -(MaxWater - Water) * StrPenaltyPerWater;
 
         /// <summary>
-        /// 熔岩瀑布是高温环境 → 木头在这里每回合被烤掉 1 点倒计时，烧完变木炭。
-        /// 覆写基类的 false：能力位由环境自己声明（原先写在 Wood 里比 EnvType）。
+        /// 熔岩瀑布有高温房间（设计文档 §5.1「特殊房间：高温房间」）——
+        /// 建图器据此随机挑约 25% 的房间标成 <see cref="Room.IsHot"/>。
         /// </summary>
-        public override bool BurnsWood => true;
+        public override bool HasHotRooms => true;
 
-        /// <summary>
-        /// 高温同样把硫磺烤成热硫（设计文档 §9 行 1：硫磺「高温房间 3 回合 → 热硫」）。
-        /// </summary>
-        public override bool BurnsSulphur => true;
+        /// <summary>高温房间里的水量消耗倍率（设计文档 §5.1：额外增加 50%）。</summary>
+        public const double HotRoomWaterMultiplier = 1.5;
 
         /// <summary>
         /// 熔岩瀑布有水源（满 200），所以水瓶在这里生效。

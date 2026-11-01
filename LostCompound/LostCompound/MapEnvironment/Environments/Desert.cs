@@ -30,8 +30,8 @@ namespace LostCompound.MapEnvironment.Environments
         {
         }
 
-        /// <summary>沙漠没有每回合的环境推进（水位 / 失水之类都没有）。</summary>
-        public override void OnBattleTurn()
+        /// <summary>沙漠没有每回合的环境推进（水位 / 失水之类都没有），也不理会高温房间。</summary>
+        public override void OnBattleTurn(bool hotRoom)
         {
         }
 

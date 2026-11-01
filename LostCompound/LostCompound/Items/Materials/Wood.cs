@@ -15,16 +15,10 @@ namespace LostCompound.Items.Materials
 
         public void OnBattleStart(Player p, EnvType envType)
         {
-            // 问玩家**当前所在地图的环境对象**「这里的高温会不会把木头烤成炭」，
-            // 不再写 `envType == EnvType.LavaWaterfall`：那样每加一个高温环境
-            // （岩浆池、火山区……）都要回来改这个道具，而且比的是环境枚举、
-            // 与「环境自己声明能力位」这套做法不一致（见 Environment.BurnsWood）。
-            //
-            // 拿得到环境：ITurnCount 的签名里本来就带着 Player（由 Player.HandleChangeableItems 传入），
-            // 而 Player.CurrentEnvironment 读的就是玩家所在房间的环境 —— 战斗中它与
-            // Tools.RunBattle 收到的 env 是同一个对象，所以行为与原先「比 EnvType」等价。
-            // envType 参数保留只是为了不改接口签名（其它道具还在用它）。
-            if (p.CurrentEnvironment?.BurnsWood == true)
+            // 高温现在是**房间级**的（<see cref="Room.IsHot"/>，设计文档 §5.1）：
+            // 不再是「整个熔岩瀑布都烤木头」，而是「只有高温房间烤」。
+            // 判定仍然只问一个能力位，不在道具里比环境枚举。
+            if (p.CurrentRoom?.IsHot == true)
             {
                 Change -= 1;
                 Console.WriteLine("木头:" + Change + "回合之后...");

@@ -485,6 +485,12 @@ namespace LostCompound.Tools.Players
                     if (pendingEnter)
                     {
                         pendingEnter = false;
+                        if (map[PlayerRow][PlayerCol].IsHot)
+                        {
+                            // 高温房间必须**进房就说**（设计文档 §5.1）：它让水量消耗 +50%、
+                            // 还会把背包里的木头/硫磺烤掉，不说等于让玩家白挨。
+                            Console.WriteLine("【高温房间】空气滚烫，水分流失更快，木头和硫磺也会被烤。");
+                        }
                         map[PlayerRow][PlayerCol].OnEnter(this);
 
                         // 换层后的那一次存档：等起点房的 OnEnter（开局三选一）走完再存，

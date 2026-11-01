@@ -172,7 +172,7 @@
 
 ### 5.1 熔岩瀑布（LavaWaterfall）— 固定第一层
 
-- **特殊房间**：高温房间，玩家水量消耗额外增加 50%。
+- **特殊房间**：高温房间，玩家水量消耗额外增加 50%。<br>✅ 已实现（2026-11-01）：**房间级开关** `Room.IsHot`，建图时随机挑约 25% 的房间（每层 4~6 间，起点房除外）标成高温；只有声明了 `Environment.HasHotRooms` 的环境才掷（目前只有熔岩瀑布）。高温房间里：水量消耗 ×1.5、木头 3 场烤成碳、硫磺 3 场烤成热硫。
 - **水量值**：每回合降 5-10（困难 15-20），每降 1 点 STR 降一部分，满水量 200。
 - **事件 1**：-40 水，获得配方 0 任意材料。
 - **事件 2**：空房间，获得水瓶 ×1。
@@ -836,7 +836,7 @@
      只抽「负面的、非永久的」—— 判定走 `Buff.IsDebuff` 能力位，不在道具里 `is` 具体 buff 类；
      随机抽一个（用户原话「随机 debuff 的 turn −2」），所以它不能当万能解药。
    - **高温房间 3 回合 → 热硫**（§9 行 1 早就写了，2026-11-01 才实现）：
-     逐字照抄木头那套 —— 环境自己声明 `BurnsSulphur`（熔岩瀑布 = true），
+     逐字照抄木头那套 —— 判的是**当前房间** `Room.IsHot`（高温是房间级的），
      倒计时只在这样的环境里推进（按战斗场次，与木头同口径），推进到 0 整叠变热硫，倒计时进存档。
 
 > **⚠️ 原文提醒（本次更新时发现，待用户确认）**：
@@ -870,11 +870,11 @@
 | 硫酸剑 | §9 配方 0：铁剑 + 硫酸 → 合成后**立刻消失**并播报那句玩笑（`ShouldRemove` 恒真，`Become` 里播报；`HandCraft` 合成后主动扫一次收尸） |
 | 饰品栏 | 5 格 / 每通关 +1 / 上限 15；战斗菜单第 5 项（方案 B：任何被动物件可装）；卸下时检查背包容量，满了拒绝 |
 | 熔岩瀑布 | 水量 200、每回合 -5~10、STR 惩罚 0.01、战斗掉硫磺 2-5、空房事件 30/30/40 |
-| 硫磺 (1) | §9 行 1：高温房间（Environment.BurnsSulphur，熔岩瀑布覆写为 true）3 场战斗后整叠变热硫（照抄木头那套 ITurnCount + IChangeable，倒计时存档）；**使用**：从自身 Buff.IsDebuff 且非永久的负面状态里随机抽一个，剩余回合 −2，削到 0 即移除；身上没有可削的负面状态时**不消耗**。仅战斗内可用（ExplainBattleOnly）。判定负面与否走 Buff.IsDebuff 能力位 —— 流血/减压病/缺氧/搅乱泥沙/呼吸性碱中毒为 true，锐化/超雄为 false |
+| 硫磺 (1) | §9 行 1：高温房间（`Room.IsHot`）里打 3 场后整叠变热硫（照抄木头那套 ITurnCount + IChangeable，倒计时存档）；**使用**：从自身 Buff.IsDebuff 且非永久的负面状态里随机抽一个，剩余回合 −2，削到 0 即移除；身上没有可削的负面状态时**不消耗**。仅战斗内可用（ExplainBattleOnly）。判定负面与否走 Buff.IsDebuff 能力位 —— 流血/减压病/缺氧/搅乱泥沙/呼吸性碱中毒为 true，锐化/超雄为 false |
 | 水淹洞穴 | 水位 0→15、50%/10%/40% 掷点、到 15 判负、热硫堵口 3 回合、可开采（`CanMine`） |
 | Buff 体系 | `Buff`（`Describe` / `StrBonus` / `AtkBonus` / `DefBonus` / `OnTurnTick`）、`BuffIds`、`BuffFactory`、`Permanent` 永久哨兵；血流量产、超雄综合症、锐化（原「力量」，效果为 +ATK） |
 | 属性机制 | `BaseStr/BaseAtk/BaseDef/BaseHp`（可成长）+ `RecomputeStats()` 统一重算派生值；`Shield`/`Hp` 是资源不参与重算 |
-| 环境能力位 | `CanMine` / `CanMineOre` / `MineOreWithAcid` / `CanRefillWater` / `OnFusionSulphurUsed` / `IsFatalToPlayer` / `GetDamageImmunity` / `BurnsWood` / `BurnsSulphur` / `StrModifier` |
+| 环境能力位 | `CanMine` / `CanMineOre` / `MineOreWithAcid` / `CanRefillWater` / `OnFusionSulphurUsed` / `IsFatalToPlayer` / `GetDamageImmunity` / `HasHotRooms` / `StrModifier` |
 | 道具工厂 | `ItemFactory`（ID → 名称 → 实例，登记 21 个道具）；`Recipe` 用产物工厂（不持有实例） |
 | TUI | 左右分栏 + 四个框（敌人 / 日志 / 输入 / 地图+状态+Buff）；**敌人框按实际怪物数在 1~7 行自适应**（默认 3 行；0 只怪时缩到 1 行，不隐藏框）；`EnemyRows` 变化时整屏重排左列（日志框 / 输入框跟着移动），`LogRows` 至少留 1 行、总高夹到终端高度；分区定位 + 增量重绘；宽字符按 2 列计算 |
 | 战斗 | 战斗循环统一收尸 / 跳过检查 / buff 结算；状态栏显示血量/防御/护盾/力量；敌人列表编号；输错重问不浪费回合 |
@@ -922,11 +922,11 @@
 | **沙漠（Desert）** | ✅ 已实现（`MapEnvironment\Environments\Desert.cs`）：只出沙子、怪物无掉落、战斗菜单第 6 项采沙 5 个 |
 | 其余 4 种环境（矿洞 / 墓地 / 放射性区域 / 雾都城市） | — |
 | 附魔系统（4.4） | 魔法台 + 困难模式 |
-| 层数系统（**10 层**） | ✅ 已实现（2026-10-31）。<br>**层数**：`GameProgress.Layer`（权威）、`tmg.Layer`（图上的快照）、存档 `Layer`。<br>**地图尺寸**：随层数长大，每两层行列各 +1（5×5 → 9×9，`GameProgress.MapSizeForLayer`）；**放射性区域将来固定 10×10**，不吃这个公式。<br>**每层种子**：`SeedForLayer(总种子, 层数) = 总种子 × 层数`（用户裁定；纯函数，读档后算出来的仍一样；乘积回绕成 0 时退回总种子）。总种子 `Random.Shared.NextInt64()` 开局摇一次，存进 `SaveData.RunSeed`。<br>**换层**：`BossRoom` 打赢后举牌 `Player.NextLayerRequested`，由 `Player.RunMainLoop` 调 `AdvanceLayer()` 统一重建（层数 +1 → 取新种子 → 按新尺寸建图 → 回到起点 → **回复 70% 上限的血** → 立刻存档）。环境**随机**（`EnvironmentCatalog` 里抽）。<br>**通关**：第 10 层 Boss 打赢 → `Player.GameCleared` → 删档 + `Profile.Clears++`。<br>⚠️ 还没做：第十章那些「按通关次数解锁」（第 2/4 次通关的背包/饰品成长、第 5 次解锁配方 1、可自选下一层地图）—— `Profile.Clears` 已经在记了，只是没人读它 |
+| 层数系统（**10 层**） | ✅ 已实现（2026-10-31）。<br>**层数**：`GameProgress.Layer`（权威）、`tmg.Layer`（图上的快照）、存档 `Layer`。<br>**地图尺寸**：随层数长大（7×7 → 13×13，前 6 层每两层 +1、第 7 层起每层 +1，`GameProgress.MapSizeForLayer`）；**放射性区域将来固定 10×10**，不吃这个公式。<br>**每层种子**：`SeedForLayer(总种子, 层数) = 总种子 × 层数`（用户裁定；纯函数，读档后算出来的仍一样；乘积回绕成 0 时退回总种子）。总种子 `Random.Shared.NextInt64()` 开局摇一次，存进 `SaveData.RunSeed`。<br>**换层**：`BossRoom` 打赢后举牌 `Player.NextLayerRequested`，由 `Player.RunMainLoop` 调 `AdvanceLayer()` 统一重建（层数 +1 → 取新种子 → 按新尺寸建图 → 回到起点 → **回复 70% 上限的血** → 立刻存档）。环境**随机**（`EnvironmentCatalog` 里抽）。<br>**通关**：第 10 层 Boss 打赢 → `Player.GameCleared` → 删档 + `Profile.Clears++`。<br>⚠️ 还没做：第十章那些「按通关次数解锁」（第 2/4 次通关的背包/饰品成长、第 5 次解锁配方 1、可自选下一层地图）—— `Profile.Clears` 已经在记了，只是没人读它 |
 | 困难 / fatal 模式（2.3） | 通关系统 |
 | Hyberty Boss 战（第三章） | — |
 | 转化仓（3.4） | Hyberty |
-| 「高温房间」特殊房间（5.1） | — |
+| ~~「高温房间」特殊房间（5.1）~~ | ✅ 已实现（2026-11-01）：房间级 `Room.IsHot`，约 25% 房间随机高温，水量 ×1.5 + 烤木头/硫磺。见 §5.1 |
 | 合成台 / 魔法台房间（4.2 / 4.3） | — |
 | ~~背包容量的成长~~ | ✅ 已接上：`ProgressUnlocks.ApplyToNewRun`（第 2 次 +3 → 18、第 4 次 +4 → 22） |
 | 饰品栏的「每通关 +1」 | `GrowAccessorySlots()` 已写好，**但第十章的表里没有这一条** —— 出处待用户确认后再接 |

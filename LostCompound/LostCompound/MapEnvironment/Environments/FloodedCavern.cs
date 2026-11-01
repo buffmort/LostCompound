@@ -72,7 +72,11 @@ namespace LostCompound.MapEnvironment.Environments
         /// <summary>判负文案：与原先写死在战斗循环里的那句逐字一致。</summary>
         public override string FatalMessage => "水位涨到了极限，整个洞穴被淹没——你失去了意识……";
 
-        public override void OnBattleTurn()
+        /// <summary>
+        /// 每回合推进水位。<paramref name="hotRoom"/> 在这里不用 —— 高温房间只影响水量消耗，
+        /// 水淹洞穴管的是**水位**（涨水），与玩家的水壶无关。
+        /// </summary>
+        public override void OnBattleTurn(bool hotRoom)
         {
             // 被堵住时只走倒计时，且完全不掷随机数 —— 设计文档说「堵住后水位不再上涨」，
             // 堵住期间不应该留下任何涨水的可能。

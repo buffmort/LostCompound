@@ -38,12 +38,18 @@ namespace LostCompound.MapEnvironment
         /// 注意这里**不接收 Player**：环境只负责推进自己，对玩家的影响通过
         /// <see cref="StrModifier"/> 这类「修正量」暴露出去，由 Player 重算时统一读取。
         ///
+        /// <paramref name="hotRoom"/> = 玩家当前所在的房间是不是高温房间
+        /// （<see cref="Rooms.Room.IsHot"/>）。为什么用参数传、不让环境自己去查房间：
+        /// 环境对象是**整层共享**的，它没有「玩家在哪」这个概念；
+        /// 而且这样环境仍然不依赖 Player（与「环境只推进自己」的纪律一致）。
+        /// 目前只有熔岩瀑布读它（水量消耗 +50%）。
+        ///
         /// 为什么不让环境直接改玩家（曾经这么做过，已改回）：
         ///   改 STR 的来源不止一个 —— 环境、buff、将来的装备都要参与。
         ///   如果各自都往 p.Str 上写就会互相覆盖；写成 += 又会累加、没人负责恢复。
         ///   统一成「大家都只提供修正量，由 Player 一处重算」，才不会打架。
         /// </summary>
-        public abstract void OnBattleTurn();
+        public abstract void OnBattleTurn(bool hotRoom);
 
         /// <summary>
         /// 对玩家 STR 的修正量（负值表示削弱，如熔岩瀑布缺水）。
@@ -181,25 +187,17 @@ namespace LostCompound.MapEnvironment
         public virtual Item MineOreWithAcid() => null;
 
         /// <summary>
-        /// 本环境的高温是否会把木头烤成炭（木头道具的倒计时只在这样的环境里推进）。
-        /// 默认 false，熔岩瀑布覆写为 true。
+        /// 这一层**有没有高温房间**（设计文档 §5.1：熔岩瀑布的特殊房间）。
+        /// 默认 false，熔岩瀑布覆写为 true —— 由建图器据此决定要不要随机挑房间标成高温。
         ///
-        /// 为什么放在基类、而不是在 <see cref="Items.Wood"/> 里判断具体类型：
-        ///   原先木头写的是 `if (envType == EnvType.LavaWaterfall) Change -= 1;` ——
-        ///   每加一个高温环境（岩浆池、火山区、着火的房间……）都要回来改这个道具，
-        ///   而且它比的是**环境枚举**，与「环境对象自己声明能力」这套做法不一致
-        ///   （见 CanMine / CanRefillWater / IsFatalToPlayer）。
+        /// 为什么是「环境声明有没有」而不是在生成器里比 <c>envType == LavaWaterfall</c>：
+        /// 与 CanMine / BurnsSulphur 那一批能力位同一套做法 —— 以后加一个火山区，
+        /// 生成器一行都不用改。
+        ///
+        /// ⚠️ 高温**不是**环境级的了：热量挂在房间上（<see cref="Rooms.Room.IsHot"/>），
+        ///    所以「整个熔岩瀑布都烤木头」已经改成「只有高温房间烤木头」。
         /// </summary>
-        public virtual bool BurnsWood => false;
-
-        /// <summary>
-        /// 本环境的高温是否会把**硫磺烤成热硫**（硫磺道具的倒计时只在这样的环境里推进）。
-        /// 默认 false，熔岩瀑布覆写为 true —— 与 <see cref="BurnsWood"/> 成对出现：
-        /// 高温对木头和硫磺是同一件事，分成两个能力位只是为了让「某环境只烤木头不烤硫磺」
-        /// 这种将来的特例不用改道具。
-        /// 设计文档 §9 行 1：硫磺「高温房间 3 回合 → 热硫」。
-        /// </summary>
-        public virtual bool BurnsSulphur => false;
+        public virtual bool HasHotRooms => false;
 
         /// <summary>
         /// 热硫在本环境被使用时的额外环境效果（设计文档 5.2：堵住水淹洞穴的出水口）。

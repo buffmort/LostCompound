@@ -57,8 +57,10 @@ namespace LostCompound.Tools
                     ApplyBuffs(p, monsters);
 
                     // ── 2. 环境推进：每个大回合一次（如熔岩瀑布每回合掉水）──
-                    // 环境只推进自己；它对玩家的影响（如缺水扣 STR）由 Player 重算时读取
-                    env?.OnBattleTurn();
+                    // 环境只推进自己；它对玩家的影响（如缺水扣 STR）由 Player 重算时读取。
+                    // 高温房间（设计文档 §5.1）也在这里告诉环境：热量挂在**房间**上，
+                    // 而环境对象是整层共享的，它自己查不到玩家站在哪一间。
+                    env?.OnBattleTurn(p.CurrentRoom?.IsHot == true);
 
                     // 环境自己声明的「玩家必败」条件（如水淹洞穴水位满）→ 全部对象死亡，玩家直接算输。
                     // 为什么改成问能力：原先这里写的是 `env is FloodedCavern`，等于把某个环境的具体

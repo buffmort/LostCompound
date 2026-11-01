@@ -83,9 +83,9 @@ namespace LostCompound.Items.Materials
 
         public void OnBattleStart(Player p, EnvType envType)
         {
-            // 与木头同一套：问「玩家当前所在房间的环境」会不会烤硫磺，
-            // 而不是比 envType —— 每加一个高温环境（岩浆池、火山区……）都不用回来改这里。
-            if (p.CurrentEnvironment?.BurnsSulphur != true) return;
+            // 高温现在是**房间级**的（<see cref="Room.IsHot"/>，设计文档 §5.1）：
+            // 只有站在高温房间里打，倒计时才推进 —— 与木头同一口径。
+            if (p.CurrentRoom?.IsHot != true) return;
 
             Change -= 1;
             Console.WriteLine(Change > 0

@@ -97,8 +97,9 @@ namespace LostCompound.Maps
         ///   3 = 以撒式·稀疏走廊版（房间隔走廊 + 层尺寸 7→13 + 格子宽 5）—— 2026-11-01 当天被用户否掉
         ///   4 = 以撒式·**无走廊**版（房间相邻 + 禁止 2×2 房间块 + 层尺寸 7→13 + 格子宽 5）
         ///   5 = 战斗房比例 45% → **67%**（用户要求一局 75 场战斗）
+        ///   6 = 高温房间（约 25% 的房间置 IsHot，仅熔岩瀑布）—— 2026-11-01
         /// </summary>
-        public const int GeneratorVersion = 5;
+        public const int GeneratorVersion = 6;
 
         public IsaacMazeGenerator(int rows, int cols, EnvType envType, long seed, int layer)
         {
@@ -189,6 +190,12 @@ namespace LostCompound.Maps
 
         /// <summary>加环概率：相邻但还没门的两间房，按这个概率打通（用户裁定 20%）。</summary>
         public const double LoopChance = 0.2;
+
+        /// <summary>
+        /// 高温房间占比（用户裁定 2026-11-01：约 25%，熔岩瀑布每层 4~6 间）。
+        /// 只对声明了 <see cref="MapEnvironment.Environment.HasHotRooms"/> 的环境生效。
+        /// </summary>
+        public const double HotRoomRatio = 0.25;
 
         /// <summary>
         /// 生成整层（**以撒式房间图**）。三步：
@@ -314,6 +321,30 @@ namespace LostCompound.Maps
                     _ => _rng.NextDouble() < FightRoomRatio ? new FightRoom(_env) : new EmptyRoom(_env),
                 };
                 _grid[cell.Row][cell.Col] = CreateKeepingDoors(cell, replacement);
+            }
+
+            // ── ④ 高温房间（设计文档 §5.1）──
+            // 只有环境自己声明了 HasHotRooms 才掷（目前只有熔岩瀑布），所以其它层的
+            // 掷点顺序完全不受影响。放在**最后**：上面的 ReplaceRoom 会换掉房间实例，
+            // 先置位会被换成新对象时丢掉。
+            // 起点房不参与：玩家一睁眼就站在里面，躲都没法躲，那不叫「特殊房间」。
+            // ⚠️ 必须写 `_env?.`：EnvType.None 的层根本没有环境对象（EnvironmentFactory 返回 null），
+            //    直接 _env.HasHotRooms 会在「无环境」的层上抛 NullReferenceException。
+            if (_env?.HasHotRooms == true)
+            {
+                List<(int Row, int Col)> candidates = [];
+                foreach ((int Row, int Col) cell in rooms)
+                {
+                    if (cell == origin) continue;
+                    candidates.Add(cell);
+                }
+                Shuffle(candidates);   // 用注入的 _rng：高温房的位置也必须由种子决定
+                int hotCount = (int)Math.Round(rooms.Count * HotRoomRatio);
+                hotCount = Math.Clamp(hotCount, 1, candidates.Count);
+                for (int i = 0; i < hotCount; i++)
+                {
+                    _grid[candidates[i].Row][candidates[i].Col].IsHot = true;
+                }
             }
 
             // ── 局部函数 ──

@@ -37,6 +37,14 @@ namespace LostCompound.Tools.Players
             }
         }
 
+        /// <summary>
+        /// 玩家当前所在的房间（可能为 null：还没进地图 / 坐标失效）。
+        /// 为什么要它：**高温**是挂在房间上的（<see cref="Room.IsHot"/>），而环境对象整层共享、
+        /// 不知道玩家站在哪 —— 木头的倒计时、硫磺的倒计时、水量消耗都得问「当前这一间热不热」。
+        /// 与 <see cref="CurrentEnvironment"/> 同一套：internal，只给同程序集的道具 / 战斗循环用。
+        /// </summary>
+        internal Room CurrentRoom => _map == null ? null : _map[PlayerRow][PlayerCol];
+
         public void ShowAvailableDirections()
         { //检查可以走的方向
             Console.WriteLine("可行动方向：");
