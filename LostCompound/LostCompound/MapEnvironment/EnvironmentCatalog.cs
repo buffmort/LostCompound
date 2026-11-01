@@ -1,4 +1,4 @@
-﻿namespace LostCompound.MapEnvironment
+namespace LostCompound.MapEnvironment
 {
     /// <summary>
     /// 「已实现的环境」清单 —— 菜单、调试菜单都从这里取，避免两处手抄走样。
@@ -21,5 +21,40 @@
             ("水淹洞穴", EnvType.FloodedCavern),
             ("沙漠", EnvType.Desert),
         ];
+
+        /// <summary>
+        /// **第 1 层固定是熔岩瀑布**（用户 2026-11-01 裁定：设计文档 §5.1 的「固定第一层」）。
+        /// 第 2 层起**永远不再是熔岩瀑布**，只在其余环境里随机 / 自选。
+        /// </summary>
+        public const EnvType FirstLayerEnv = EnvType.LavaWaterfall;
+
+        /// <summary>
+        /// 第 <paramref name="layer"/> 层**可以**出现的环境清单。
+        ///
+        ///   · 第 1 层：只有熔岩瀑布（固定，不给选）；
+        ///   · 第 2 层起：熔岩瀑布**被排除**，其余环境照常随机 / 自选。
+        ///
+        /// 为什么收成一个方法而不是在两个调用点各写一遍筛选：
+        ///   「哪些层能有熔岩瀑布」是一条规则，散成两处必然有一天只改一边
+        ///   （自选菜单里还有熔岩瀑布、随机却已经排掉它，就是最典型的走样形态）。
+        /// </summary>
+        public static IReadOnlyList<(string Name, EnvType Type)> ForLayer(int layer)
+        {
+            if (layer <= 1)
+            {
+                return All.Where(entry => entry.Type == FirstLayerEnv).ToList();
+            }
+            return All.Where(entry => entry.Type != FirstLayerEnv).ToList();
+        }
+
+        /// <summary>显示名查表；清单里没有（如 <see cref="EnvType.None"/>）就返回「无环境」。</summary>
+        public static string NameOf(EnvType type)
+        {
+            foreach ((string name, EnvType value) in All)
+            {
+                if (value == type) return name;
+            }
+            return "无环境";
+        }
     }
 }

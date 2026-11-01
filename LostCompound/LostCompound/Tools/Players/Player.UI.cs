@@ -704,7 +704,10 @@ namespace LostCompound.Tools.Players
 
             // 环境：默认**随机**；若这一层在「可自选」范围内（第十章第 1/3/5/7 次通关解锁，
             // 见 ProgressUnlocks.CanSelfSelectLayer），则让玩家自己挑 —— 菜单里 0 = 仍然随机。
-            IReadOnlyList<(string Name, EnvType Type)> catalog = EnvironmentCatalog.All;
+            // ⚠️ 清单必须按**层数**取（EnvironmentCatalog.ForLayer）：
+            //    熔岩瀑布固定第 1 层，第 2 层起永远不再出现（用户裁定 2026-11-01）。
+            //    这里若直接用 EnvironmentCatalog.All，自选菜单里就又能选到熔岩瀑布了。
+            IReadOnlyList<(string Name, EnvType Type)> catalog = EnvironmentCatalog.ForLayer(GameProgress.Layer);
             string envName;
             EnvType nextEnvType;
             if (catalog.Count == 0)

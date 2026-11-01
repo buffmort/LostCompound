@@ -242,18 +242,13 @@ namespace LostCompound.Tools.Launch
             Console.WriteLine(">>> 开始游戏");
             Console.WriteLine();
             Console.WriteLine();
-            // 先让玩家挑本层环境，再用挑到的环境建图。
-            // 注意：类型名必须写全 EnvType —— 环境类 LostCompound.MapEnvironment.LavaWaterfall
-            // 与枚举成员同名，用简单名会产生二义性（CS0229）。
-            // SelectEnvironment 返回 null = 输入流结束、没得选（见下面的处理）。
-            EnvType? envType = SelectEnvironment();
-            if (envType == null)
-            {
-                // 输入流结束：环境没得选，这一层就不建了（主菜单随后会自己退出）。
-                // 这样 EOF 下不会先花时间建图、再进一局注定立刻退出的游戏。
-                Console.WriteLine("已取消开局。\n");
-                return;
-            }
+            // 第 1 层的环境**固定是熔岩瀑布**（用户裁定 2026-11-01：不给选）。
+            // 以前这里是「让玩家挑本层环境」，现在只有第 2 层起才会出现选择（见 Player.AdvanceLayer）；
+            // 开局直接按 EnvironmentCatalog.FirstLayerEnv 建图。
+            // ⚠️ 类型名必须写全 EnvType —— 环境类 LostCompound.MapEnvironment.LavaWaterfall
+            //    与枚举成员同名，用简单名会产生二义性（CS0229）。
+            EnvType envType = EnvironmentCatalog.FirstLayerEnv;
+            Console.WriteLine("第 1 层：" + EnvironmentCatalog.NameOf(envType));
             // 摇一个本局**总种子**。整局的地图都由它派生：
             //   第 N 层的种子 = GameProgress.SeedForLayer(总种子, N)
             // 存档里存总种子 + 层数 + 当前层种子，读档时能重算出同一张图，
@@ -268,56 +263,13 @@ namespace LostCompound.Tools.Launch
             // 地图尺寸随层数长大（GameProgress.MapSizeForLayer，第 1 层 7×7，第 10 层 13×13）。
             (int rows, int cols) = GameProgress.MapSizeForLayer(GameProgress.Layer);
             IsaacMazeGenerator tmg = new IsaacMazeGenerator(
-                rows, cols, envType.Value, GameProgress.LayerSeed, GameProgress.Layer);
+                rows, cols, envType, GameProgress.LayerSeed, GameProgress.Layer);
             tmg.Generate();
             Room[][] map = tmg.Grid;
             Player p = new Player();
             p.StartGame(map, tmg);
         }
 
-        /// <summary>
-        /// 让玩家选择本层环境，返回对应的 <see cref="EnvType"/>。
-        /// 返回 <c>null</c> = 输入流已结束（EOF），没能选出环境，由调用方取消这次开局。
-        ///
-        /// 清单来自 <see cref="EnvironmentCatalog"/>（只列**已实现**的环境：
-        /// 未实现的环境会让 EnvironmentFactory.Create 返回 null，整层的环境机制
-        /// （水量、水位等）就静默失效，玩家看到的是一张「没有环境」的地图。
-        /// 所以每实现一个环境就往那个清单里加一行，而不是直接遍历 EnvType 全枚举）。
-        /// 原先这份列表与 DebugMenu.SelectEnvironment 各抄一份，现在共用数据源。
-        /// 文案与交互完全不变：编号从 1 开始、越界重问。
-        ///
-        /// 输入沿用 <see cref="ReadChoice"/> 的容错写法（TryParse），不引入 int.Parse。
-        /// </summary>
-        private EnvType? SelectEnvironment()
-        {
-            while (true)
-            {
-                Console.WriteLine("------------ 选择本层环境 ------------");
-                for (int i = 0; i < EnvironmentCatalog.All.Count; i++)
-                {
-                    Console.WriteLine("  " + (i + 1) + ". " + EnvironmentCatalog.All[i].Name);
-                }
-                Console.WriteLine("--------------------------------------");
-
-                int? choice = ReadChoice();
-                if (choice == null)
-                {
-                    // 输入流结束：这里永远选不出环境了，重问只会空转。交回 null 让调用方取消开局。
-                    Console.WriteLine();
-                    return null;
-                }
-                if (choice.Value < 1 || choice.Value > EnvironmentCatalog.All.Count)
-                {
-                    // 越界就重问，和主菜单「没有这个选项。」保持同一套容错风格
-                    Console.WriteLine("没有这个选项。\n");
-                    continue;
-                }
-
-                (string Name, EnvType Type) pick = EnvironmentCatalog.All[choice.Value - 1];
-                Console.WriteLine("你选择了：" + pick.Name);
-                return pick.Type;
-            }
-        }
 
         private void ConfirmExit()
         {
