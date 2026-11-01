@@ -56,7 +56,7 @@ namespace LostCompound.Save
     ///    <code>
     ///    {
     ///      "Version": 3,
-    ///      "Hash": "……base64 的 HMAC-SHA256……",
+    ///      "Hash": "……base64 的 SHA256(载荷 + 后缀)……",
     ///      "Payload": "……base64 的存档 JSON……"
     ///    }
     ///    </code>
@@ -66,29 +66,33 @@ namespace LostCompound.Save
     ///    代价：**存档不再是人类可读的 JSON**（base64 看着像乱码），
     ///      想调试就用 <see cref="SaveFile.FormatVersion"/> 之外的临时手段解一下。
     ///
-    ///    为什么用 HMAC 而不是裸 SHA256：
+    ///    为什么签名要拼一个后缀（<see cref="HashSuffix"/>）、而不是裸 SHA256：
     ///      裸 SHA256 谁都能重算 —— 改了存档里的血量，重新算一次 SHA256 填回去，
-    ///      校验照样通过，等于没锁。HMAC 掺了一个**只在程序里**的密钥，
-    ///      不知道密钥就算不出正确的签名（密钥在二进制里，够挡住手改，但不是密码学级别的 secrecy）。
+    ///      校验照样通过，等于没锁。把一段**只在程序里的**固定字符串拼到载荷末尾再算，
+    ///      不知道这段字符串的人算出来的签名必然对不上，二次解码再编码就会失效。
+    ///      （后缀在二进制里，够挡住手改，但不是密码学级别的 secrecy。）
     ///    这是**完整性校验**，不是加密：没有隐藏内容的意思，只是「内容被动过」。
     /// ─────────────────────────────────────────────────────────────
     /// </summary>
     public static class SaveFile
     {
         /// <summary>
-        /// 当前存档格式版本。**3 = 加了 HMAC 信封的格式**（旧版是裸 JSON，读不出来会按校验失败删档）。
+        /// 当前存档格式版本。**3 = 加了签名信封的格式**（旧版是裸 JSON，读不出来会按校验失败删档）。
         /// </summary>
         public const int CurrentVersion = 3;
 
         /// <summary>
-        /// 签名密钥。⚠️ 改了它 = 所有旧存档校验失败 → 全部删档，所以不要随手改。
-        /// 它不是「密码」：真正想作弊的人可以反编译把密钥挖出来 —— 这里挡的是手改存档。
+        /// 签名时**拼在载荷末尾的固定后缀**（用户 2026-11-01 定：用「HYB」当密钥）。
+        ///
+        /// 它的作用是：别人拿到存档、解开 base64、改完内容再自己算一遍 SHA256 填回去 ——
+        /// **不知道这个后缀就算不出能对上的签名**，所以二次解码再编码会失效。
+        /// （前缀/后缀都行，这里用后缀是因为它对应「解码时反着来」：先验签，验过了才去掉后缀。）
+        ///
+        /// ⚠️ 改了它 = 所有旧存档校验失败 → 全部删档，所以不要随手改。
         /// </summary>
-        private static readonly byte[] HashKey =
-        [
-            0x4C, 0x6F, 0x73, 0x74, 0x43, 0x6F, 0x6D, 0x70, 0x6F, 0x75, 0x6E, 0x64,   // "LostCompound"
-            0x2D, 0x53, 0x61, 0x76, 0x65, 0x2D, 0x76, 0x33,                               // "-Save-v3"
-        ];
+        private const string HashSuffix = "HYB";
+
+        private static readonly byte[] HashSuffixBytes = Encoding.UTF8.GetBytes(HashSuffix);
 
         /// <summary>存档文件名。</summary>
         private const string FileName = "save.json";
@@ -226,7 +230,7 @@ namespace LostCompound.Save
                 return RejectSave("存档版本不兼容。");
             }
 
-            // ---- ② 验签：重算 HMAC，和文件里写的比 ----
+            // ---- ② 验签：重算 SHA256(载荷 + 后缀)，和文件里写的比 ----
             byte[] payload;
             try
             {
@@ -288,13 +292,19 @@ namespace LostCompound.Save
         }
 
         /// <summary>
-        /// 对一段字节算 HMAC-SHA256，返回 base64。
-        /// `using` 用来保证 HMACSHA256 用完释放（它内部持有非托管资源）。
+        /// 对一段字节算 SHA256（**先把 <see cref="HashSuffix"/> 拼到末尾**），返回 base64。
+        ///
+        /// 为什么不是裸 SHA256(payload)：任何人解开 base64、改掉血量、再算一次 SHA256 填回去，
+        /// 校验照样通过，等于没锁。拼上一个只在程序里的后缀之后，
+        /// 「不知道后缀的重算」必然对不上，所以二次解码再编码会失效。
+        /// 这是**完整性校验**，不是加密：内容没被隐藏（base64 解一下就能看）。
         /// </summary>
         private static string ComputeHash(byte[] payload)
         {
-            using HMACSHA256 hmac = new(HashKey);
-            return Convert.ToBase64String(hmac.ComputeHash(payload));
+            byte[] salted = new byte[payload.Length + HashSuffixBytes.Length];
+            Buffer.BlockCopy(payload, 0, salted, 0, payload.Length);
+            Buffer.BlockCopy(HashSuffixBytes, 0, salted, payload.Length, HashSuffixBytes.Length);
+            return Convert.ToBase64String(SHA256.HashData(salted));
         }
 
         /// <summary>删除存档（玩家死亡时调用；校验失败时也走它）。删除失败不影响游戏。</summary>

@@ -380,16 +380,19 @@ int extra = guaranteed + (Random.Shared.NextDouble() < remainder ? 1 : 0);
 
 体积：**15.9 KB → 0.96 KB**，而且地形只有一个真相源（不会出现「存档里的地形与种子算出的不一致」）。
 
-### 存档带校验（HMAC 信封，2026-11-01）
+### 存档带校验（签名信封，2026-11-01）
 
 `save.json` 不是裸 JSON 了，而是一个**信封**：
 
 ```json
-{ "Version": 3, "Hash": "base64(HMAC-SHA256(密钥, 载荷字节))", "Payload": "base64(存档 JSON)" }
+{ "Version": 3, "Hash": "base64(SHA256(载荷字节 + 固定后缀))", "Payload": "base64(存档 JSON)" }
 ```
 
-- 密钥是 `SaveFile.HashKey` 里的常量 —— **改了它 = 所有旧档校验失败 → 全部删档**，别随手改。
-- 读档时重算 HMAC，和文件里的比（`CryptographicOperations.FixedTimeEquals`）。
+- 那个「固定后缀」是 `SaveFile.HashSuffix` 里的常量（**故意不写进文档**）——
+  它的意义是：别人解开 base64、改完内容、再自己算一遍 SHA256 填回去时，
+  **不知道后缀就算不出能对上的签名**，于是二次解码再编码会失效。
+- ⚠️ **改了它 = 所有旧档校验失败 → 全部删档**，别随手改。
+- 读档时重算签名，和文件里的比（`CryptographicOperations.FixedTimeEquals`）。
 - **校验不过就删档**（用户 2026-11-01 裁定）：JSON 坏 / 缺字段 / 版本不对 / base64 坏 / 签名对不上，
   全部走同一个出口 `SaveFile.RejectSave`（打印原因 → `Delete()` → 返回 null）。
   理由：一份读不出来的档留着只会让「继续游戏」每次都失败一次。
