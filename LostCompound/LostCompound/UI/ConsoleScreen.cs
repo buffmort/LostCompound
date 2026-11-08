@@ -576,9 +576,16 @@ namespace LostCompound.UI
             int step = Math.Sign(target - _logScroll);
             try
             {
-                while (_logScroll != target)
+                // 每帧挪 ScrollRowsPerFrame 行，而不是 1 行：
+                // Windows 的默认计时器精度约 15.6ms，Thread.Sleep(7) 实际也会睡满一个 tick ——
+                // 所以想「变快一倍」只能减少**帧数**，光调小睡眠时长是无效的（Hyberty 2026-11-08 要求快 2 倍）。
+                int remainingRows = Math.Abs(target - _logScroll);
+                while (remainingRows > 0)
                 {
-                    _logScroll += step;
+                    int move = Math.Min(ScrollRowsPerFrame, remainingRows);
+                    _logScroll += step * move;
+                    remainingRows -= move;
+
                     RedrawLogFrame();   // 每帧都刷标题，▲N 会跟着一起变
                     RedrawLog();
                     Thread.Sleep(ScrollFrameDelayMs);
@@ -597,6 +604,12 @@ namespace LostCompound.UI
 
         /// <summary>滚动动画每帧停多久（毫秒）。</summary>
         private const int ScrollFrameDelayMs = 15;
+
+        /// <summary>
+        /// 每帧滚几行。**调这个才是调速度**（调 <see cref="ScrollFrameDelayMs"/> 会被
+        /// Windows 的 15.6ms 计时器精度吃掉）。2 = 比最初的一行一帧快一倍。
+        /// </summary>
+        private const int ScrollRowsPerFrame = 2;
 
         /// <summary>一次最多动画多少帧 —— 超过就瞬移，避免一下卡住半秒。</summary>
         private const int MaxAnimatedSteps = 40;
