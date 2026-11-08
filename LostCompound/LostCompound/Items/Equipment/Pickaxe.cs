@@ -1,4 +1,4 @@
-﻿using LostCompound.Monsters;
+using LostCompound.Monsters;
 using LostCompound.Tools;
 using LostCompound.Items;
 using LostCompound.Items.Capabilities;
@@ -76,7 +76,8 @@ namespace LostCompound.Items.Equipment
             // （当成 0 会让读档瞬间「镐子坏了」）。
             if (state.TryGetValue(StateKeyDurability, out int durability))
             {
-                Durability = durability;
+                // 夹到 [0, 20]（构造时的默认值）：改过的存档能写进 999 耐久
+                Durability = Math.Clamp(durability, 0, 20);
             }
         }
     }

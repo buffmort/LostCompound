@@ -45,37 +45,45 @@ namespace LostCompound.Tools.Players
         /// </summary>
         internal Room CurrentRoom => _map == null ? null : _map[PlayerRow][PlayerCol];
 
+        /// <summary>
+        /// 从当前房间朝 <paramref name="dir"/> 走一步，能不能真的走过去。
+        ///
+        /// 三个条件缺一不可：方向有门、目标格在界内、**目标格是一间真房间**。
+        /// 第三条最容易被漏掉：`Room` 数组里每格都非 null（空格子是 <see cref="BlankRoom"/>，
+        /// 只是没有门、走不进去），所以「邻格 != null」证明不了任何事 ——
+        /// 只判前两条的话，一扇指向空格子的门会把玩家放进一片没有出口的空地，永久困死。
+        ///
+        /// 菜单显示（<see cref="ShowAvailableDirections"/>）与移动（<see cref="Move"/>）
+        /// 必须共用这一个判据：两边各写一份，早晚出现「菜单里没有这个方向，但输入之后真走过去了」。
+        /// </summary>
+        private bool CanStep(Direction dir)
+        {
+            if (_map == null) return false;
+            Room here = _map[PlayerRow][PlayerCol];
+            if (here == null || !here.HasDoor(dir)) return false;
+
+            int nr = PlayerRow + DRows[(int)dir];
+            int nc = PlayerCol + DCols[(int)dir];
+            if (nr < 0 || nr >= _map.Length || nc < 0 || nc >= _map[0].Length) return false;
+
+            Room next = _map[nr][nc];
+            return next != null && next.Type != RoomType.Blank;
+        }
+
+        /// <summary>方向对应的行列偏移，按 (int)Direction 索引：0 上、1 下、2 左、3 右。</summary>
+        private static readonly int[] DRows = [-1, 1, 0, 0];
+        private static readonly int[] DCols = [0, 0, -1, 1];
+
         public void ShowAvailableDirections()
         { //检查可以走的方向
             Console.WriteLine("可行动方向：");
-            // 上
-            if (PlayerRow - 1 >= 0 &&
-                    _map[PlayerRow][PlayerCol].HasDoor(Direction.Up) &&
-                    _map[PlayerRow - 1][PlayerCol] != null)
-            {
-                Console.WriteLine("0.上");
-            }
-            // 下
-            if (PlayerRow + 1 < _map.Length &&
-                    _map[PlayerRow][PlayerCol].HasDoor(Direction.Down) &&
-                    _map[PlayerRow + 1][PlayerCol] != null)
-            {
-                Console.WriteLine("1.下");
-            }
-            // 左
-            if (PlayerCol - 1 >= 0 &&
-                    _map[PlayerRow][PlayerCol].HasDoor(Direction.Left) &&
-                    _map[PlayerRow][PlayerCol - 1] != null)
-            {
-                Console.WriteLine("2.左");
-            }
-            // 右
-            if (PlayerCol + 1 < _map[0].Length &&
-                    _map[PlayerRow][PlayerCol].HasDoor(Direction.Right) &&
-                    _map[PlayerRow][PlayerCol + 1] != null)
-            {
-                Console.WriteLine("3.右");
-            }
+            if (_map == null) return;
+
+            // 判据统一走 CanStep —— 只列**真能走过去**的方向。
+            if (CanStep(Direction.Up)) Console.WriteLine("0.上");
+            if (CanStep(Direction.Down)) Console.WriteLine("1.下");
+            if (CanStep(Direction.Left)) Console.WriteLine("2.左");
+            if (CanStep(Direction.Right)) Console.WriteLine("3.右");
         }
 
         public bool Move(Direction direction)

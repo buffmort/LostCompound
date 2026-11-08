@@ -62,7 +62,11 @@ namespace LostCompound.Tools
         /// </summary>
         public static (int Rows, int Cols) MapSizeForLayer(int layer)
         {
-            int l = Math.Max(layer, FirstLayer);
+            // 上下都夹：下界是第一层（防 0/负数），**上界是 FinalLayer**。
+            // 以前只夹下界，传 11 会算出 14×14 —— 那是一张设计上不存在的层，
+            // 地图会继续变大、把右列撑爆。层数本身在 Restore/EnterNextLayer 里也夹过，
+            // 这里是第二道闸：谁绕过那两个方法直接调本方法都不会拿到离谱的尺寸。
+            int l = Math.Clamp(layer, FirstLayer, FinalLayer);
             int size = l <= TwoLayerStepUntil
                 ? BaseMapSize + (l - 1) / 2                                       // 每两层 +1
                 : BaseMapSize + (TwoLayerStepUntil - 1) / 2 + (l - TwoLayerStepUntil); // 每层 +1

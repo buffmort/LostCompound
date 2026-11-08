@@ -118,7 +118,9 @@ namespace LostCompound.Items.Materials
             // 缺键 = 旧存档没这一项，保持默认值，不要当成 0（否则读档瞬间「硫磺变热硫」）
             if (state.TryGetValue(StateKeyChange, out int change))
             {
-                Change = change;
+                // 夹到 [0, HeatTurnsToMelt]：负数会立刻烤成热硫，
+                // 超过 3 等于白送回合。
+                Change = Math.Clamp(change, 0, HeatTurnsToMelt);
             }
         }
     }

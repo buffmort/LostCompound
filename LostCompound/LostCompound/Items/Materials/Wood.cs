@@ -53,7 +53,10 @@ namespace LostCompound.Items.Materials
             // （当成 0 会让读档瞬间「木头变炭」）。
             if (state.TryGetValue(StateKeyChange, out int change))
             {
-                Change = change;
+                // 夹到 [0, 3]：默认值 3 是寿命上限。
+                // 负数会让 ShouldRemove 立刻成立（读档瞬间「木头变炭」），
+                // 超过 3 则等于白送回合。
+                Change = Math.Clamp(change, 0, 3);
             }
         }
     }

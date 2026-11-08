@@ -98,8 +98,9 @@ namespace LostCompound.Maps
         ///   4 = 以撒式·**无走廊**版（房间相邻 + 禁止 2×2 房间块 + 层尺寸 7→13 + 格子宽 5）
         ///   5 = 战斗房比例 45% → **67%**（Hyberty要求一局 75 场战斗）
         ///   6 = 高温房间（约 25% 的房间置 IsHot，仅熔岩瀑布）—— 2026-11-01
+        ///   7 = 「最远格」在等距候选中随机挑（原先取遍历第一个，Boss 位置几乎不随种子变）
         /// </summary>
-        public const int GeneratorVersion = 6;
+        public const int GeneratorVersion = 7;
 
         public IsaacMazeGenerator(int rows, int cols, EnvType envType, long seed, int layer)
         {
@@ -473,16 +474,32 @@ namespace LostCompound.Maps
 
             // 取距离最大的一格。图的连通性由「生长」保证，所以所有 placed 都应当能走到；
             // 万一有走不到的房间（守卫中断导致），它不在 distance 里，这里自然会被跳过。
+            //
+            // ⚠️ 距离相同的格子**必须随机挑一个**，不能取「遍历先遇到的那个」：
+            //    placed 的顺序只由起点和生长顺序决定，而「最远格」在开阔地图上往往有一圈，
+            //    取第一个等于让 Boss 永远落在同一个方向 —— 种子变了、Boss 却没挪窝。
+            //    探针 probe_boss 实测：不随机的版本在 300 次生成里 Boss 位置只有 2~3 种。
+            //    用注入的 _rng 挑，同种子仍然复现，跨种子才会变。
             (int Row, int Col) farthest = origin;
             int best = -1;
+            List<(int Row, int Col)> candidates = [];
             foreach ((int Row, int Col) cell in placed)
             {
                 if (!distance.TryGetValue(cell, out int d)) continue;
                 if (d > best)
                 {
                     best = d;
-                    farthest = cell;
+                    candidates.Clear();
+                    candidates.Add(cell);
                 }
+                else if (d == best)
+                {
+                    candidates.Add(cell);
+                }
+            }
+            if (candidates.Count > 0)
+            {
+                farthest = candidates[_rng.Next(candidates.Count)];
             }
             return farthest;
         }

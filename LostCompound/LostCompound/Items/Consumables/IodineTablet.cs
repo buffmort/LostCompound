@@ -1,4 +1,4 @@
-﻿using LostCompound.Monsters;
+using LostCompound.Monsters;
 using LostCompound.Tools;
 using LostCompound.Items;
 using LostCompound.Items.Capabilities;
@@ -63,7 +63,9 @@ namespace LostCompound.Items.Consumables
             // 缺键 = 旧存档没这一项，保持构造时的默认值 3
             if (state.TryGetValue(StateKeyDurability, out int durability))
             {
-                Durability = durability;
+                // 夹到 [0, 3]：改过的存档能写进 -5 或 99，不夹的话耐久为负会让
+                // 「还没用就用完了」，超过上限则等于白送次数。
+                Durability = Math.Clamp(durability, 0, 3);
             }
         }
     }

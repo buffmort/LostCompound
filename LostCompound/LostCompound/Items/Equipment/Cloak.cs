@@ -130,7 +130,10 @@ namespace LostCompound.Items.Equipment
             // 缺键 = 旧存档没这一项，保持构造时的默认值 0（全新斗篷）
             if (state.TryGetValue(StateKeyDamageTaken, out int count))
             {
-                _damageTakenCount = count;
+                // 夹到 [0, MaxDamageCount]：改过的存档能写进 999，不夹的话
+                // 「已经破损」的状态不会触发（IsBroken 判 >= 上限，999 也满足，
+                // 但负数会让一件新斗篷永远不掉耐久）。
+                _damageTakenCount = Math.Clamp(count, 0, MaxDamageCount);
             }
         }
     }

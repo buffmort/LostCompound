@@ -89,11 +89,10 @@ namespace LostCompound.Monsters.Normal
         public override void OnMonsterTurn(Player p)
         {
             // 跳过检查与其它怪同一套（被热硫/压缩沙瓶跳过时不该还能加盾）
-            if (TryConsumeSkipTurn())
-            {
-                Console.WriteLine(Name + " 的回合被跳过了。");
-                return;
-            }
+            // 跳过检查**不在这里做**：战斗循环（Tools.RunBattle）在调用 OnMonsterTurn 之前
+            // 已经统一调过一次 m.TryConsumeSkipTurn() 并 continue 掉了。
+            // 这里再调一次会把「跳过 1 回合」扣成 2 点库存 —— 热硫的 1 回合、压缩沙瓶的 2 回合
+            // 都会因此缩水一半（探针 probe_skip 抓到过）。
 
             Attack(p);
         }

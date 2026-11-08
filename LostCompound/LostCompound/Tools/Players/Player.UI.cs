@@ -538,74 +538,94 @@ namespace LostCompound.Tools.Players
                     // 关窗口 / Ctrl+C 的钩子（ExitSaveHook）会来问这个标记。
                     SaveSession.MarkSafe(true);
                     string line = Console.ReadLine();
-                    SaveSession.MarkSafe(false);
 
                     if (line == null)
                     {
-                        // 输入流结束（EOF）：方向永远读不到了。必须退出游戏循环 ——
-                        // 原先下面的 continue 会立刻再读到 null，主循环变成不读输入的 CPU 空转 + 刷屏。
-                        // 退出效果与玩家输入 4 相同（同一句结束语）。
+                        SaveSession.MarkSafe(false);
                         _inputClosed = true;
                         Console.WriteLine("游戏结束，感谢游玩！");
                         break;
                     }
-                    if (!int.TryParse(line, out int direction))
-                    {
-                        Console.WriteLine("输入无效，请输入数字。");
-                        continue;
-                    }
-                    if (direction == 4)
-                    {
-                        // 主动退出 = 存档并退出。
-                        // 为什么这里能存：方向菜单只在「房间事件全部结算完」之后才出现，
-                        // 所以此刻既没有进行中的战斗、也没有半截的房间事件 ——
-                        // 战斗中途的状态（敌人列表、本回合盾、回合数）没有任何恢复入口。
-                        SaveCurrentProgress(map, tmg);
-                        Console.WriteLine("游戏结束，感谢游玩！");
-                        break;
-                    }
 
-                    // 5/6/7：地图上的「非移动动作」。不做任何一格的计算、也不触发房间事件，
-                    // 做完直接回到循环顶部重画（玩家的位置没变，pendingEnter 保持 false）。
-                    // 5 走的是**战斗外**那条背包路径（Player.ExplainItemsOutsideBattle）：
-                    // 声明了 IOutsideBattleUsable 的一次性道具（镜子）会**真的生效并消耗**，
-                    // 其余道具只得到一句「只能在战斗中使用」的解释。
-                    if (direction == 5)
+                    // ⚠️ 安全窗口一直开到**这一轮动作处理完**（用 finally 保证无论走哪条
+                    //    continue/break 分支都会关掉）。原先是在 ReadLine 之后立刻关，
+                    //    那样 5/6/7（改背包 / 配方 / 饰品栏）之后的改动**进不了快照** ——
+                    //    玩家按 × 退出时读档会回到"按之前"的状态，看起来像刚合成的道具丢了。
+                    //    包住整轮而不是只包 ReadLine，就等于「这一轮的任何改动都进快照」。
+                    try
                     {
-                        ExplainItemsOutsideBattle();
-                        continue;
-                    }
-                    if (direction == 6)
-                    {
-                        CraftMenu();
-                        continue;
-                    }
-                    if (direction == 7)
-                    {
-                        OpenAccessoryMenu();
-                        continue;
-                    }
-                    // 地图上也能用调试指令（Hyberty要求）：255 开调试、129 拿道具、130 挂 buff、127 超雄、128 全配方。
-                    // 与战斗里的 case 用同一套 DebugState 守卫 —— 没输 255 时这里什么都不匹配，
-                    // 落到下面的 Move 分支（当成无效方向，行为与乱输数字完全一致）。
-                    if (direction == 255 && !DebugState.Enabled)
-                    {
-                        DebugState.Enable();
-                        Console.WriteLine("已进入 debug 模式！");
-                        DrawScreen(screen, map, tmg);   // 立刻重画：全图可见要马上生效
-                        continue;
-                    }
-                    if (direction is 127 or 128 or 129 or 130 && DebugState.Enabled)
-                    {
-                        RunMapDebugCommand(direction);
-                        DrawScreen(screen, map, tmg);   // 状态可能变了（STR / 配方 / 道具 / buff），立刻刷新
-                        continue;
-                    }
+                        if (!int.TryParse(line, out int direction))
+                        {
+                            Console.WriteLine("输入无效，请输入数字。");
+                            continue;
+                        }
+                        if (direction == 4)
+                        {
+                            // 主动退出 = 存档并退出。
+                            // 为什么这里能存：方向菜单只在「房间事件全部结算完」之后才出现，
+                            // 所以此刻既没有进行中的战斗、也没有半截的房间事件 ——
+                            // 战斗中途的状态（敌人列表、本回合盾、回合数）没有任何恢复入口。
+                            SaveCurrentProgress(map, tmg);
+                            Console.WriteLine("游戏结束，感谢游玩！");
+                            break;
+                        }
 
-                    if (Move((Direction)direction))
+                        // 5/6/7：地图上的「非移动动作」。不做任何一格的计算、也不触发房间事件，
+                        // 做完直接回到循环顶部重画（玩家的位置没变，pendingEnter 保持 false）。
+                        // 5 走的是**战斗外**那条背包路径（Player.ExplainItemsOutsideBattle）：
+                        // 声明了 IOutsideBattleUsable 的一次性道具（镜子）会**真的生效并消耗**，
+                        // 其余道具只得到一句「只能在战斗中使用」的解释。
+                        if (direction == 5)
+                        {
+                            ExplainItemsOutsideBattle();
+                            continue;
+                        }
+                        if (direction == 6)
+                        {
+                            CraftMenu();
+                            continue;
+                        }
+                        if (direction == 7)
+                        {
+                            OpenAccessoryMenu();
+                            continue;
+                        }
+                        // 地图上也能用调试指令（Hyberty要求）：255 开调试、129 拿道具、130 挂 buff、127 超雄、128 全配方。
+                        // 与战斗里的 case 用同一套 DebugState 守卫。
+                        if (direction == 255)
+                        {
+                            // 已经开着 debug 时再输 255：提示一句就好，**绝不能落进 Move(255)** ——
+                            // `Move` 拿到越界枚举值只会回一句「无效方向！」，看起来像「指令失效了」，
+                            // 而战斗菜单里输 255 是明确回「已进入 debug 模式」的，两处口径要对齐。
+                            if (!DebugState.Enabled)
+                            {
+                                DebugState.Enable();
+                                Console.WriteLine("已进入 debug 模式！");
+                            }
+                            else
+                            {
+                                Console.WriteLine("debug 模式已经开着了。");
+                            }
+                            DrawScreen(screen, map, tmg);   // 立刻重画：全图可见要马上生效
+                            continue;
+                        }
+                        if (direction is 127 or 128 or 129 or 130 && DebugState.Enabled)
+                        {
+                            RunMapDebugCommand(direction);
+                            DrawScreen(screen, map, tmg);   // 状态可能变了（STR / 配方 / 道具 / buff），立刻刷新
+                            continue;
+                        }
+
+                        if (Move((Direction)direction))
+                        {
+                            pendingEnter = true;
+                            justMoved = true;
+                        }
+                    }
+                    finally
                     {
-                        pendingEnter = true;
-                        justMoved = true;
+                        // 动作做完 → 不再是安全点。下一轮 ReadLine 之前会重新打开。
+                        SaveSession.MarkSafe(false);
                     }
                 }
             }
@@ -622,15 +642,11 @@ namespace LostCompound.Tools.Players
 
             // 玩家死了就删档：这一局已经结束，留着只会让「继续游戏」把尸体读回来。
             // 注意放在 finally **之后**：死亡时循环是靠 IsAlive 退出的，没走 direction==4 那条存档分支。
-            if (GameCleared)
-            {
-                // 通关与死亡同样「这一局结束」，所以也删档 —— 区别只是记的是通关次数。
-                SaveFile.Delete();
-                Profile.AddClear();
-                Profile.Save();
-                Console.WriteLine("你通关了！这是第 " + Profile.Clears + " 次通关。");
-            }
-            else if (!IsAlive)
+            //
+            // ⚠️ **先判死亡，再判通关**。反过来的话，第 10 层 Boss 战里双方同归于尽时
+            //    GameCleared 和 !IsAlive 会同时成立，于是记成「通关」而不是「死亡」——
+            //    玩家明明死了却拿了一次通关解锁。死亡的判定优先级应该更高。
+            if (!IsAlive)
             {
                 SaveFile.Delete();
 
@@ -641,6 +657,14 @@ namespace LostCompound.Tools.Players
                 Profile.Save();
 
                 Console.WriteLine("这一局结束了。");
+            }
+            else if (GameCleared)
+            {
+                // 通关与死亡同样「这一局结束」，所以也删档 —— 区别只是记的是通关次数。
+                SaveFile.Delete();
+                Profile.AddClear();
+                Profile.Save();
+                Console.WriteLine("你通关了！这是第 " + Profile.Clears + " 次通关。");
             }
         }
 

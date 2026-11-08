@@ -184,6 +184,14 @@ namespace LostCompound.Rooms
             int currentLayer = Math.Max(layer, 1);
 
             List<Monster> monsters = [];
+
+            // ⚠️ count <= 0 必须**直接返回空列表**：Boss 房里 SpawnExtras 算出 extras=0
+            // （RollSpawnCount 返回 1，减 1 就是 0）时，这里若不拦，后面的
+            // 「双保险重抽」分支会对空列表做 monsters[0] 访问；更重要的是
+            // 万一将来有人把 for 循环的边界写成别的形式，0 也会被算成「至少 1 只」。
+            // 统一在入口收口：不生成就是不生成，调用方拿到空列表。
+            if (count <= 0) return monsters;
+
             for (int i = 0; i < count; i++)
             {
                 // 只有「这一整场就 1 只」时才禁止盾兵：多怪物时它才允许出场。

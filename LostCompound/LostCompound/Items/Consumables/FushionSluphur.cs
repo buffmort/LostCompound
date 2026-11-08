@@ -26,7 +26,9 @@ namespace LostCompound.Items.Consumables
             // 缺键 = 旧存档没这一项，保持构造时的默认值 3（与升级前行为一致）
             if (state.TryGetValue(StateKeyTimer, out int timer))
             {
-                Timer = timer;
+                // 夹到 [0, 3]：构造时的默认值 3 是它的寿命上限，
+                // 负数会让 ShouldRemove 立刻成立（读档瞬间「热硫已消失」）
+                Timer = Math.Clamp(timer, 0, 3);
             }
         }
 

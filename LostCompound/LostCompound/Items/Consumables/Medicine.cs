@@ -109,7 +109,8 @@ namespace LostCompound.Items.Consumables
             // 缺键 = 旧存档没这一项，保持构造时的默认值（<see cref="UsesPerTablet"/>）
             if (state.TryGetValue(StateKeyDurability, out int durability))
             {
-                Durability = durability;
+                // 夹到 [0, UsesPerTablet]：改过的存档能写进负数或 99 次
+                Durability = Math.Clamp(durability, 0, UsesPerTablet);
             }
         }
     }
