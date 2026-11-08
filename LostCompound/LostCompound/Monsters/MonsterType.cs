@@ -17,5 +17,8 @@ namespace LostCompound.Monsters
 
         // 沙漠专属（DESIGN §6 地图 3）
         Camel,
+
+        /// <summary>硫磺怪（熔岩瀑布专属，Hyberty 2026-11-08 定）。</summary>
+        SulphurMonster,
     }
 }

@@ -61,6 +61,15 @@ namespace LostCompound.Monsters
                         loots.Add(new Wood(3));
                     }
                     break;
+                case MonsterType.SulphurMonster:
+                    // 硫磺怪（Hyberty 2026-11-08 定）：**同岩浆怪那一档 —— 70% 掉 2 硫磺**。
+                    // 只抄这一档，不抄岩浆怪附带的那条「50% 掉 3 木头」：
+                    // 裁定原文只说了「同类：70% 掉硫磺 x2」。
+                    if (r < 0.70)
+                    {
+                        loots.Add(new Sulphur(2));
+                    }
+                    break;
                 case MonsterType.Dummy:
                     Console.WriteLine("哇,你杀了一个假人! 你好棒!");
                     break;

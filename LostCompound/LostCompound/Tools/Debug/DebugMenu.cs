@@ -59,6 +59,7 @@ namespace LostCompound.Tools.Debug
             ("骷髅", () => [new Skeleton()]),
             ("龙", () => [new Dragon()]),
             ("岩浆怪", () => [new LavaSlime()]),
+            ("硫磺怪", () => [new SulphurMonster()]),
             ("测试假人", () => [new Dummy()]),
             ("作孽双子（P1+P2 一起）", () =>
             {

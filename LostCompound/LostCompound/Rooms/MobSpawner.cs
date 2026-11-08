@@ -47,6 +47,11 @@ namespace LostCompound.Rooms
         [
             // 岩浆怪：熔岩瀑布的环境专属怪，不限层。
             ("岩浆怪", () => new LavaSlime(), 1, int.MaxValue),
+
+            // 硫磺怪（Hyberty 2026-11-08 定）：同样是熔岩瀑布专属、不限层。
+            // 它在高温房间里攻击无视 DEF 与盾并附带流血，普通房间里只是普通的 5 点攻击 ——
+            // 所以它把「要不要进高温房」这件事的成本又抬高了一档。
+            ("硫磺怪", () => new SulphurMonster(), 1, int.MaxValue),
         ];
 
         /**

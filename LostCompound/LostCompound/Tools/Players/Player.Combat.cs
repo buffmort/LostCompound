@@ -79,7 +79,37 @@ namespace LostCompound.Tools.Players
         /// </summary>
         public void TakeDamage(double dmg)
         {
-            double realDmg = Calculator.ApplyDefense(Def, dmg);
+            ApplyIncomingDamage(dmg, ignoreDefenseAndShield: false);
+        }
+
+        /// <summary>
+        /// **无视 DEF 与护盾**的伤害（硫磺怪在高温房间里的攻击，Hyberty 2026-11-08 裁定）。
+        ///
+        /// 「无视」的范围严格按裁定来，只跳过两样：
+        ///   · **DEF 减免**（<see cref="Calculator.ApplyDefense"/> 不做）；
+        ///   · **护盾抵扣**（盾值不动，伤害直接落到 Hp）。
+        /// 装备的减伤（<see cref="IDamageReduction"/>，如斗篷 20%）**仍然生效** ——
+        /// 它是「另一条独立的减免通道」，裁定里没有点名要跳过它。
+        /// 如果以后要让这招连减伤一起无视，改一个实参即可（见 <see cref="ApplyIncomingDamage"/>）。
+        ///
+        /// 仍然算「受伤」：血真掉了就通知 <see cref="IOnDamaged"/>（斗篷按次数记耐久的口径不变），
+        /// 状态栏照常刷新。
+        /// </summary>
+        public void TakeDamageIgnoringDefenseAndShield(double dmg)
+        {
+            ApplyIncomingDamage(dmg, ignoreDefenseAndShield: true);
+        }
+
+        /// <summary>
+        /// 受伤的统一结算入口。<see cref="TakeDamage"/> 与
+        /// <see cref="TakeDamageIgnoringDefenseAndShield"/> 只差一个开关，
+        /// 所以两者必须共用这段代码 —— 各写一份的话，「盾挡下时不通知受伤」「减伤排在盾前」
+        /// 这些口径早晚会在其中一条上走样。
+        /// </summary>
+        private void ApplyIncomingDamage(double dmg, bool ignoreDefenseAndShield)
+        {
+            // 无视 DEF 与盾时，最终伤害就是原始伤害（下面还要再乘一次装备减伤）
+            double realDmg = ignoreDefenseAndShield ? dmg : Calculator.ApplyDefense(Def, dmg);
 
             // ── 装备减伤（IDamageReduction，如斗篷 20%）──
             // 位置：**DEF 之后、盾之前**，即它是「算最终伤害」的最后一步，和 DEF 同一段。
@@ -95,7 +125,8 @@ namespace LostCompound.Tools.Players
             // 这一步只做乘法，不碰 Shield、不碰 DEF、不改「DEF 先于盾」的顺序。
             realDmg *= DamageReductionMultiplier();
 
-            if (Shield >= realDmg)
+            // 无视护盾时不进「盾挡下」那条分支，也不清盾 —— 盾原样留着
+            if (!ignoreDefenseAndShield && Shield >= realDmg)
             {
                 // 盾够厚：完全挡住，血量一点不掉
                 Shield -= realDmg;
@@ -108,8 +139,12 @@ namespace LostCompound.Tools.Players
             }
 
             // 盾不够（或没盾）：先清空盾，剩下的才扣血
-            double remaining = realDmg - Shield;
-            Shield = 0;
+            // 无视护盾时 Shield 原样不动，全额打在血上。
+            double remaining = ignoreDefenseAndShield ? realDmg : realDmg - Shield;
+            if (!ignoreDefenseAndShield)
+            {
+                Shield = 0;
+            }
             Hp -= remaining;
             Console.WriteLine("你受到{0:F1}点伤害!", remaining);
             Console.WriteLine();
