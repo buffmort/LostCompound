@@ -11,7 +11,15 @@ namespace LostCompound.Monsters
         public double Hp { get; set; }
         public double Atk { get; set; }
         public double Str { get; set; }
-        public double Def { get; set; }
+
+        /// <summary>
+        /// 防御。**virtual**：少数怪物会在特定状态下改自己的防御
+        /// （木乃伊中了磷灼烧时 <see cref="Normal.Mummy"/> 让它变成 0），
+        /// 覆写成一个「按当前状态算」的计算属性比在 buff 里写散落的赋值/还原代码更稳 ——
+        /// 状态结束时自动恢复，不需要任何还原逻辑（与玩家侧「重算制」同一思路）。
+        /// </summary>
+        public virtual double Def { get; set; }
+
         public string Name { get; set; }
         // Java 的 protected 同时允许同包访问；C# 的 protected 不允许通过其它子类实例访问，
         // 故此处用 protected internal（= 派生类 or 同一程序集），等价于 Java 语义。
@@ -143,6 +151,20 @@ namespace LostCompound.Monsters
         /// <see cref="OnWaterPoured"/>、<see cref="ApplyDamageImmunity"/> 同一套分工。
         /// </summary>
         public virtual void OnSandDug() { }
+
+        /// <summary>
+        /// 「被某一族的伤害打中了」。默认什么也不做。
+        ///
+        /// 谁需要它：木乃伊（<see cref="Normal.Mummy"/>）—— 被磷系 / 火系道具打中时
+        /// 才会中「磷灼烧」（每回合 10 点、DEF 归零、3 回合）。
+        /// 道具在造成伤害之后调一次，怪物自己决定要不要因此中招。
+        ///
+        /// 为什么单独开一条通道而不是给 TakeDamage 加参数：
+        ///   加参数要改 <see cref="Monster"/> 的抽象成员和 7 个子类 + 所有调用点；
+        ///   而「打中之后额外发生什么」本来就是**事件**语义，与
+        ///   <see cref="OnWaterPoured"/>、<see cref="OnSandDug"/> 是同一套做法。
+        /// </summary>
+        public virtual void OnElementalHit(DamageElement element) { }
 
         // 原 6 个子类各自重写的 isAlive() 实现完全相同（都是 hp > 0），
         // 故合并为基类上的一个计算属性，子类不再重写。

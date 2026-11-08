@@ -34,6 +34,8 @@ namespace LostCompound.Buffs
             (BuffIds.RespiratoryAlkalosis, "呼吸性碱中毒", (stacks, turns) => new RespiratoryAlkalosis(stacks, turns)),
             (BuffIds.MuddyWater, "搅乱泥沙", (stacks, turns) => new MuddyWater(stacks, turns)),
             (BuffIds.Hypoxia, "缺氧", (stacks, turns) => new Hypoxia(stacks, turns)),
+            (BuffIds.PhosphorusBurn, "磷灼烧", (stacks, turns) => new PhosphorusBurn(stacks, turns)),
+            (BuffIds.Vulnerability, "易伤", (stacks, turns) => new Vulnerability(stacks, turns)),
         ];
 
         /// <summary>

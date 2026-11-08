@@ -46,6 +46,8 @@ namespace LostCompound.Items.Equipment
         public void OnHit(Player attacker, Monster target)
         {
             target.AddBuff(new BleedBuff(BleedDamagePerHit, BleedTurnsPerHit));
+            // 磷化剑也属于「磷家族」：命中即通知（木乃伊据此中磷灼烧）。
+            target.OnElementalHit(DamageElement.Phosphorus);
             Console.WriteLine("磷化剑的磷毒让" + target + "开始流血！");
         }
 

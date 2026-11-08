@@ -34,6 +34,7 @@ namespace LostCompound.Items.Consumables
                 // 数值与旧的 DOT 10 / 2 回合一一对应；重复使用同一只怪时按流血口径叠加
                 // （伤害 min(现有+10, 10)、剩余回合相加）。
                 monsters.AddBuff(new BleedBuff(bleedDamage, bleedTurns));
+                monsters.OnElementalHit(DamageElement.Phosphorus);   // 红磷同属磷系
             }
             Console.WriteLine("全部怪物受到" + bleedTurns + "时长的 " + bleedDamage + "伤害!");
             if (Random.Shared.NextDouble() < chance)

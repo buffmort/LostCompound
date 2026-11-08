@@ -26,5 +26,8 @@ namespace LostCompound.Monsters
 
         /// <summary>沙虫（沙漠专属，Hyberty 2026-11-08 定）。</summary>
         Sandworm,
+
+        /// <summary>木乃伊（沙漠精英，Hyberty 2026-11-08 定）。</summary>
+        Mummy,
     }
 }

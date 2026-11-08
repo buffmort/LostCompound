@@ -37,5 +37,11 @@ namespace LostCompound.Buffs
 
         /// <summary>缺氧：每回合 -0.1 STR，5 回合，到期自动恢复。</summary>
         public const int Hypoxia = 7;
+
+        /// <summary>磷灼烧：每回合 10 伤害、3 回合，期间木乃伊 DEF 归零。</summary>
+        public const int PhosphorusBurn = 8;
+
+        /// <summary>易伤：受伤倍率 = 1 + 0.01 × 层数（木乃伊给自己上的）。</summary>
+        public const int Vulnerability = 9;
     }
 }

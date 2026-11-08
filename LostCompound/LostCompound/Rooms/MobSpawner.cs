@@ -94,6 +94,10 @@ namespace LostCompound.Rooms
             // 沙虫（Hyberty 2026-11-08 定）：普通怪，开局遁地 ——
             // 单体攻击打不中，只能靠采沙（把它翻出来）或 AOE；遁地时它的伤害翻倍。
             ("沙虫", () => new Sandworm(), 1, int.MaxValue),
+
+            // 木乃伊（Hyberty 2026-11-08 定）：精英，100 血、DEF 10 ——
+            // 怕磷系/火系道具（中了磷灼烧 DEF 归零），每回合一半概率给自己上易伤。
+            ("木乃伊", () => new Mummy(), 1, int.MaxValue),
         ];
 
         /// <summary>

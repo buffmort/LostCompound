@@ -8,6 +8,7 @@ using LostCompound.Monsters;
 using LostCompound.Maps;    // IsaacMazeGenerator：调试战斗也要一张真地图来撑版面
 using LostCompound.Rooms;
 using LostCompound.Monsters.Normal;
+using LostCompound.Monsters.Elite;
 using LostCompound.Monsters.Boss;
 using LostCompound.Rooms.Types;
 using LostCompound.Tools;
@@ -62,6 +63,7 @@ namespace LostCompound.Tools.Debug
             ("硫磺怪", () => [new SulphurMonster()]),
             ("水蛭", () => [new Leech()]),
             ("沙虫", () => [new Sandworm()]),
+            ("木乃伊", () => [new Mummy()]),
             ("测试假人", () => [new Dummy()]),
             ("作孽双子（P1+P2 一起）", () =>
             {

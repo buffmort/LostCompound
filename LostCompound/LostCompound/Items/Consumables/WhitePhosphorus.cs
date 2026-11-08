@@ -30,6 +30,9 @@ namespace LostCompound.Items.Consumables
             }
             Monster target = m[choice];
             target.AddBuff(new BleedBuff(damage, DUR));
+            // 通知「这一击是磷系」——木乃伊据此中磷灼烧（见 Monster.OnElementalHit）。
+            // 放在伤害之后：中招反应不该改变这一击本身的结算。
+            target.OnElementalHit(DamageElement.Phosphorus);
             // 播报用「叠加后的实际值」而不是刚传进去的字面量：同一只怪已有流血时，
             // 伤害会被夹取、剩余回合会相加，直接打印字面量会与实际结算不符。
             // （这一点与旧代码打印 target.DotDuration / target.DotDamage 的口径一致。）
@@ -49,6 +52,7 @@ namespace LostCompound.Items.Consumables
                     continue;
                 }
                 monster.AddBuff(new BleedBuff(10, DUR));
+                monster.OnElementalHit(DamageElement.Phosphorus);   // 溅射同样算磷系
             }
             Console.WriteLine("你对所有怪物造成10点溅射伤害!");
             Count -= 1;
