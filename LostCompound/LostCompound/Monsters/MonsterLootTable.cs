@@ -8,6 +8,7 @@ using LostCompound.Items.Materials;
 using LostCompound.Items.Consumables;
 using LostCompound.Items.Containers;
 using LostCompound.Monsters.Normal;
+using LostCompound.Monsters.Elite;
 
 /**
  * 怪物掉落表。
@@ -88,6 +89,15 @@ namespace LostCompound.Monsters
                     // 用 Next(min, max + 1) 因为上界是排他的。
                     loots.Add(new Sand(Random.Shared.Next(
                         Sandworm.MinLootSand, Sandworm.MaxLootSand + 1)));
+                    break;
+                case MonsterType.Mummy:
+                    // 木乃伊（Hyberty 2026-11-08 定）：**布料 2~5** + **沙子 5~10**（均含两端）。
+                    // 两个数各摇一次、互不影响 —— 不是「二选一」，也不是同一次掷点决定两样。
+                    // 上界 +1 是因为 Random.Next 的上界是排他的。
+                    loots.Add(new Cloth(Random.Shared.Next(
+                        Mummy.MinLootCloth, Mummy.MaxLootCloth + 1)));
+                    loots.Add(new Sand(Random.Shared.Next(
+                        Mummy.MinLootSand, Mummy.MaxLootSand + 1)));
                     break;
                 case MonsterType.Dummy:
                     Console.WriteLine("哇,你杀了一个假人! 你好棒!");

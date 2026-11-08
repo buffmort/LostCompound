@@ -35,6 +35,14 @@ namespace LostCompound.Monsters.Elite
         /// <summary>一次「上 buff」给自己多少层易伤（裁定：50 层）。</summary>
         public const int VulnerabilityStacks = 50;
 
+        /// <summary>掉落布料数量范围（Hyberty：2~5，含两端）。</summary>
+        public const int MinLootCloth = 2;
+        public const int MaxLootCloth = 5;
+
+        /// <summary>掉落沙子数量范围（Hyberty：5~10，含两端）。</summary>
+        public const int MinLootSand = 5;
+        public const int MaxLootSand = 10;
+
         public Mummy()
         {
             Type = MonsterType.Mummy;
