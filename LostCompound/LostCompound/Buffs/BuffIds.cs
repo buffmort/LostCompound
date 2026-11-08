@@ -43,5 +43,8 @@ namespace LostCompound.Buffs
 
         /// <summary>易伤：受伤倍率 = 1 + 0.01 × 层数（木乃伊给自己上的）。</summary>
         public const int Vulnerability = 9;
+
+        /// <summary>锈蚀：每层 -1 DEF，最多 5 层（锈铁傀儡给玩家上的）。</summary>
+        public const int Rusted = 10;
     }
 }

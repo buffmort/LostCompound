@@ -29,5 +29,8 @@ namespace LostCompound.Monsters
 
         /// <summary>木乃伊（沙漠精英，Hyberty 2026-11-08 定）。</summary>
         Mummy,
+
+        /// <summary>锈铁傀儡（通用池，第 2~5 层，Hyberty 2026-11-08 由助手设计）。</summary>
+        RustedGolem,
     }
 }

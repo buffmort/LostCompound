@@ -64,6 +64,7 @@ namespace LostCompound.Tools.Debug
             ("水蛭", () => [new Leech()]),
             ("沙虫", () => [new Sandworm()]),
             ("木乃伊", () => [new Mummy()]),
+            ("锈铁傀儡", () => [new RustedGolem()]),
             ("测试假人", () => [new Dummy()]),
             ("作孽双子（P1+P2 一起）", () =>
             {

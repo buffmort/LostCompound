@@ -102,6 +102,15 @@ namespace LostCompound.Monsters
                 case MonsterType.Dummy:
                     Console.WriteLine("哇,你杀了一个假人! 你好棒!");
                     break;
+                case MonsterType.RustedGolem:
+                    // 锈铁傀儡（助手设计，2026-11-08）：**60% 掉 1 个金属**。
+                    // 它本来就是铁锈成的，拆下来就是金属；概率写死 60% ——
+                    // 通用池怪不该像精英怪那样稳定给材料。
+                    if (r < 0.60)
+                    {
+                        loots.Add(new Metal(1));
+                    }
+                    break;
                 case MonsterType.Zombie:
                     AddZombieLoot(loots, r);
                     break;
