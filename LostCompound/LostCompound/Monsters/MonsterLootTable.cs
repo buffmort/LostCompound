@@ -7,6 +7,7 @@ using LostCompound.Items;
 using LostCompound.Items.Materials;
 using LostCompound.Items.Consumables;
 using LostCompound.Items.Containers;
+using LostCompound.Monsters.Normal;
 
 /**
  * 怪物掉落表。
@@ -80,6 +81,13 @@ namespace LostCompound.Monsters
                         int pick = Random.Shared.Next(totalWeight);
                         loots.Add(pick < 2 ? new Cloth(1) : new Cloth(2));
                     }
+                    break;
+                case MonsterType.Sandworm:
+                    // 沙虫（Hyberty 2026-11-08 定）：**沙子 15~30 个**（含两端）。
+                    // 沙漠本来就只出沙子（§5.3），所以这条不破坏「只给沙子」的口径。
+                    // 用 Next(min, max + 1) 因为上界是排他的。
+                    loots.Add(new Sand(Random.Shared.Next(
+                        Sandworm.MinLootSand, Sandworm.MaxLootSand + 1)));
                     break;
                 case MonsterType.Dummy:
                     Console.WriteLine("哇,你杀了一个假人! 你好棒!");

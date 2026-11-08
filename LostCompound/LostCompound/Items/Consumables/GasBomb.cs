@@ -72,7 +72,7 @@ namespace LostCompound.Items.Consumables
                     Random.Shared.NextDouble() < NonBossExecuteChance)
                 {
                     Console.WriteLine("毒气弹击穿了" + monster.Name + "！");
-                    monster.TakeDamage(int.MaxValue);
+                    monster.TakeAoeDamage(int.MaxValue);
                 }
             }
             Console.WriteLine("毒气弥漫：全部怪物获得 " + BleedTurns + " 回合的 " + BleedDamage + " 点流血！");

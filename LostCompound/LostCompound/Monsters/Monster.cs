@@ -120,6 +120,30 @@ namespace LostCompound.Monsters
         /// </summary>
         public virtual bool OnWaterPoured() => false;
 
+        /// <summary>
+        /// **范围伤害**入口（AOE 道具走这条）。默认直接转发给 <see cref="TakeDamage"/>，
+        /// 也就是「对绝大多数怪，AOE 和单体没有区别」。
+        ///
+        /// 为什么需要单独开一个口子：伤害目前只有一个 <c>TakeDamage(double)</c>，
+        /// 怪物**无法区分**这一击是玩家单点砍的，还是毒气弹/热硫那种打全体的。
+        /// 沙虫的「遁地时只能被 AOE 打中」正是需要这个区分 —— 不给通道的话，
+        /// 要么沙虫的规则做不出来，要么得在怪物里塞一个「谁在打我」的全局状态（更糟）。
+        ///
+        /// ⚠️ 新增 AOE 类道具时必须走本方法，不能继续调 <c>TakeDamage</c>，
+        /// 否则那只怪对沙虫无效（不报错、只是打不动它）。
+        /// </summary>
+        public virtual void TakeAoeDamage(double dmg) => TakeDamage(dmg);
+
+        /// <summary>
+        /// 「玩家在战斗里采了一次沙」。默认什么也不做。
+        ///
+        /// 谁需要它：沙虫遁在沙里，采沙会把它翻出来（<see cref="Normal.Sandworm"/>）。
+        /// 由战斗菜单的采沙分支在挖完之后统一通知全体怪物 —— 通用流程只负责喊一声，
+        /// 具体反应（露出沙面、改伤害倍率）由怪物自己决定，与
+        /// <see cref="OnWaterPoured"/>、<see cref="ApplyDamageImmunity"/> 同一套分工。
+        /// </summary>
+        public virtual void OnSandDug() { }
+
         // 原 6 个子类各自重写的 isAlive() 实现完全相同（都是 hp > 0），
         // 故合并为基类上的一个计算属性，子类不再重写。
         public bool IsAlive => Hp > 0;

@@ -53,7 +53,7 @@ namespace LostCompound.Items.Containers
             Console.WriteLine("你给" + target + "造成了眩晕 他跳过了一回合!");
             foreach (Monster monster in m)
             {
-                monster.TakeDamage(10);
+                monster.TakeAoeDamage(10);
             }
             Count -= 1;
 

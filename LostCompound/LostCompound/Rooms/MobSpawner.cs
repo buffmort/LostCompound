@@ -90,6 +90,10 @@ namespace LostCompound.Rooms
         [
             // 穿模骆驼：精英，50 血，20% 让玩家跳过一回合。
             ("穿模骆驼", () => new Camel(), 1, int.MaxValue),
+
+            // 沙虫（Hyberty 2026-11-08 定）：普通怪，开局遁地 ——
+            // 单体攻击打不中，只能靠采沙（把它翻出来）或 AOE；遁地时它的伤害翻倍。
+            ("沙虫", () => new Sandworm(), 1, int.MaxValue),
         ];
 
         /// <summary>

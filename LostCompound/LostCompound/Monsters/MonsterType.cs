@@ -23,5 +23,8 @@ namespace LostCompound.Monsters
 
         /// <summary>水蛭（水淹洞穴专属，Hyberty 2026-11-08 定）。</summary>
         Leech,
+
+        /// <summary>沙虫（沙漠专属，Hyberty 2026-11-08 定）。</summary>
+        Sandworm,
     }
 }

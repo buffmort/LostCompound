@@ -153,6 +153,13 @@ namespace LostCompound.Tools.Players
                         AddItem(dug);
                     }
                     Console.WriteLine("你花了些力气，从沙丘里筛出一堆沙子。");
+                    // 采沙是「行动」不是「攻击」：它对怪物本身不造成伤害，
+                    // 但它会把遁在沙里的怪（沙虫）翻出来 —— 通用循环只喊一声，
+                    // 具体反应由怪物自己决定（见 Monster.OnSandDug）。
+                    foreach (Monster monster in monsters)
+                    {
+                        monster.OnSandDug();
+                    }
                     break;
                 // 127 / 128 / 129 / 130 是调试指令，必须**先开开关**（255）才可用。
                 //
