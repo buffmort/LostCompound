@@ -208,21 +208,26 @@ namespace LostCompound.Buffs
         }
 
         /// <summary>
-        /// 同类叠加的**默认**规则：效果量取 min(现有 + 新增, 上限)，剩余回合取两者之和。
-        /// 这套默认语义是**按周期伤害类 buff（流血）定的**：效果量越大越疼、时长相加越长。
-        /// 其它类型的 buff（开关型、只刷时长不叠强度等）可以覆写本方法。
-        /// 为什么放在基类：Player.AddBuff 和 Monster.AddBuff 都要做这件事
-        /// （CONVENTIONS 2.5：同一段逻辑出现两遍就提到基类），否则以后加第三种持有者又要再抄一遍。
+        /// 同类叠加的**默认**规则（Hyberty 2026-11-08 定，全局适用）：
+        ///   · **效果量取最高** —— `Stacks = max(现有, 新增)`，不相加；
+        ///   · **时间叠加** —— `剩余回合 = 现有 + 新增`。
         ///
-        /// ⚠️ 这只是一个默认实现，**「叠加 = 效果量相加」并不是所有 buff 都成立的语义**
-        /// （旧 DOT 的 AddDotDuration 是 += 累加，所以这里沿用了加法）。
-        /// 如果某个 buff 的叠加规则不是「相加」（例如「重复挂只刷新时长、不叠强度」），
-        /// 覆写本方法（必要时配合 AddStacks/AddTurns）即可，不必改基类。
+        /// 为什么不再「效果量相加」：以流血为例，7 点再中 5 点会变成 10（夹到上限），
+        /// 于是**多挨几下就顶格**，越叠越没有意义；而「取最高」的语感是
+        /// 「挨了更重的一下，之前的轻伤被覆盖」—— 玩家能读懂，数值也不会一叠就爆。
+        /// 时间仍然相加，所以「反复中招」付出的是**持续时间**的代价，而不是数值膨胀。
+        ///
+        /// ⚠️ 这条规则对所有 buff 生效（含玩家侧的流血 / 锐化 / 超雄，怪物侧的磷灼烧 / 易伤）。
+        ///    少数 buff 若真的需要「刷新而不是相加」，仍可覆写本方法。
         /// </summary>
         public virtual void MergeFrom(Buff other)
         {
-            AddStacks(other.Stacks);
-            AddTurns(other.RemainingTurns);
+            // 取最高：直接写 Stacks 会绕过 MaxStacks 夹取，所以仍然走一次「归零后 AddStacks」。
+            // 用 long 中转只为与 AddStacks 内部的防溢出口径一致（这里不会溢出，纯一致性）。
+            int merged = (int)Math.Max((long)Stacks, (long)other.Stacks);
+            AddStacks(merged - Stacks);      // 差值可能是负数（新增更小时），AddStacks 会夹回合法区间
+
+            AddTurns(other.RemainingTurns);  // 时间叠加（永久 buff 由 AddTurns 自己处理）
         }
 
         /// <summary>

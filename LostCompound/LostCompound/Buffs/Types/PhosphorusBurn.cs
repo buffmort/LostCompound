@@ -33,6 +33,13 @@ namespace LostCompound.Buffs.Types
 
         public override int Id => BuffIds.PhosphorusBurn;
 
+        /// <summary>
+        /// 同类叠加：**层数取最高（本来就是固定 1 层）、时间相加**。
+        ///
+        /// 这里不再单独覆写 —— 基类 MergeFrom 已是这个口径（Hyberty 2026-11-08 定的全局规则）。
+        /// 于「再中一次磷道具」的结果是：伤害仍是每回合 10 点（不翻倍），
+        /// 但**持续时间会叠加**（3 回合 + 3 回合 = 6 回合）。
+        /// </summary>
         public override string Describe() => "每回合" + DamagePerTurn + "伤害 · " + RemainingTurnsText;
 
         /// <summary>
@@ -49,22 +56,6 @@ namespace LostCompound.Buffs.Types
             if (IsExpired) return;
             owner.TakeDamage(DamagePerTurn);
             ConsumeTurn();
-        }
-
-        /// <summary>
-        /// 同类叠加：**只把剩余回合刷新回 3**，不加层数。
-        ///
-        /// 为什么不用基类默认的「层数相加、回合相加」：
-        ///   · 层数相加会让「再中一次」变成每回合 20 点，但裁定写的是固定的 10 点；
-        ///   · 回合相加会让 3 回合变成 6 回合，等于变相延长。
-        ///   刷新（取 max）最符合「再打一次磷道具 = 重新烧 3 回合」的直觉。
-        /// </summary>
-        public override void MergeFrom(Buff other)
-        {
-            if (other.RemainingTurns > RemainingTurns)
-            {
-                AddTurns(other.RemainingTurns - RemainingTurns);
-            }
         }
     }
 }
