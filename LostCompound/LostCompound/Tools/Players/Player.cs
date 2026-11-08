@@ -37,7 +37,7 @@ namespace LostCompound.Tools.Players
         /// 不参与 <see cref="RecomputeStats"/>（那会把已经掉掉的血回满）。
         /// 永久加生命值走 <see cref="GrowBaseHp"/>。
         /// </summary>
-        public double BaseHp { get; private set; } = 200;
+        public double BaseHp { get; private set; } = 100;
 
         /// <summary>
         /// 基础 STR（设计文档 7.3：3）。这是角色的**固有属性**，是「永久成长」的载体

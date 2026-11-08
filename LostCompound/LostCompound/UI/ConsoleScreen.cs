@@ -545,19 +545,61 @@ namespace LostCompound.UI
         /// <summary>
         /// 日志翻页。`delta` 为正 = 往回看（更旧的），为负 = 往新的方向。
         /// 返回「是否真的动了」—— 到顶/到底时返回 false，调用方可以据此给一句提示（也可以不给）。
+        ///
+        /// **带滚动动画**（Hyberty 2026-11-08）：不是一帧跳到位，而是**逐行**滚动，
+        /// 每行停 <see cref="ScrollFrameDelayMs"/> 毫秒。翻一屏（约 15 行）≈ 250ms，
+        /// 短到不打断操作，又足够让人看出「内容在往上/往下走」。
+        ///
+        /// 什么时候**不做动画**：
+        ///   · 输出被重定向（探针 / 管道 / 重定向到文件）—— 那种场景没人看动画，白等；
+        ///   · 一次要翻的行数过多（超过 <see cref="MaxAnimatedSteps"/>）—— 直接跳，别卡半秒以上。
         /// </summary>
         public bool ScrollLog(int delta)
         {
-            int maxScroll = Math.Max(0, _logHistory.Count - LogRows);
-            int next = Math.Clamp(_logScroll + delta, 0, maxScroll);
-            if (next == _logScroll) return false;
+            if (delta == 0) return false;
 
-            _logScroll = next;
-            RedrawLogFrame();   // 标题里的 ▲N 要更新
-            RedrawLog();
-            RedrawInputBox();
+            int maxScroll = Math.Max(0, _logHistory.Count - LogRows);
+            int target = Math.Clamp(_logScroll + delta, 0, maxScroll);
+            if (target == _logScroll) return false;
+
+            bool animate = Math.Abs(target - _logScroll) <= MaxAnimatedSteps && !Console.IsOutputRedirected;
+
+            if (!animate)
+            {
+                _logScroll = target;
+                RedrawLogFrame();   // 标题里的 ▲N 要更新
+                RedrawLog();
+                RedrawInputBox();
+                return true;
+            }
+
+            int step = Math.Sign(target - _logScroll);
+            try
+            {
+                while (_logScroll != target)
+                {
+                    _logScroll += step;
+                    RedrawLogFrame();   // 每帧都刷标题，▲N 会跟着一起变
+                    RedrawLog();
+                    Thread.Sleep(ScrollFrameDelayMs);
+                }
+            }
+            catch
+            {
+                // 睡眠被中断（Ctrl+C 等）不该让翻页失败：直接落到目标位置。
+                _logScroll = target;
+                RedrawLog();
+            }
+
+            RedrawInputBox();       // 光标最后放回输入框
             return true;
         }
+
+        /// <summary>滚动动画每帧停多久（毫秒）。</summary>
+        private const int ScrollFrameDelayMs = 15;
+
+        /// <summary>一次最多动画多少帧 —— 超过就瞬移，避免一下卡住半秒。</summary>
+        private const int MaxAnimatedSteps = 40;
 
         /// <summary>日志是否正翻在历史里（没停在最新）。</summary>
         public bool IsLogScrolled => _logScroll > 0;
