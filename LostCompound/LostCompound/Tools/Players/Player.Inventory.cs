@@ -57,11 +57,11 @@ namespace LostCompound.Tools.Players
                 // 不可堆叠 = 独占一格。背包满了就丢弃（按Hyberty决定：超过了直接删除）
                 if (Inventory.Count >= InventoryCapacity)
                 {
-                    Console.WriteLine($"背包已满，{newItem.Name} x{newItem.Count} 被丢弃了！");
+                    NotifyInfo($"背包已满，{newItem.Name} x{newItem.Count} 被丢弃了！");
                     return;
                 }
                 Inventory.Add(newItem);
-                Console.WriteLine($"你获得了 {newItem.Name} x{newItem.Count}！");
+                NotifyInfo($"获得 {newItem.Name} x{newItem.Count}");
                 return;
             }
 
@@ -94,7 +94,7 @@ namespace LostCompound.Tools.Players
                 // 现有堆叠都满了，需要新开一格；背包满则丢弃剩余部分
                 if (Inventory.Count >= InventoryCapacity)
                 {
-                    Console.WriteLine($"背包已满，{newItem.Name} x{remaining} 被丢弃了！");
+                    NotifyInfo($"背包已满，{newItem.Name} x{remaining} 被丢弃了！");
                 }
                 else
                 {
@@ -107,7 +107,7 @@ namespace LostCompound.Tools.Players
             // 统一在这里播报获得，调用方不要再重复打印
             if (added > 0)
             {
-                Console.WriteLine($"你获得了 {newItem.Name} x{added}！");
+                NotifyInfo($"获得 {newItem.Name} x{added}");
             }
         }
 

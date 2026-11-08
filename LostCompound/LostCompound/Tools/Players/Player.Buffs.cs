@@ -70,12 +70,26 @@ namespace LostCompound.Tools.Players
                     exist.MergeFrom(b);
                     RecomputeStats();      // buff 可能改属性，立刻重算
                     RefreshBuffBox();      // 叠加会改伤害/剩余回合，框要立刻跟上
+                    NotifyDebuffIfNeeded(exist);
                     return;
                 }
             }
             Buffs.Add(b);
             RecomputeStats();              // buff 可能改属性，立刻重算
             RefreshBuffBox();
+            NotifyDebuffIfNeeded(b);
+        }
+
+        /// <summary>
+        /// 中了**负面**状态时往信息框推一条（增益不推 —— 那会把信息框刷满）。
+        ///
+        /// 文案用叠加**之后**的实际状态（层数与剩余回合），而不是刚 new 出来的那个：
+        /// 同类 buff 会走 MergeFrom，「中了 3 层」和最终生效的层数可能不是一回事。
+        /// </summary>
+        private void NotifyDebuffIfNeeded(Buff b)
+        {
+            if (b == null || !b.IsDebuff) return;
+            NotifyInfo("中了 " + b.Name + "（" + b.Describe() + "）");
         }
 
         /// <summary>跳过回合：返回"这次是否被跳过"，顺手扣一次计数。

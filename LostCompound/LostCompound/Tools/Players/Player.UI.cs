@@ -241,6 +241,8 @@ namespace LostCompound.Tools.Players
                 {
                     return value;
                 }
+                // 「[」「]」是日志翻页，不算输错 —— 先吃掉，再重问。
+                if (TryHandleLogScroll(line)) continue;
                 Console.WriteLine("输入无效，请输入数字。");
             }
         }
@@ -262,6 +264,82 @@ namespace LostCompound.Tools.Players
             RefreshBuffBox();
         }
 
+        /// <summary>
+        /// 往**信息框**推一条状态变化（获得物品 / 装备变化 / 中了 debuff）。
+        ///
+        /// 为什么需要这个入口：这些播报原先都是 Console.WriteLine，与战斗叙事
+        /// （谁打谁、伤害多少）混在同一个日志框里 —— 打起来之后
+        /// 「你获得了木头 x3」「你中了锈蚀」「锈铁傀儡受到 12 点伤害」全挤在一起，
+        /// 玩家根本分不清刚才到底发生了什么。分框之后两边各自只说自己那一类事。
+        ///
+        /// 没有界面（探针 / 读档前初始化 / 调试路径）时退回 Console.WriteLine ——
+        /// 信息不会丢，只是没框可放。
+        /// </summary>
+        public void NotifyInfo(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message)) return;
+            if (_screen == null)
+            {
+                Console.WriteLine(message);
+                return;
+            }
+            _screen.PushInfo(message);
+        }
+
+        /// <summary>
+        /// 处理**日志翻页**输入（`[` 往回看 / `]` 回到底部）。
+        ///
+        /// 为什么用方括号而不是 PageUp/PageDown 或鼠标滚轮：
+        ///   终端里的功能键与滚轮事件**根本进不了 Console.ReadLine 的返回值** ——
+        ///   它们要么被终端自己处理（滚轮滚动缓冲区），要么以转义序列的形式留在输入缓冲里
+        ///   把下一次读取搞乱。要做到真滚轮，得把所有菜单的 ReadLine 换成逐键读取
+        ///   （自己处理退格、方向键、转义序列），那是另一次大改；Hyberty 2026-11-08 决定
+        ///   先上键盘翻页，滚轮以后再说。方括号是**可打印字符**，ReadLine 能原样拿到。
+        ///
+        /// 返回 true = 这一行是翻页指令，调用方应该继续读下一行（不算一次操作）。
+        /// </summary>
+        private bool TryHandleLogScroll(string line)
+        {
+            if (_screen == null) return false;
+
+            if (line == "[")
+            {
+                // 一次翻一屏（与 PageUp 的直觉一致）
+                if (!_screen.ScrollLog(_screen.LogRows))
+                {
+                    NotifyInfo("已经是最早的日志了。");
+                }
+                return true;
+            }
+            if (line == "]")
+            {
+                _screen.ScrollLog(-_screen.LogRows);
+                if (!_screen.IsLogScrolled)
+                {
+                    NotifyInfo("已回到最新日志。");
+                }
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 血量条形图（如 `██████░░░░`），10 格宽。
+        ///
+        /// 为什么不用 Unicode 方块之外的字符：`█` / `░` 在 Windows Terminal 与 conhost 里
+        /// 都是**单宽字符**，不会被 <see cref="ConsoleScreen"/> 的宽字符计算当成 2 列，
+        /// 所以条子的长度是可预期的（用 emoji 或全角字符就会错位）。
+        ///
+        /// 边界：BaseHp ≤ 0（不该发生）时返回全空条并避免除零；Hp 为负时按 0 算。
+        /// </summary>
+        private string HealthBar()
+        {
+            const int cells = 10;
+            double ratio = BaseHp <= 0 ? 0 : Math.Clamp(Hp / BaseHp, 0, 1);
+            int filled = (int)Math.Round(ratio * cells);
+            return new string('█', filled) + new string('░', cells - filled);
+        }
+
         /// <summary>刷新状态栏。战斗时会追加血量/防御/护盾/力量。</summary>
         private void RefreshStatus()
         {
@@ -271,13 +349,14 @@ namespace LostCompound.Tools.Players
             string s = "当前房间:" + _lastRoomType + "  " + RunDisplayName;
             if (_inBattle)
             {
-                // 护盾按 F1 保留一位小数：它是 double，且装备加成将来可能是小数（如盾 +5.0）
-                s += "\n血量:" + Hp.ToString("F1") + "  防御:" + Def.ToString("F1") + "  护盾:" + Shield.ToString("F1");
+                // 血量用**条形图 + 数字**：数字精确，条子让人一眼看出「还剩多少」。
+                // 这是「反馈感」最便宜的一处 —— 不用改任何战斗逻辑，只是把同一个数换个画法。
+                s += "\n血量:" + HealthBar() + " " + Hp.ToString("F1") + "/" + BaseHp.ToString("F1");
+                s += "\n防御:" + Def.ToString("F1") + "  护盾:" + Shield.ToString("F1");
                 // 显示 STR（力量）而不是最终的攻击力：攻击力 = 2 + STR × √ATK 是派生值，
                 // 而 STR 才是环境（如熔岩瀑布缺水）与装备真正在改的东西，
                 // 看它才知道「自己是被削了还是被加强了」。
-                s += "\n力量:" + Str.ToString("F1");
-                // s += "\n攻击力:" + Atk.ToString("F1");
+                s += "  力量:" + Str.ToString("F1");
             }
             Environment env = CurrentEnvironment;
             if (env != null) s += "\n" + env.DescribeStatus();
@@ -534,7 +613,7 @@ namespace LostCompound.Tools.Players
                     // 之前只挂在 OnPlayerTurn 的战斗 switch 里）。
                     // 放这里而不是让它们在别处各调一次：地图循环每回合都会回到这里，
                     // 与方向输入共用同一个 ReadLine，行为统一（输入 5/6/7 不移动，直接 continue）。
-                    Console.WriteLine("5.使用道具  6.合成  7.饰品栏");
+                    Console.WriteLine("5.使用道具  6.合成  7.饰品栏   [ ]翻日志");
 
                     // 方向提示**不再塞进输入框**（输入框只画 ">"，避免提示与回显叠加导致错位）。
                     // 可走方向已经由 ShowAvailableDirections 写进日志了，这里再写一遍只会每回合刷屏；
@@ -563,6 +642,8 @@ namespace LostCompound.Tools.Players
                     {
                         if (!int.TryParse(line, out int direction))
                         {
+                            // 「[」「]」是日志翻页：不算输错，吃掉这一行继续等输入。
+                            if (TryHandleLogScroll(line)) continue;
                             Console.WriteLine("输入无效，请输入数字。");
                             continue;
                         }

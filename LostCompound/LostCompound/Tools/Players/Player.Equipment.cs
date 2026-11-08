@@ -185,7 +185,7 @@ namespace LostCompound.Tools.Players
 
             Inventory.RemoveAt(index);
             Accessories.Add(item);
-            Console.WriteLine("你把 " + item.Name + " 装备到了饰品栏。");
+            NotifyInfo("装备 " + item.Name + " → 饰品栏");
 
             // 被动物件会加属性，装/卸之后要重算，否则属性不会立刻变化
             ApplyEquipmentPassives();
@@ -226,7 +226,7 @@ namespace LostCompound.Tools.Players
             Item item = Accessories[index];
             Accessories.RemoveAt(index);
             Inventory.Add(item);
-            Console.WriteLine("你把 " + item.Name + " 放回了背包。");
+            NotifyInfo("卸下 " + item.Name + " → 背包");
 
             ApplyEquipmentPassives();
             RefreshStatus();

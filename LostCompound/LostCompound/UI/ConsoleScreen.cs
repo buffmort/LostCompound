@@ -48,11 +48,25 @@ namespace LostCompound.UI
     {
         private readonly TextWriter _raw;          // 真实输出，必须在 SetOut 之前抓住
         private readonly LogRegionWriter _writer;
-        private readonly List<string> _log = [];
+
+        /// <summary>日志的**全部历史**（不只是当前可见的 LogRows 行）—— 翻页要看得到之前的内容。</summary>
+        private readonly List<string> _logHistory = [];
+
+        /// <summary>
+        /// 日志翻页偏移：0 = 停在最新（跟随输出），N = 往回翻了 N 行。
+        /// 由 <see cref="ScrollLog"/> 改，界面上用标题里的「▲N」提示玩家当前不在底部。
+        /// </summary>
+        private int _logScroll;
+
+        /// <summary>日志历史上限 —— 足够翻很久，又不会让内存无限涨。</summary>
+        private const int MaxLogHistory = 500;
+
         private string _lastMap;                   // 上次画过的地图文本（跳过无变化的重绘）
         private string _lastStatus;                // 上次画过的状态文本
         private string _lastEnemies = "";          // 上次画过的敌人文本
         private string _lastBuffs = "";            // 上次画过的 Buff 文本
+        private string _lastInfo = "";             // 上次画过的信息框文本
+        private readonly List<string> _info = [];  // 信息框内容（获得物品 / 装备变化 / 中了 debuff）
 
         /// <summary>输入框里提示文字前面的前缀。</summary>
         private const string PromptPrefix = "> ";
@@ -144,15 +158,28 @@ namespace LostCompound.UI
         private int MapBoxLeft => LeftBoxLeft + LeftWidth + 1;   // 中间留 1 列空隙
 
         /// <summary>
-        /// 左列的固定开销（不含 EnemyRows / LogRows）：敌人框上下边框 2 + 输入框 3 + 日志框上下边框 2。
-        /// 左列总高 = EnemyRows + LogRows + 本常量（= EnemyRows + LogRows + 7）。
+        /// **信息框**内容行数（Hyberty 2026-11-08 要求「加个框分流日志」）：
+        /// 专门放「获得物品 / 装备变化 / 中了 debuff」这类**状态变化**，
+        /// 战斗叙事（谁打谁、伤害多少）仍然留在日志框。
+        ///
+        /// 为什么把它放在日志**下方**、而不是右列：右列已经被地图 + 状态 + Buff 占满，
+        /// 再塞一个框就只能压地图；而左列日志本来就在无限长、天生适合与日志共享纵向空间。
+        /// 代价：LogRows 少 InfoRows 行 —— 所以日志必须能翻页（见 ScrollLog）。
         /// </summary>
-        private const int LeftColumnFixedHeight = 2 + 3 + 2;
+        public const int InfoRows = 3;
 
-        // 左列：敌人（EnemyRows 行，随怪物数变化）→ 日志 → 输入
+        /// <summary>
+        /// 左列的固定开销（不含 EnemyRows / LogRows / InfoRows）：
+        /// 敌人框上下边框 2 + 日志框上下边框 2 + 信息框上下边框 2 + 输入框 3 = 9。
+        /// 左列总高 = EnemyRows + LogRows + InfoRows + 本常量。
+        /// </summary>
+        private const int LeftColumnFixedHeight = 2 + 2 + 2 + 3;
+
+        // 左列：敌人（EnemyRows 行）→ 日志 → 信息 → 输入
         private int EnemyBoxTop => 1;
         private int LogBoxTop => EnemyBoxTop + EnemyRows + 2;
-        private int InputBoxTop => LogBoxTop + LogRows + 2;
+        private int InfoBoxTop => LogBoxTop + LogRows + 2;
+        private int InputBoxTop => InfoBoxTop + InfoRows + 2;
 
         // 右列：地图 → 状态 → Buff
         private const int MapBoxTop = 1;
@@ -220,8 +247,8 @@ namespace LostCompound.UI
 
             // ---- 纵向分配 ----
             // 两列各自的总高（含边框）：
-            //   左列 = 敌人框(EnemyRows + 2) + 日志框(LogRows + 2) + 输入框(3)
-            //        = EnemyRows + LogRows + 7
+            //   左列 = 敌人框(EnemyRows + 2) + 日志框(LogRows + 2) + 信息框(InfoRows + 2) + 输入框(3)
+            //        = EnemyRows + LogRows + InfoRows + 9
             //   右列 = 地图框(MapRows + 2) + 状态框(StatusRows + 2) + Buff框(BuffRows + 2)
             //        = MapRows + StatusRows + BuffRows + 6 = MapRows + 12
             // 两者取最大不能超过终端高度，否则会触发终端滚动、绝对定位全废（见 CONVENTIONS 2.6）。
@@ -232,17 +259,19 @@ namespace LostCompound.UI
             int maxMapRows = terminalHeight - StatusRows - BuffRows - 6;
             MapRows = Math.Clamp(mapRows, 5, Math.Max(5, maxMapRows));
 
-            // 左列超高时压缩日志：已知「左列总高 = EnemyRows + LogRows + 7」，
-            // 令其 ≤ terminalHeight 即得 LogRows ≤ terminalHeight - 7 - EnemyRows。
-            // 先反过来夹 EnemyRows：日志至少留 MinimumLogRows 行，
-            // 所以 EnemyRows ≤ terminalHeight - 7 - MinimumLogRows。
+            // 左列超高时压缩日志：已知「左列总高 = EnemyRows + LogRows + InfoRows + 9」，
+            // 令其 ≤ terminalHeight 即得 LogRows ≤ terminalHeight - 9 - InfoRows - EnemyRows。
+            // 先反过来夹 EnemyRows：日志至少留 MinimumLogRows 行。
             // 这一步是新增的（EnemyRows 以前是 const 3，不需要夹）：
             // 终端太矮时必须先把敌人框夹到放得下的高度，否则 7 行敌人框会把日志压成 0 行、
             // 甚至把输入框顶出终端（CONVENTIONS 2.6：顶到最底行会触发滚动，绝对定位全废）。
-            int maxEnemyRowsFit = terminalHeight - LeftColumnFixedHeight - MinimumLogRows;
+            int maxEnemyRowsFit = terminalHeight - LeftColumnFixedHeight - MinimumLogRows - InfoRows;
             EnemyRows = Math.Clamp(EnemyRows, 1, Math.Max(1, Math.Min(MaxEnemyRows, maxEnemyRowsFit)));
 
-            int logRowsFit = terminalHeight - LeftColumnFixedHeight - EnemyRows;
+            // ⚠️ 必须同时减去 InfoRows：左列总高 = EnemyRows + LogRows + InfoRows + LeftColumnFixedHeight。
+            //    漏掉它会让左列比终端高（探针 probe_layout_info 抓到：40 行终端算出 43 行）——
+            //    而左列一旦超屏就会触发终端滚动，绝对定位全废（CONVENTIONS 2.6）。
+            int logRowsFit = terminalHeight - LeftColumnFixedHeight - EnemyRows - InfoRows;
             LogRows = Math.Max(MinimumLogRows, logRowsFit);
 
             // 极端矮屏兜底：两列各有绕不开的硬下限 ——
@@ -283,6 +312,9 @@ namespace LostCompound.UI
             // 日志框与输入框的边框只画一次（内容会变，边框不动）。
             DrawBoxTop(LogBoxTop, LeftBoxLeft, LeftWidth, "日志");
             DrawBoxBottom(LogBoxTop + LogRows + 1, LeftBoxLeft, LeftWidth);
+
+            // 信息框：专放「获得物品 / 装备变化 / 中了 debuff」这类状态变化。
+            DrawBox(InfoBoxTop, LeftBoxLeft, LeftWidth, "信息", InfoRows, SplitLines(_lastInfo ?? ""));
 
             DrawBoxTop(InputBoxTop, LeftBoxLeft, LeftWidth, "输入");
             DrawBoxBottom(InputBoxTop + 2, LeftBoxLeft, LeftWidth);
@@ -369,6 +401,7 @@ namespace LostCompound.UI
         {
             DrawBox(EnemyBoxTop, LeftBoxLeft, LeftWidth, "敌人", EnemyRows, SplitLines(_lastEnemies));
             RedrawLogFrame();
+            DrawBox(InfoBoxTop, LeftBoxLeft, LeftWidth, "信息", InfoRows, SplitLines(_lastInfo ?? ""));
             RedrawInputFrame();
             RedrawLog();
             RedrawInputBox();
@@ -408,10 +441,10 @@ namespace LostCompound.UI
 
             EnemyRows = target;
 
-            // 日志变矮后只保留**最新的** LogRows 行（与 AppendLog 的滚动方向一致：
-            // 旧行被裁掉是可接受的，日志本来就是滚动的）。
-            LogRows = Math.Max(MinimumLogRows, _terminalHeight - LeftColumnFixedHeight - EnemyRows);
-            while (_log.Count > LogRows) _log.RemoveAt(0);
+            // 日志变矮后不必裁历史 —— 历史留着供翻页，只是可见窗口变短。
+            // 唯一要处理的是翻页偏移可能超过新的上限，夹一下即可。
+            LogRows = Math.Max(MinimumLogRows, _terminalHeight - LeftColumnFixedHeight - EnemyRows - InfoRows);
+            _logScroll = Math.Clamp(_logScroll, 0, Math.Max(0, _logHistory.Count - LogRows));
 
             // 位置变了：清屏后重画两列所有框，避免旧边框残留。
             _raw.Write("\u001b[2J");
@@ -466,12 +499,19 @@ namespace LostCompound.UI
             DrawBox(BuffBoxTop, MapBoxLeft, MapWidth, "Buff", BuffRows, SplitLines(buffText));
         }
 
-        /// <summary>单独重画日志框的上下边框（位置变化时用）。</summary>
+        /// <summary>单独重画日志框的上下边框（位置变化时用）。标题里带翻页提示。</summary>
         private void RedrawLogFrame()
         {
-            DrawBoxTop(LogBoxTop, LeftBoxLeft, LeftWidth, "日志");
+            DrawBoxTop(LogBoxTop, LeftBoxLeft, LeftWidth, LogTitle);
             DrawBoxBottom(LogBoxTop + LogRows + 1, LeftBoxLeft, LeftWidth);
         }
+
+        /// <summary>
+        /// 日志框标题：停在最新时就是「日志」，往回翻时显示「日志 ▲N」（N = 往回翻了几行）。
+        /// 为什么要把偏移写进标题：翻页之后**新日志还在往下追加**，玩家如果不看提示，
+        /// 会以为游戏卡住了（画面不更新）—— 标题里那个 ▲N 就是「你现在不在底部」的证据。
+        /// </summary>
+        private string LogTitle => _logScroll == 0 ? "日志" : "日志 ▲" + _logScroll;
 
         /// <summary>单独重画输入框的边框（位置变化时用）。</summary>
         private void RedrawInputFrame()
@@ -480,13 +520,64 @@ namespace LostCompound.UI
             DrawBoxBottom(InputBoxTop + 2, LeftBoxLeft, LeftWidth);
         }
 
-        /// <summary>提交一条日志（由 <see cref="LogRegionWriter"/> 在遇到换行时调用）。</summary>
+        /// <summary>
+        /// 提交一条日志（由 <see cref="LogRegionWriter"/> 在遇到换行时调用）。
+        ///
+        /// ⚠️ 日志现在有**两套存储**：`_logHistory`（全部历史，供翻页）与屏幕上的 LogRows 行窗口。
+        ///    追加时先更新历史、再按 `_logScroll` 重画窗口 —— 玩家翻着旧日志时，
+        ///    新行会追加在下面但**不会把他的视口拽走**（否则翻页根本没法用）。
+        /// </summary>
         public void AppendLog(string line)
         {
-            _log.Add(line);
-            while (_log.Count > LogRows) _log.RemoveAt(0);
+            _logHistory.Add(line);
+            if (_logHistory.Count > MaxLogHistory)
+            {
+                // 裁掉最旧的。若玩家正翻着旧日志，偏移要跟着减，否则视口会往下跳一格。
+                int drop = _logHistory.Count - MaxLogHistory;
+                _logHistory.RemoveRange(0, drop);
+                _logScroll = Math.Max(0, _logScroll - drop);
+            }
+
             RedrawLog();
             RedrawInputBox();
+        }
+
+        /// <summary>
+        /// 日志翻页。`delta` 为正 = 往回看（更旧的），为负 = 往新的方向。
+        /// 返回「是否真的动了」—— 到顶/到底时返回 false，调用方可以据此给一句提示（也可以不给）。
+        /// </summary>
+        public bool ScrollLog(int delta)
+        {
+            int maxScroll = Math.Max(0, _logHistory.Count - LogRows);
+            int next = Math.Clamp(_logScroll + delta, 0, maxScroll);
+            if (next == _logScroll) return false;
+
+            _logScroll = next;
+            RedrawLogFrame();   // 标题里的 ▲N 要更新
+            RedrawLog();
+            RedrawInputBox();
+            return true;
+        }
+
+        /// <summary>日志是否正翻在历史里（没停在最新）。</summary>
+        public bool IsLogScrolled => _logScroll > 0;
+
+        /// <summary>
+        /// 往**信息框**推一条状态变化（获得物品 / 装备变化 / 中了 debuff）。
+        ///
+        /// 为什么单独开一个框：这些内容原先和战斗叙事挤在同一个日志里，
+        /// 「你获得了木头 x3」「你中了锈蚀」「锈铁傀儡受到 12 点伤害」混在一起，
+        /// 打起来之后根本分不清刚才到底发生了什么。分框之后两边各自只说自己那一类事。
+        /// </summary>
+        public void PushInfo(string line)
+        {
+            _info.Add(line);
+            while (_info.Count > InfoRows) _info.RemoveAt(0);
+
+            string text = string.Join("\n", _info);
+            if (text == _lastInfo) return;
+            _lastInfo = text;
+            DrawBox(InfoBoxTop, LeftBoxLeft, LeftWidth, "信息", InfoRows, SplitLines(text));
         }
 
         /// <summary>
@@ -500,9 +591,12 @@ namespace LostCompound.UI
 
         private void RedrawLog()
         {
+            // 窗口末端（不含）= 历史长度 - 往回翻的行数
+            int end = _logHistory.Count - _logScroll;
             for (int i = 0; i < LogRows; i++)
             {
-                string text = i < _log.Count ? _log[i] : "";
+                int idx = end - LogRows + i;
+                string text = idx >= 0 && idx < _logHistory.Count ? _logHistory[idx] : "";
                 DrawBoxContent(LogBoxTop + 1 + i, LeftBoxLeft, LeftWidth, text);
             }
         }
