@@ -70,6 +70,17 @@ namespace LostCompound.Monsters
                         loots.Add(new Sulphur(2));
                     }
                     break;
+                case MonsterType.Leech:
+                    // 水蛭（Hyberty 2026-11-08 定）：布料 x1 权重 1、布料 x2 权重 0.5。
+                    // 权重表是 int 的（见 SkeletonDrops），0.5 没法直接写 —— 两项**同乘 2**
+                    // 得到「x1 : 2 / x2 : 1」，比例与 1 : 0.5 完全一致（66.7% / 33.3%）。
+                    // 权重只是相对比例，整体放大不改变任何一个概率。
+                    {
+                        const int totalWeight = 3;                 // 2 + 1
+                        int pick = Random.Shared.Next(totalWeight);
+                        loots.Add(pick < 2 ? new Cloth(1) : new Cloth(2));
+                    }
+                    break;
                 case MonsterType.Dummy:
                     Console.WriteLine("哇,你杀了一个假人! 你好棒!");
                     break;

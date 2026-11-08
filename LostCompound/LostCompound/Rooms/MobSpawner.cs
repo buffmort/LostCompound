@@ -75,6 +75,10 @@ namespace LostCompound.Rooms
 
             // 洞潜僵尸：精英，100 血，每回合 10% 猝死 / 50% 挂 debuff。
             ("洞潜僵尸", () => new DiverZombie(), 1, int.MaxValue),
+
+            // 水蛭（Hyberty 2026-11-08 定）：普通怪，开局只有 10 血，但靠吸血能涨到 200。
+            // 70% 攻击 + 30% 不动；吸血按玩家**实际掉血**算，被盾挡住就吸不到。
+            ("水蛭", () => new Leech(), 1, int.MaxValue),
         ];
 
         /// <summary>

@@ -77,9 +77,11 @@ namespace LostCompound.Tools.Players
         ///
         /// 盾与血的关系：盾就是额外血量，扣完盾才动 Hp（见下面 AbsorbWithShield 的逻辑）。
         /// </summary>
-        public void TakeDamage(double dmg)
+        /// <returns>玩家**实际掉的血量**（被盾全挡下时为 0）。吸血类怪物要用这个数，
+        ///          拿名义攻击力去算会让「盾挡住也照样吸血」——见 <see cref="TakeDamageIgnoringDefenseAndShield"/>。</returns>
+        public double TakeDamage(double dmg)
         {
-            ApplyIncomingDamage(dmg, ignoreDefenseAndShield: false);
+            return ApplyIncomingDamage(dmg, ignoreDefenseAndShield: false);
         }
 
         /// <summary>
@@ -95,9 +97,9 @@ namespace LostCompound.Tools.Players
         /// 仍然算「受伤」：血真掉了就通知 <see cref="IOnDamaged"/>（斗篷按次数记耐久的口径不变），
         /// 状态栏照常刷新。
         /// </summary>
-        public void TakeDamageIgnoringDefenseAndShield(double dmg)
+        public double TakeDamageIgnoringDefenseAndShield(double dmg)
         {
-            ApplyIncomingDamage(dmg, ignoreDefenseAndShield: true);
+            return ApplyIncomingDamage(dmg, ignoreDefenseAndShield: true);
         }
 
         /// <summary>
@@ -106,7 +108,7 @@ namespace LostCompound.Tools.Players
         /// 所以两者必须共用这段代码 —— 各写一份的话，「盾挡下时不通知受伤」「减伤排在盾前」
         /// 这些口径早晚会在其中一条上走样。
         /// </summary>
-        private void ApplyIncomingDamage(double dmg, bool ignoreDefenseAndShield)
+        private double ApplyIncomingDamage(double dmg, bool ignoreDefenseAndShield)
         {
             // 无视 DEF 与盾时，最终伤害就是原始伤害（下面还要再乘一次装备减伤）
             double realDmg = ignoreDefenseAndShield ? dmg : Calculator.ApplyDefense(Def, dmg);
@@ -135,7 +137,7 @@ namespace LostCompound.Tools.Players
                 //   「真的受伤 = 血被扣了」，被盾全挡下的一跳并没有打到身上，斗篷的耐久
                 //   （受伤 50 次后破损）不该因为盾厚而被消耗。realDmg 为 0（如 100% 减伤）也走这里。
                 RefreshStatus();           // 护盾变化后立刻更新状态栏
-                return;
+                return 0;                  // 血一点没掉：吸血类怪物按这个数算，就吸不到血
             }
 
             // 盾不够（或没盾）：先清空盾，剩下的才扣血
@@ -164,6 +166,8 @@ namespace LostCompound.Tools.Players
             // 玩家身上可能有 buff 在结算中（如流血每回合走 TakeDamage），
             // 这里顺手刷新一次 Buff 框，保证「结算完的那一跳」马上反映到框里。
             RefreshBuffBox();
+
+            return remaining;              // 实际掉的血量（吸血类怪物用这个数）
         }
 
         /// <summary>

@@ -20,5 +20,8 @@ namespace LostCompound.Monsters
 
         /// <summary>硫磺怪（熔岩瀑布专属，Hyberty 2026-11-08 定）。</summary>
         SulphurMonster,
+
+        /// <summary>水蛭（水淹洞穴专属，Hyberty 2026-11-08 定）。</summary>
+        Leech,
     }
 }
