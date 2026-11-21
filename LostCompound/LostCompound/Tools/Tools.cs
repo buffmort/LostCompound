@@ -95,6 +95,26 @@ namespace LostCompound.Tools
                     {
                         p.OnPlayerTurn(monsters, env?.Type ?? EnvType.None);
                         BattleDelay.Tick();      // 玩家这次行动（攻击/用道具/防御）之后停 100ms
+
+                        // ── 额外回合（ExtraTurn buff）──
+                        // 每扣一层就**直接再调一次 OnPlayerTurn**（Hyberty 2026-11-21 定）：
+                        // 语义是「你多打了一下」，不是时间倒流重开一轮 ——
+                        // 所以怪物这一轮只出手一次，额外回合里也不重走 OnTurnStart
+                        // （道具耐久、流血都不再涨）。
+                        //
+                        // ⚠️ 三件事必须在这里做，缺一个就会出问题：
+                        //   ① 每次额外行动后立刻收尸判胜负 —— 否则会继续打一只已经死了的怪；
+                        //   ② EOF 检查 —— 输入流结束时再调会一直空转；
+                        //   ③ 玩家死了就停 —— 不能对着尸体继续要输入。
+                        while (p.IsAlive && monsters.Count > 0 && p.TryConsumeExtraTurn())
+                        {
+                            Console.WriteLine("=====额外回合=====");
+                            p.OnPlayerTurn(monsters, env?.Type ?? EnvType.None);
+                            BattleDelay.Tick();
+
+                            RemoveDeadMonsters(p, monsters);
+                            if (p.InputClosed) break;
+                        }
                     }
                     // 输入流已结束（EOF）：玩家已经没法再操作了，继续循环只会一回合接一回合地
                     // 「自动跳过/放弃行动」空转到死。这里直接结束这场战斗 —— 既不算赢也不算输。

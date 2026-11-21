@@ -103,6 +103,42 @@ namespace LostCompound.Tools.Players
         }
 
         /// <summary>
+        /// **额外回合**：返回「这次还给不给一次行动」，给了就扣一层。
+        ///
+        /// 什么时候调：玩家**每次行动结束**之后（见 Tools.RunBattle）——
+        /// 不是回合头。因为层数的单位是「一次行动」，不是「一个大回合」；
+        /// 放在回合头递减的话，一次大回合只会扣一层，而玩家可能已经用掉了好几层。
+        ///
+        /// 为什么用 AddStacks/负数而不是直接改 Stacks：
+        ///   Buff 的效果量上限由 MaxStacks 管，走基类的方法才不会绕过那条规矩
+        ///   （ExtraTurn 没覆写 MaxStacks，所以实际就是无上限）。
+        /// 层数归零后由这里**立刻移除**，不等下一次 BuffTick ——
+        /// 否则地上会挂着一个写着「可再行动 0 次」的图标，玩家会以为还能动。
+        /// </summary>
+        public bool TryConsumeExtraTurn()
+        {
+            for (int i = Buffs.Count - 1; i >= 0; i--)
+            {
+                if (Buffs[i] is ExtraTurn extra)
+                {
+                    if (extra.Stacks <= 0)
+                    {
+                        Buffs.RemoveAt(i);
+                        RefreshBuffBox();
+                        return false;
+                    }
+
+                    extra.AddStacks(-1);
+                    if (extra.Stacks <= 0) Buffs.RemoveAt(i);
+
+                    RefreshBuffBox();
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
         /// 回合开始的处理。战斗循环每回合先调用它，再做跳过检查 ——
         /// 被跳过的回合里，道具计时、待入包合并、状态栏刷新仍然要照常执行。
         /// </summary>

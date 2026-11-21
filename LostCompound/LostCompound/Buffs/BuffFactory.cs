@@ -37,6 +37,7 @@ namespace LostCompound.Buffs
             (BuffIds.PhosphorusBurn, "磷灼烧", (stacks, turns) => new PhosphorusBurn(stacks, turns)),
             (BuffIds.Vulnerability, "易伤", (stacks, turns) => new Vulnerability(stacks, turns)),
             (BuffIds.Rusted, "锈蚀", (stacks, turns) => new Rusted(stacks, turns)),
+            (BuffIds.ExtraTurn, "额外回合", (stacks, turns) => new ExtraTurn(stacks, turns)),
         ];
 
         /// <summary>

@@ -1,4 +1,4 @@
-namespace LostCompound.Buffs
+﻿namespace LostCompound.Buffs
 {
     /// <summary>
     /// Buff 的 ID 常量表。与 <see cref="Items.ItemIds"/> 同一套做法。
@@ -46,5 +46,11 @@ namespace LostCompound.Buffs
 
         /// <summary>锈蚀：每层 -1 DEF，最多 5 层（锈铁傀儡给玩家上的）。</summary>
         public const int Rusted = 10;
+
+        /// <summary>
+        /// 额外回合：层层叠加，每层换一次「再行动一次」。
+        /// 消费点在 <c>Player.TryConsumeExtraTurn</c>（玩家每次行动结束），不在回合头的 BuffTick 里。
+        /// </summary>
+        public const int ExtraTurn = 11;
     }
 }
