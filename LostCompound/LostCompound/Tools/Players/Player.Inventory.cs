@@ -188,6 +188,10 @@ namespace LostCompound.Tools.Players
 
         private void OpenItems(List<Monster> monsters)
         {
+            // ★ 打开背包 = GUI 里"弹出面板、藏起主界面"（Hyberty 2026-11-21）。
+            //   清掉日志，玩家看到的是一屏干净的背包清单，不会和刚才的战斗日志混在一起。
+            ClearLog();
+
             // 「搅乱泥沙」这类 debuff 会封住背包（Buff.BlocksInventory）。
             // 口径：**尝试一次就消费一次** —— 挡下来的这一下算它生效，之后 buff 消失
             // （1 回合的效果因此在玩家真正动手时兑现，而不是在大回合开场就白掉，
@@ -240,6 +244,11 @@ namespace LostCompound.Tools.Players
                 if (choice >= 0 && choice < Inventory.Count) break;
                 Console.WriteLine("您的使用无效！请重新选择(0-" + (Inventory.Count - 1) + "):");
             }
+
+            // ★ 面板"关闭"的这一刻再清一次：接下来要打的是**使用结果**（谁掉血、谁中了什么）。
+            //   为什么清在这里而不是方法返回时：返回之后再清会把刚打出来的效果播报一起擦掉 ——
+            //   那恰恰是玩家最需要看的一屏。清在"清单已选完、效果还没开始"的缝隙上正好。
+            ClearLog();
 
             Item item = Inventory[choice];
             if (item is IUseable useable)

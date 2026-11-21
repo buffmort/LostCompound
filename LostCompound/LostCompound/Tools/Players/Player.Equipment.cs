@@ -71,6 +71,9 @@ namespace LostCompound.Tools.Players
         /// </summary>
         private void OpenAccessoryMenu()
         {
+            // 同背包：面板打开时把主界面藏起来。
+            ClearLog();
+
             while (true)
             {
                 Console.WriteLine("===== 饰品栏 =====");

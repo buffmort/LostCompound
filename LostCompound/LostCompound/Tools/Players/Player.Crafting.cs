@@ -92,6 +92,11 @@ namespace LostCompound.Tools.Players
         /// </summary>
         public void CraftMenu()
         {
+            // 每进一次合成菜单清一次（与背包同一套：面板打开 = 主界面藏起来）。
+            // 放在 while 外面而不是里面：里面每轮都清的话，"查完配方表回到菜单"会把刚看到的结果
+            // 一起擦掉 —— 那正是玩家要抄下来的东西。
+            ClearLog();
+
             while (true)
             {
                 Console.WriteLine("====合成====");
