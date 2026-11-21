@@ -1,3 +1,4 @@
+using LostCompound.Tools;
 using LostCompound.Monsters;
 using LostCompound.Tools.Players;
 
@@ -86,6 +87,8 @@ namespace LostCompound.Monsters.Normal
         }
 
         /// <summary>怪物回合：掷一次，攻击或不动。</summary>
+        /// <summary>意图：这只怪只会普攻，所以永远是「打 N」（Hyberty 2026-11-21）。</summary>
+        public override string IntentText() => "打 " + Calculator.CalculateAttack(Str, Atk).ToString("F0");
         public override void OnMonsterTurn(Player p)
         {
             Attack(p);

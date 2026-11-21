@@ -67,11 +67,27 @@ namespace LostCompound.Monsters.Normal
             Console.WriteLine(Name + "受到{0:F1}点伤害!", hpLoss);
         }
 
+        /// <summary>
+        /// 意图：僵尸有三种情况 —— 咬人 / 加 5 盾 / 什么也不干。
+        /// 用 TakePlannedOption 取回合开始摇好的那个，保证**显示的和实际执行的**是同一个。
+        /// </summary>
+        public override void PlanIntent(Player p) => SetPlannedOption(RollIndex(3));
+
+        public override string IntentText()
+        {
+            return PlannedOption switch
+            {
+                0 => "打 " + Calculator.CalculateAttack(Str, Atk).ToString("F0"),
+                1 => "盾 5",
+                _ => "0",               // 什么也不干
+            };
+        }
+
         public override void OnMonsterTurn(Player p)
         {
             // 回合头、流血结算与跳过检查都由 Tools.RunBattle 统一处理：
             // 这里如果自己再结算一次流血，就会和 Tools.ApplyBuffs 重复结算（原 bug）。
-            int option = RollIndex(3);
+            int option = TakePlannedOption(3);
             switch (option)
             {
                 case 0:

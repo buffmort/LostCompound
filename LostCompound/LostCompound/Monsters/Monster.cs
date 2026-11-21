@@ -71,6 +71,60 @@ namespace LostCompound.Monsters
         public abstract void OnMonsterTurn(Player p);
         protected abstract int RollIndex(int count);
 
+        // ==================== 意图（Hyberty 2026-11-21）====================
+
+        /// <summary>
+        /// 本回合的意图文本，显示在敌人框里名字后面。约定（Hyberty 定的）：
+        ///
+        ///   打 27          纯攻击
+        ///   打 6 debuff    攻击 + 附加状态
+        ///   盾 5           加盾（0 表示"什么也不干"）
+        ///   升级           给自己上增益
+        ///   ???            确定不是攻击，但具体是什么这回合不揭示
+        ///
+        /// 默认空串 = 不显示（还没有意图的怪）。
+        /// </summary>
+        public virtual string IntentText(Player p) => IntentText();
+
+        /// <summary>无参重载：拿不到玩家上下文的场合（例如测试）用它。</summary>
+        public virtual string IntentText() => "";
+
+        /// <summary>
+        /// 本回合摇出来的选项。**回合开始摇一次、执行时复用**。
+        ///
+        /// 为什么不能直接在 OnMonsterTurn 里 RollIndex：
+        ///   那样意图（回合开始显示）和实际动作（怪物回合执行）是**两次独立的骰子**，
+        ///   会出现「显示打 27、实际加盾 5」—— 意图系统存在的唯一理由就没了。
+        ///
+        /// -1 = 还没摇过（OnMonsterTurn 里遇到就当场摇，保证单独调用也不崩）。
+        /// </summary>
+        protected int PlannedOption { get; private set; } = -1;
+
+        /// <summary>回合开始时调用：把本回合要用的选项摇出来（每只怪一次）。</summary>
+        public virtual void PlanIntent(Player p)
+        {
+            // 默认摇 1 种（永远 0）：没有多选项的怪根本不在乎
+            PlannedOption = RollIndex(1);
+        }
+
+        /// <summary>子类在覆写 PlanIntent 时用它写入自己摇出来的选项。</summary>
+        protected void SetPlannedOption(int option) => PlannedOption = option;
+
+        /// <summary>
+        /// 取走本回合的选项。各怪在 OnMonsterTurn 里用它替换原来的 RollIndex(n)。
+        /// 没摇过就当场摇（兜底，避免 -1 被当成合法下标）。
+        /// </summary>
+        protected int TakePlannedOption(int count)
+        {
+            if (PlannedOption < 0)
+            {
+                PlannedOption = RollIndex(count);
+            }
+            int option = PlannedOption;
+            PlannedOption = -1;      // 用掉就清空，避免下一回合误用
+            return option;
+        }
+
         /// <summary>
         /// 本场战斗里的**全体怪物**（含自己），由 `Tools.RunBattle` 在开战时注入一次。
         ///

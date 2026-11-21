@@ -45,6 +45,8 @@ namespace LostCompound.Monsters.Normal
             Console.WriteLine(Name + "受到{0:F1}点伤害!", hpLoss);
         }
 
+        /// <summary>意图：这只怪只会普攻，所以永远是「打 N」（Hyberty 2026-11-21）。</summary>
+        public override string IntentText() => "打 " + Calculator.CalculateAttack(Str, Atk).ToString("F0");
         public override void OnMonsterTurn(Player p)
         {
             // 回合头与跳过检查由 Tools.RunBattle 统一处理

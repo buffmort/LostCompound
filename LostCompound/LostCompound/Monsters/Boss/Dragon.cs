@@ -75,11 +75,29 @@ namespace LostCompound.Monsters.Boss
             Console.WriteLine("{0}受到 {1:F1} 点伤害！", Name, hpLoss);
         }
 
+        /// <summary>回合开始摇：0 = 加盾、1 = 咬一口、2 = 连咬三次。</summary>
+        public override void PlanIntent(Player p) => SetPlannedOption(RollIndex(3));
+
+        /// <summary>
+        /// 意图：三种技能都明着告诉玩家。
+        /// 连咬三次是**三次独立伤害**（每次 3），所以写「打 3×3」而不是「打 9」——
+        /// 玩家护盾只挡得住一下，数字写成 9 会让他做出错误的防御判断。
+        /// </summary>
+        public override string IntentText()
+        {
+            return PlannedOption switch
+            {
+                0 => "盾 " + ShieldPerTurn.ToString("F0"),
+                1 => "打 " + Atk.ToString("F0"),
+                _ => "打 3×3",
+            };
+        }
+
         public override void OnMonsterTurn(Player p)
         {
             // 回合头与跳过检查都移到 Tools.RunBattle 里统一处理了
             // （原先这里把回合头打了两遍，且跳过文案与其它怪物不一致）。
-            int option = RollIndex(3); // 随机 0,1,2
+            int option = TakePlannedOption(3);
 
             switch (option)
             {

@@ -62,6 +62,16 @@ namespace LostCompound.Monsters.Normal
         /// 每回合：先检查「同伴是否全死」，再咬一口。
         /// 跳过回合的检查与其它怪同一套（被热硫/压缩沙瓶跳过时不该还能咬人）。
         /// </summary>
+        /// <summary>
+        /// 意图：有同伴才咬人；同伴死光了它会当场翻肚皮（Hp = 0），
+        /// 所以那种情况下意图显示 `0`（什么也不干）—— 而不是一个它会食言的攻击数字。
+        /// </summary>
+        public override string IntentText()
+        {
+            if (!HasLivingAlly()) return "0";
+            return "打 " + Calculator.CalculateAttack(Str, Atk).ToString("F0");
+        }
+
         public override void OnMonsterTurn(Player p)
         {
             if (!HasLivingAlly())

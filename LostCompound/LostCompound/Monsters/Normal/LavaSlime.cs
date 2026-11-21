@@ -143,6 +143,8 @@ namespace LostCompound.Monsters.Normal
          * 怪物回合行为：直接执行攻击
          * @param p 玩家对象
          */
+        /// <summary>意图：这只怪只会普攻，所以永远是「打 N」（Hyberty 2026-11-21）。</summary>
+        public override string IntentText() => "打 " + Calculator.CalculateAttack(Str, Atk).ToString("F0");
         public override void OnMonsterTurn(Player p)
         {
             // 回合头与跳过检查都集中在 Tools.RunBattle：

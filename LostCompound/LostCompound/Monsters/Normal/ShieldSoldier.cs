@@ -86,6 +86,20 @@ namespace LostCompound.Monsters.Normal
             Console.WriteLine(Name + "为" + target.Name + "提供了" + amount + "点护盾！");
         }
 
+        /// <summary>
+        /// 意图：盾兵**从不攻击玩家** —— 它只给同伴加盾。
+        /// 所以这里只有「盾 N」和「0」（场上没有活着的同伴时它举着盾发呆）。
+        /// </summary>
+        public override string IntentText()
+        {
+            bool hasAlly = false;
+            foreach (Monster ally in BattleAllies)
+            {
+                if (ReferenceEquals(ally, this)) continue;
+                if (ally.IsAlive) { hasAlly = true; break; }
+            }
+            return hasAlly ? "盾 " + (ShieldPerLayer * _layer).ToString("F0") : "0";
+        }
         public override void OnMonsterTurn(Player p)
         {
             // 跳过检查与其它怪同一套（被热硫/压缩沙瓶跳过时不该还能加盾）

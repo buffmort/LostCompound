@@ -55,6 +55,18 @@ namespace LostCompound.Monsters.Elite
 
         protected override int RollIndex(int count) => Random.Shared.Next(count);
 
+        /// <summary>回合开始摇：0 = 穿模（玩家这回合动不了），1 = 踢人。</summary>
+        public override void PlanIntent(Player p)
+        {
+            SetPlannedOption(Random.Shared.NextDouble() < PhaseThroughChance ? 0 : 1);
+        }
+
+        /// <summary>意图：穿模会让玩家动不了，比攻击更该让玩家提前知道。</summary>
+        public override string IntentText()
+        {
+            return PlannedOption == 0 ? "穿模" : "打 " + Atk.ToString("F0");
+        }
+
         public override void OnMonsterTurn(Player p)
         {
             // 跳过检查**不在这里做**：战斗循环（Tools.RunBattle）在调用 OnMonsterTurn 之前
@@ -63,7 +75,8 @@ namespace LostCompound.Monsters.Elite
             // 都会因此缩水一半（探针 probe_skip 抓到过）。
 
             // 穿模：它从模型里穿过去，玩家这一回合没法动
-            if (Random.Shared.NextDouble() < PhaseThroughChance)
+            // 骰子已经在 PlanIntent 里摇好（TakePlannedOption），这里不再掷
+            if (TakePlannedOption(2) == 0)
             {
                 Console.WriteLine("穿模骆驼从你的模型里穿了过去，你这一回合动不了！");
                 p.AddSkipTurn(1);

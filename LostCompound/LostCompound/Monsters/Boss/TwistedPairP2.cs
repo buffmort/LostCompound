@@ -45,6 +45,33 @@ namespace LostCompound.Monsters.Boss
             AbsorbWithShield(dmg);
         }
 
+        /// <summary>
+        /// 回合开始摇两次（PerformAction 每个回合最多跑两次：第一次 + 技能④触发的额外一次）。
+        /// 必须在**玩家行动之前**摇好，否则玩家看到「打 5」实际却被连打 5 下。
+        /// </summary>
+        public override void PlanIntent(Player p)
+        {
+            SetPlannedOption(RollIndex(4));
+        }
+
+        /// <summary>
+        /// 意图：普通攻击 5 / 连打 5 次各 1 / 给双子加盾 / 打 5 且可能再动一次。
+        /// 「再动一次」取决于 p1 这回合有没有行动，玩家行动前就能看出来，所以如实提示。
+        /// </summary>
+        public override string IntentText()
+        {
+            if (PlannedOption == 4 && !_state.P1AttackedThisTurn)
+                return "打 5 + 再动";
+
+            return PlannedOption switch
+            {
+                1 => "打 5",
+                2 => "打 1×5",
+                3 => "盾 5",
+                _ => "打 5",
+            };
+        }
+
         public override void OnMonsterTurn(Player p)
         {
             // 回合头与跳过检查由 Tools.RunBattle 统一处理
@@ -67,7 +94,8 @@ namespace LostCompound.Monsters.Boss
          */
         private bool PerformAction(Player p, bool allowExtra)
         {
-            int choice = RollIndex(4); // 4个技能
+            // 第一次用 PlanIntent 摇好的；技能④触发的那次额外行动才当场摇。
+            int choice = TakePlannedOption(4); // 4个技能
             switch (choice)
             {
                 case 1:

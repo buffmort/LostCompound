@@ -346,7 +346,16 @@ namespace LostCompound.Tools.Players
             List<string> lines = [];
             for (int i = 0; i < monsters.Count && i < ConsoleScreen.MaxEnemyRows; i++)
             {
-                lines.Add("[" + i + "] " + monsters[i].ToString().TrimEnd());
+                Monster m = monsters[i];
+                string line = "[" + i + "] " + m.ToString().TrimEnd();
+
+                // 意图接在名字+血量后面（Hyberty 2026-11-21）：
+                //   [0] 僵尸(30.0/30) - 打 20
+                // 空串 = 这只怪还没接意图，就不加尾巴（不留一个孤零零的破折号）。
+                string intent = m.IntentText(this);
+                if (!string.IsNullOrEmpty(intent)) line += " - " + intent;
+
+                lines.Add(line);
             }
             _screen.DrawEnemies(string.Join("\n", lines));
         }

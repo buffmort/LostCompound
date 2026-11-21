@@ -48,13 +48,30 @@ namespace LostCompound.Monsters.Boss
             AbsorbWithShield(dmg);
         }
 
+        /// <summary>回合开始摇：3 个技能里抽一个。</summary>
+        public override void PlanIntent(Player p) => SetPlannedOption(RollIndex(3));
+
+        /// <summary>
+        /// 意图：攻击 10 / 喷火（挂 5 回合流血）/ 困住你（下一回合不能动）。
+        /// case 编号 1~3 与 RollIndex 的返回范围（Next(3)+1 = 1~3）一致。
+        /// </summary>
+        public override string IntentText()
+        {
+            return PlannedOption switch
+            {
+                1 => "打 10",
+                2 => "打 0 debuff",
+                _ => "困住你",
+            };
+        }
+
         public override void OnMonsterTurn(Player p)
         {
             // 回合头与跳过检查由 Tools.RunBattle 统一处理
             _state.ResetIfBothActed();  // 新回合检测
 
 
-            int choice = RollIndex(3); // 3个技能
+            int choice = TakePlannedOption(3); // 3个技能
             switch (choice)
             {
                 case 1:

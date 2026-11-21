@@ -113,9 +113,27 @@ namespace LostCompound.Monsters.Elite
         public override void TakeDamage(double dmg) => TakeDamageWithDefaultLog(dmg);
 
         /// <summary>每回合掷一次：50% 攻击 / 50% 给自己上易伤。</summary>
+        /// <summary>
+        /// 回合开始摇意图：0 = 抓你（攻击），1 = 给自己上易伤。
+        ///
+        /// 原来是在 OnMonsterTurn 里当场 Random.Shared.NextDouble() 决定 ——
+        /// 那样「意图显示」和「实际动作」会各自掷一次，玩家可能看到「打 3」却被上了易伤。
+        /// </summary>
+        public override void PlanIntent(Player p)
+        {
+            SetPlannedOption(Random.Shared.NextDouble() < AttackChance ? 0 : 1);
+        }
+
+        /// <summary>意图：抓你 / 升级（给自己上易伤）。</summary>
+        public override string IntentText()
+        {
+            return PlannedOption == 0 ? "打 " + Atk.ToString("F0") : "升级";
+        }
+
         public override void OnMonsterTurn(Player p)
         {
-            if (Random.Shared.NextDouble() < AttackChance)
+            int planned = TakePlannedOption(2);
+            if (planned == 0)
             {
                 Attack(p);
                 return;

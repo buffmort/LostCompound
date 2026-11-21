@@ -67,6 +67,34 @@ namespace LostCompound.Monsters.Elite
 
         protected override int RollIndex(int count) => Random.Shared.Next(count);
 
+        /// <summary>
+        /// 回合开始摇三件事（原来在 OnMonsterTurn 里连摇三次）：
+        ///   0 = 自己猝死（它这回合什么都不做）
+        ///   1 = 挂 debuff
+        ///   2 = 普通攻击
+        /// 一次摇完存起来，执行时复用 —— 否则「显示打 N」和「实际挂 debuff」对不上。
+        /// </summary>
+        public override void PlanIntent(Player p)
+        {
+            if (Random.Shared.NextDouble() < SelfDeathChance) { SetPlannedOption(0); return; }
+            if (Random.Shared.NextDouble() < DebuffChance) { SetPlannedOption(1); return; }
+            SetPlannedOption(2);
+        }
+
+        /// <summary>
+        /// 意图：`0` 表示它这回合自己就没了 / `???` 表示要挂 debuff（确定不是攻击但不揭示是哪种）/
+        /// 否则是普通攻击。
+        /// </summary>
+        public override string IntentText()
+        {
+            return PlannedOption switch
+            {
+                0 => "0",
+                1 => "???",
+                _ => "打 " + Atk.ToString("F0"),
+            };
+        }
+
         public override void OnMonsterTurn(Player p)
         {
             // 跳过检查**不在这里做**：战斗循环（Tools.RunBattle）在调用 OnMonsterTurn 之前
@@ -74,23 +102,22 @@ namespace LostCompound.Monsters.Elite
             // 这里再调一次会把「跳过 1 回合」扣成 2 点库存 —— 热硫的 1 回合、压缩沙瓶的 2 回合
             // 都会因此缩水一半（探针 probe_skip 抓到过）。
 
-            // ① 10% 自己猝死
-            if (Random.Shared.NextDouble() < SelfDeathChance)
+            switch (TakePlannedOption(3))
             {
-                Console.WriteLine(Name + "的体力耗尽了，沉了下去。");
-                Hp = 0;
-                return;
+                case 0:
+                    // ① 10% 自己猝死
+                    Console.WriteLine(Name + "的体力耗尽了，沉了下去。");
+                    Hp = 0;
+                    return;
+                case 1:
+                    // ② 50% 挂一种 debuff
+                    ApplyRandomDebuff(p);
+                    return;
+                default:
+                    // ③ 否则普通攻击
+                    Attack(p);
+                    return;
             }
-
-            // ② 50% 挂一种 debuff
-            if (Random.Shared.NextDouble() < DebuffChance)
-            {
-                ApplyRandomDebuff(p);
-                return;
-            }
-
-            // ③ 否则普通攻击
-            Attack(p);
         }
 
         /// <summary>从 4 种 debuff 里随机挂一种（同类叠加由 Player.AddBuff 的 MergeFrom 处理）。</summary>

@@ -71,6 +71,8 @@ namespace LostCompound.Monsters.Normal
         /// 怪物回合：骷髅只有普通攻击这一种行动，所以直接打，不做随机分支。
         /// 回合头、流血结算与跳过检查都由 Tools.RunBattle 统一处理，这里不重复。
         /// </summary>
+        /// <summary>意图：这只怪只会普攻，所以永远是「打 N」（Hyberty 2026-11-21）。</summary>
+        public override string IntentText() => "打 " + Calculator.CalculateAttack(Str, Atk).ToString("F0");
         public override void OnMonsterTurn(Player p)
         {
             Attack(p);

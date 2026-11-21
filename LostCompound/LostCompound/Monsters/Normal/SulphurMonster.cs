@@ -1,3 +1,4 @@
+using LostCompound.Tools;
 using LostCompound.Buffs.Types;
 using LostCompound.Monsters;
 using LostCompound.Rooms;
@@ -84,6 +85,17 @@ namespace LostCompound.Monsters.Normal
         }
 
         /// <summary>怪物回合：必定普通攻击（跳过检查由 Tools.RunBattle 统一处理）。</summary>
+        /// <summary>
+        /// 意图：高温房里打人还附带流血，其它情况是纯攻击。
+        /// 这里必须问**当前房间**而不是只看伤害数字 —— 否则玩家在高温里
+        /// 会看到一个「打 5」却莫名其妙开始流血。
+        /// </summary>
+        public override string IntentText(Player p)
+        {
+            string dmg = "打 " + Atk.ToString("F0");
+            bool inHotRoom = p?.CurrentRoom?.IsHot == true;
+            return inHotRoom ? dmg + " debuff" : dmg;
+        }
         public override void OnMonsterTurn(Player p)
         {
             Attack(p);
