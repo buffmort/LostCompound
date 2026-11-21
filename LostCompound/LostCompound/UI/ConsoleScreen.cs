@@ -528,6 +528,23 @@ namespace LostCompound.UI
         ///
         /// 只保留最近 LogRows 行：日志框就那么大，更早的看不见，留着只是占内存。
         /// </summary>
+        /// <summary>
+        /// **清空日志区**（Hyberty 2026-11-21：跨战斗 / 每回合都要清，只留当前有用的信息）。
+        ///
+        /// 为什么由 UI 负责清、而不是让调用方自己控制「别打那么多」：
+        ///   历史清不清是**呈现**问题，不是业务问题。业务侧照常写它该写的，
+        ///   由界面决定"现在该看到哪一段"。这样以后想加"回看上一回合"也只改这一处。
+        ///
+        /// 只清日志区，**不动信息框**：那个框放的是「获得物品 / 中了 debuff」这类
+        /// 跨回合仍然有效的结果，每回合清掉反而丢信息。
+        /// </summary>
+        public void ClearLog()
+        {
+            if (_log.Count == 0) return;
+            _log.Clear();
+            RedrawLog();
+        }
+
         public void AppendLog(string line)
         {
             _log.Add(line);

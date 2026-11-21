@@ -25,8 +25,17 @@ namespace LostCompound.Tools
          */
         public static void RunBattle(Player p, List<Monster> monsters, Environment env)
         {
+            // ★ 跨战斗清理（Hyberty 2026-11-21）：上一场战斗的尾巴不能和新一场混在一起。
+            //   日志区只有十几行，不清的话玩家会看到"上一场谁打了我"夹在"这一场开始"里。
+            p.ClearBattleLog();
+
             Console.WriteLine("=======战斗开始=======");
             int round = 1;
+
+            // 每回合摘要用的「上一回合结束时的血量」：清屏之后补一句净损失。
+            // 为什么需要它：日志每回合清空，玩家就看不到"刚才那轮挨了多少"——
+            // 补这一行摘要，屏幕既干净又不丢信息。
+            double hpAtRoundStart = p.Hp;
 
             // ── 0. 开战初始化：按环境给怪物写入「环境相关特性」──
             // 为什么放在这里：Monster.TakeDamage(double) 拿不到环境，改它的签名会牵动基类、
@@ -75,7 +84,17 @@ namespace LostCompound.Tools
                     // ── 1. 回合头 ──
                     // 这行原先由 ApplyDotEffects 打印。DOT 机制已删除、那个方法整体删掉了，
                     // 所以必须把它搬到这里，否则战斗日志里再也没有「第N回合」的分隔。
-                    Console.WriteLine("=====第" + round + "回合=====");
+                    // ★ 每回合清理：只留当前这一回合发生的事。
+                    //   顺序很重要 —— 先算出「上轮损失」再清屏，否则摘要就没数可写。
+                    double hpLostLastRound = hpAtRoundStart - p.Hp;
+                    p.ClearBattleLog();
+                    hpAtRoundStart = p.Hp;
+
+                    // 摘要只写净损失：谁打的不再重复（怪物阶段已经报过，那部分也已清掉）。
+                    // 没有损失就只写回合号 —— 补一句"损失 0"是噪音。
+                    Console.WriteLine(hpLostLastRound > 0.05
+                        ? "=====第" + round + "回合=====   （上一轮你损失 " + hpLostLastRound.ToString("F1") + " 点生命）"
+                        : "=====第" + round + "回合=====");
                     TimelineWindow.WriteRound(round);
                     BattleDelay.Tick();     // 回合分隔前停一下（关键节点，见 BattleDelay）
 

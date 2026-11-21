@@ -346,6 +346,12 @@ namespace LostCompound.Tools.Players
         /// 行尾的空格要 TrimEnd：Monster.ToString() 结尾自带一个空格（那是给
         /// SelectTarget 的 "0. 僵尸(30.0)   1. ..." 横向排列用的），框内显示不需要它。
         /// </summary>
+        /// <summary>
+        /// 清空日志区（跨战斗 / 每回合）。由战斗循环调用 —— 见 <see cref="ConsoleScreen.ClearLog"/>。
+        /// 没装分栏界面时什么都不做（战斗也能在没有界面的场合跑，比如探针）。
+        /// </summary>
+        public void ClearBattleLog() => _screen?.ClearLog();
+
         private void RefreshEnemyBox(List<Monster> monsters)
         {
             if (_screen == null) return;
