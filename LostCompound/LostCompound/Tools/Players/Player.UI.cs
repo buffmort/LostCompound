@@ -347,10 +347,14 @@ namespace LostCompound.Tools.Players
         /// SelectTarget 的 "0. 僵尸(30.0)   1. ..." 横向排列用的），框内显示不需要它。
         /// </summary>
         /// <summary>
-        /// 清空日志区（跨战斗 / 每回合）。由战斗循环调用 —— 见 <see cref="ConsoleScreen.ClearLog"/>。
-        /// 没装分栏界面时什么都不做（战斗也能在没有界面的场合跑，比如探针）。
+        /// 清空日志区。**每一"屏"提示之前调一次**（Hyberty 2026-11-21）：
+        ///   · 战斗：开战前、每个大回合开头；
+        ///   · 地图：每次回到方向提示之前。
+        ///
+        /// 目的：日志区只放**这一屏发生的事**，不让上一屏的旧内容混进来。
+        /// 没装分栏界面时什么都不做（战斗/地图也能在没有界面的场合跑，比如探针）。
         /// </summary>
-        public void ClearBattleLog() => _screen?.ClearLog();
+        public void ClearLog() => _screen?.ClearLog();
 
         private void RefreshEnemyBox(List<Monster> monsters)
         {
@@ -520,8 +524,10 @@ namespace LostCompound.Tools.Players
 
             // 登记「当前对局」，让退出钩子（关窗口 / Ctrl+C）能拿到玩家、地图和生成器
             SaveSession.Begin(this, map, tmg);
-            Console.WriteLine("游戏开始！输入方向探索地图。");
-            Console.WriteLine("方向：0上 1下 2左 3右，4 退出。");
+            // ⚠️ 开场白「游戏开始！输入方向探索地图。」与「方向：0上 1下 2左 3右，4 退出。」
+            //   已删（Hyberty 2026-11-21 的日志清理）。理由：日志现在**每一屏开头都会清空**，
+            //   这两行打印在循环之前，第一次清屏就没了 —— 等于白写，还让「4 退出」
+            //   永远看不到。操作提示改成每屏都出现的菜单行（见下面的 4/5/6/7）。
 
             // 开局解锁「配方0」（内容见 AddDefaultRecipes；原先这里括注「热硫 + 玻璃罐」，
             // 早已漏掉水瓶，这次补全配方 0 后更不完整，故去掉括注、只留方法名这一处真相）。
@@ -543,6 +549,13 @@ namespace LostCompound.Tools.Players
                 {
                     // ---- 1. 地图 + 状态（分区绘制，不会影响日志区）----
                     DrawScreen(screen, map, tmg);
+
+                    // ★ 每一屏提示之前清一次日志（Hyberty 2026-11-21）。
+                    //   清在这里而不是"清在菜单之前"：因为「你移动到了新房间」→ 房间事件 →
+                    //   可选方向 → 菜单是**同一屏**的内容，中间任何一处清屏都会把前面那段擦掉。
+                    //   清在循环开头，这一屏从头写、上一屏整段丢 —— 屏幕上永远只有当前这一屏。
+                    ClearLog();
+
                     if (justMoved)
                     {
                         Console.WriteLine("你移动到了新房间。");
@@ -595,7 +608,9 @@ namespace LostCompound.Tools.Players
                     // 之前只挂在 OnPlayerTurn 的战斗 switch 里）。
                     // 放这里而不是让它们在别处各调一次：地图循环每回合都会回到这里，
                     // 与方向输入共用同一个 ReadLine，行为统一（输入 5/6/7 不移动，直接 continue）。
-                    Console.WriteLine("5.使用道具  6.合成  7.饰品栏");
+                    // 每屏都打一次：日志每屏清空，所以「怎么操作」必须跟着这一屏走。
+                    // 「4.退出」原先只在开场白里说一次，现在并到这一行 —— 它是常驻指令，不是一次性说明。
+                    Console.WriteLine("4.退出  5.使用道具  6.合成  7.饰品栏");
 
                     // 方向提示**不再塞进输入框**（输入框只画 ">"，避免提示与回显叠加导致错位）。
                     // 可走方向已经由 ShowAvailableDirections 写进日志了，这里再写一遍只会每回合刷屏；
