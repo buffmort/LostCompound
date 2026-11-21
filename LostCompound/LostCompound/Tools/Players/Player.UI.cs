@@ -117,6 +117,9 @@ namespace LostCompound.Tools.Players
                 }
                 firstShow = false;
 
+                // 每次回到菜单都把标题恢复 —— 从面板退回来时标题会停在面板名上。
+                SetLogTitle(BattleMenuTitle);
+
                 // ⚠️ 这里**不再**打「请选择操作」（Hyberty 2026-11-21 信息化简）：
                 //     下面 ReadInt("请选择操作") 自己会打一次，原先连着打两遍。
                 //     选项列表保留 —— 它不在别的固定区域显示。
@@ -165,13 +168,13 @@ namespace LostCompound.Tools.Players
                     break;
                 case 3:
                     // 只有真的用掉道具才算一次行动；只是翻了翻就退出的话回到菜单重选
-                    turnConsumed = OpenItems(monsters);
+                    turnConsumed = OpenPanel("背包", () => OpenItems(monsters));
                     break;
                 case 4:
-                    turnConsumed = CraftMenu();
+                    turnConsumed = OpenPanel("合成", () => CraftMenu());
                     break;
                 case 5:
-                    turnConsumed = OpenAccessoryMenu();
+                    turnConsumed = OpenPanel("饰品", () => OpenAccessoryMenu());
                     break;
                 case 6 when CurrentEnvironment?.CanDigSand == true:
                     // 采沙：一次行动换一堆沙子（DESIGN §5.3「花费 1 回合获得 5 沙子」）。
@@ -380,6 +383,31 @@ namespace LostCompound.Tools.Players
         /// </summary>
         public void ClearLog() => _screen?.ClearLog();
 
+        /// <summary>切换左列日志框的标题（"战斗" / "背包" / "合成" …）。见 <see cref="ConsoleScreen.SetLogTitle"/>。</summary>
+        public void SetLogTitle(string title) => _screen?.SetLogTitle(title);
+
+        /// <summary>
+        /// **打开一个面板的统一样式**（Hyberty 2026-11-21 指出的 OOP 问题）。
+        ///
+        /// 背包、合成、饰品栏是同一类东西：打开 → 操作 → 关闭。
+        /// 三者的三条规矩必须完全一致，否则迟早有一条走样：
+        ///   ① 打开时把日志框标题换成面板名（玩家知道自己进了哪个界面）；
+        ///   ② 返回 true = 真的做了事（消耗行动），false = 只是看了看（回到菜单重选）；
+        ///   ③ 没消耗行动时，标题自动恢复成战斗菜单。
+        ///
+        /// 抽出来之后，加第四个面板只要 `OpenPanel("新面板", () => XxxMenu())` 一行。
+        /// </summary>
+        private bool OpenPanel(string title, Func<bool> panel)
+        {
+            SetLogTitle(title);
+            bool consumed = panel();
+            if (!consumed) SetLogTitle(BattleMenuTitle);
+            return consumed;
+        }
+
+        /// <summary>战斗菜单时日志框的标题。</summary>
+        private const string BattleMenuTitle = "战斗";
+
         private void RefreshEnemyBox(List<Monster> monsters)
         {
             if (_screen == null) return;
@@ -579,6 +607,7 @@ namespace LostCompound.Tools.Players
                     //   可选方向 → 菜单是**同一屏**的内容，中间任何一处清屏都会把前面那段擦掉。
                     //   清在循环开头，这一屏从头写、上一屏整段丢 —— 屏幕上永远只有当前这一屏。
                     ClearLog();
+                    SetLogTitle("探索");   // 地图界面：标题说清楚"现在在探索"，而不是笼统的「日志」
 
                     if (justMoved)
                     {

@@ -513,8 +513,14 @@ namespace LostCompound.UI
             DrawBoxBottom(LogBoxTop + LogRows + 1, LeftBoxLeft, LeftWidth);
         }
 
-        /// <summary>日志框标题（固定为「日志」，翻页已删除）。</summary>
-        private const string LogTitle = "日志";
+        /// <summary>
+        /// 日志框的标题。**可变**（Hyberty 2026-11-21）：
+        /// 既然日志现在每一屏都会清空、只显示当前界面，标题就该跟着说清楚"这是哪个界面" ——
+        /// 进背包时显示「背包」、战斗时显示「战斗」，比永远写「日志」有用得多。
+        ///
+        /// 默认「日志」：地图探索那种没有明确界面的场合用它。
+        /// </summary>
+        public string LogTitle { get; private set; } = "日志";
 
         /// <summary>单独重画输入框的边框（位置变化时用）。</summary>
         private void RedrawInputFrame()
@@ -538,6 +544,18 @@ namespace LostCompound.UI
         /// 只清日志区，**不动信息框**：那个框放的是「获得物品 / 中了 debuff」这类
         /// 跨回合仍然有效的结果，每回合清掉反而丢信息。
         /// </summary>
+        /// <summary>
+        /// 切换日志框标题（并立刻重画那一行边框）。标题没变就不重画 —— 避免每帧刷屏。
+        /// </summary>
+        public void SetLogTitle(string title)
+        {
+            if (string.IsNullOrEmpty(title)) title = "日志";
+            if (title == LogTitle) return;
+
+            LogTitle = title;
+            RedrawLogFrame();
+        }
+
         public void ClearLog()
         {
             if (_log.Count == 0) return;

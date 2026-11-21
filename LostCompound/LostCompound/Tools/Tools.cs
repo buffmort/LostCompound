@@ -30,6 +30,7 @@ namespace LostCompound.Tools
             p.ClearLog();
 
             Console.WriteLine("=======战斗开始=======");
+            p.SetLogTitle("战斗");    // 左列标题跟着当前界面走（Hyberty 2026-11-21）
             int round = 1;
 
             // 每回合摘要用的「上一回合结束时的血量」：清屏之后补一句净损失。
