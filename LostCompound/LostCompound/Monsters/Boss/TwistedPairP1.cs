@@ -60,7 +60,7 @@ namespace LostCompound.Monsters.Boss
             return PlannedOption switch
             {
                 1 => "打 10",
-                2 => "打 0 debuff",
+                2 => "流血",
                 _ => "困住你",
             };
         }

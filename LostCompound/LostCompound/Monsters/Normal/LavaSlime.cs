@@ -147,7 +147,7 @@ namespace LostCompound.Monsters.Normal
         /// 意图：50% 概率附加灼烧（2 回合 × 3 点流血），所以要标 debuff。
         /// 伤害用 Atk 原值（不走 Calculator 公式 —— Attack 里就是 p.TakeDamage(Atk)）。
         /// </summary>
-        public override string IntentText() => "打 " + Atk.ToString("F0") + " debuff";
+        public override string IntentText() => "打 " + Atk.ToString("F0") + " + 流血";
         public override void OnMonsterTurn(Player p)
         {
             // 回合头与跳过检查都集中在 Tools.RunBattle：

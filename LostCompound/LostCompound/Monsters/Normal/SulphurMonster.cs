@@ -94,7 +94,7 @@ namespace LostCompound.Monsters.Normal
         {
             string dmg = "打 " + Atk.ToString("F0");
             bool inHotRoom = p?.CurrentRoom?.IsHot == true;
-            return inHotRoom ? dmg + " debuff" : dmg;
+            return inHotRoom ? dmg + " + 流血" : dmg;
         }
         public override void OnMonsterTurn(Player p)
         {

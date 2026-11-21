@@ -85,7 +85,7 @@ namespace LostCompound.Monsters.Normal
         /// 意图：先掉一层 DEF 再攻击，并且附带锈蚀（DESIGN：每回合 -1 DEF，最多 5 层）。
         /// 伤害用 Atk 原值（Attack 里就是 p.TakeDamage(Atk)，不走公式）。
         /// </summary>
-        public override string IntentText() => "打 " + Atk.ToString("F0") + " debuff";
+        public override string IntentText() => "打 " + Atk.ToString("F0") + " + 锈蚀";
         public override void OnMonsterTurn(Player p)
         {
             if (Def > 0)
