@@ -4,6 +4,7 @@ using LostCompound.Monsters;
 using LostCompound.Buffs;
 
 using LostCompound.Tools.Players;
+using LostCompound.Tools.Debug;
 
 namespace LostCompound.Tools
 {
@@ -43,112 +44,53 @@ namespace LostCompound.Tools
             }
             try
             {
-                // 意图编排者：整场战斗一个，循环每回合只叫它摇一次
-            MonsterIntents intents = new(monsters);
+                // 意图编排者：整场战斗一个
+                MonsterIntents intents = new(monsters);
 
-            while (p.IsAlive && monsters.Count > 0)
+                // ── 回合流程模板（Hyberty 2026-11-21 B 方案）──
+                // 顺序现在是**数据**，不再藏在语句和缩进里：一眼能看完，环境还能往副本里追加。
+                // 每一步返回 bool：false = 战斗结束（有人死了 / 怪清空了 / 输入流断了）。
+                //
+                // 「被跳过」这件事在这里就消费掉了（playerSkipped），而不是放在玩家行动里 ——
+                // 因为城市地图可能会追加第二次「玩家行动」，
+                // 被眩晕的回合应该是**整个回合都不能动**，而不是只少动一次。
+                bool playerSkipped = false;
+
+                TurnPipeline template = new();
+                template.Add(TurnPipeline.BuffStep, () => SettleBuffs(p, monsters));
+                template.Add(TurnPipeline.EnvironmentStep, () => AdvanceEnvironment(p, monsters, env));
+                template.Add(TurnPipeline.IntentStep, () => { intents.BeginRound(p); return true; });
+                template.Add(TurnPipeline.PlayerTurnStartStep, () =>
                 {
+                    p.OnTurnStart(env?.Type ?? EnvType.None);
+                    playerSkipped = p.TryConsumeSkipTurn();
+                    return true;
+                });
+                template.Add(TurnPipeline.PlayerActionStep, () =>
+                    playerSkipped ? true : RunPlayerAction(p, monsters, env));
+                template.Add(TurnPipeline.MonsterTurnStep, () => RunMonsterTurns(p, monsters));
 
-                    // ── 1. 大回合开场：回合头 ──
+                while (p.IsAlive && monsters.Count > 0)
+                {
+                    // ── 1. 回合头 ──
                     // 这行原先由 ApplyDotEffects 打印。DOT 机制已删除、那个方法整体删掉了，
                     // 所以必须把它搬到这里，否则战斗日志里再也没有「第N回合」的分隔。
                     Console.WriteLine("=====第" + round + "回合=====");
                     BattleDelay.Tick();     // 回合分隔前停一下（关键节点，见 BattleDelay）
 
-                    // ── buff 结算（流血）：唯一的周期性伤害出口 ──
-                    // 必须在 RemoveDeadMonsters 之前：buff 打死怪也要走统一收尸，否则漏掉落。
-                    ApplyBuffs(p, monsters);
+                    // 每回合**克隆**一份再让环境追加：
+                    // 直接往模板上塞的话，第 N 回合玩家会动 N 次（见 TurnPipeline 类注释）。
+                    TurnPipeline roundSteps = template.Clone();
+                    env?.ContributeTurnSteps(roundSteps, p, monsters);
 
-                    // ── 2. 环境推进：每个大回合一次（如熔岩瀑布每回合掉水）──
-                    // 环境只推进自己；它对玩家的影响（如缺水扣 STR）由 Player 重算时读取。
-                    // 高温房间（设计文档 §5.1）也在这里告诉环境：热量挂在**房间**上，
-                    // 而环境对象是整层共享的，它自己查不到玩家站在哪一间。
-                    env?.OnBattleTurn(p.CurrentRoom?.IsHot == true);
-
-                    // 环境自己声明的「玩家必败」条件（如水淹洞穴水位满）→ 全部对象死亡，玩家直接算输。
-                    // 为什么改成问能力：原先这里写的是 `env is FloodedCavern`，等于把某个环境的具体
-                    // 判负规则搬进了通用战斗循环；以后再加一个会淹死人的环境，就得回来改 RunBattle。
-                    if (env?.IsFatalToPlayer == true)
+                    // 调试模式下把本回合的实际顺序打一次（只在第 1 回合打，不刷屏）。
+                    // 改回合结构时靠它确认「环境到底有没有把步骤加进去」。
+                    if (round == 1 && DebugState.Enabled)
                     {
-                        Console.WriteLine(env.FatalMessage);
-                        p.Hp = 0;
-                        foreach (Monster m in monsters)
-                        {
-                            // 这里写 0.01 而不是 0，是为了让 IsAlive（Hp > 0）判定为 false，
-                            // 顺带把「非整数血量」这件事显式化（Hp 是 double）。
-                            //
-                            // ⚠️ 上一版注释在这里写的是「仍走 RemoveDeadMonsters 的统一收尸（发掉落）」——
-                            //   那个**理由不成立**：紧接着就是 break，循环直接退出，
-                            //   RemoveDeadMonsters 根本不会执行，掉落自然也不会发。
-                            //   而「环境判负时不给怪物掉落」本身就是想要的行为（玩家已经被判定失败了，
-                            //   再按战利品发一份没有意义），所以行为保留，只把理由改对。
-                            m.Hp = 0.01;
-                        }
-                        break;
+                        Console.WriteLine("（回合顺序：" + string.Join(" → ", roundSteps.Order) + "）");
                     }
 
-                    RemoveDeadMonsters(p, monsters);
-                    if (!p.IsAlive || monsters.Count == 0) break;
-
-                    // ── 2.5 摇意图：玩家行动**之前**定下怪物这回合要做什么 ──
-                    // 为什么在这里摇：玩家要能看到「它这回合打我多少」再决定防御还是攻击。
-                    // 为什么在环境推进之后：环境可能改了怪的数值（缺水扣 STR），先推进再摇才准。
-                    // 「怎么摇、哪些怪参与」由 MonsterIntents 自己管，循环只发一句指令。
-                    intents.BeginRound(p);
-
-                    // ── 3. 玩家回合：先做回合开始的簿记，再判跳过，最后才是行动 ──
-                    // 簿记（道具计时/待入包合并/状态栏）即使本回合被跳过也要执行，
-                    // 所以它必须在跳过检查之前。
-                    p.OnTurnStart(env?.Type ?? EnvType.None);
-                    if (!p.TryConsumeSkipTurn())
-                    {
-                        p.OnPlayerTurn(monsters, env?.Type ?? EnvType.None);
-                        BattleDelay.Tick();      // 玩家这次行动（攻击/用道具/防御）之后停 100ms
-
-                        // ── 额外回合（ExtraTurn buff）──
-                        // 每扣一层就**直接再调一次 OnPlayerTurn**（Hyberty 2026-11-21 定）：
-                        // 语义是「你多打了一下」，不是时间倒流重开一轮 ——
-                        // 所以怪物这一轮只出手一次，额外回合里也不重走 OnTurnStart
-                        // （道具耐久、流血都不再涨）。
-                        //
-                        // 判断权在 buff 自己身上（Buff.OnPlayerActionEnd）：
-                        // 这里只负责「问一遍、照做」，不再关心是谁要求的。
-                        // 将来再有「行动后触发」的效果，加一个覆写就够，这个循环不用动。
-                        //
-                        // ⚠️ 三件事必须在这里做，缺一个就会出问题：
-                        //   ① 每次额外行动后立刻收尸判胜负 —— 否则会继续打一只已经死了的怪；
-                        //   ② EOF 检查 —— 输入流结束时再调会一直空转；
-                        //   ③ 玩家死了就停 —— 不能对着尸体继续要输入。
-                        while (p.IsAlive && monsters.Count > 0 && p.NotifyPlayerActionEnd())
-                        {
-                            Console.WriteLine("=====额外回合=====");
-                            p.OnPlayerTurn(monsters, env?.Type ?? EnvType.None);
-                            BattleDelay.Tick();
-
-                            RemoveDeadMonsters(p, monsters);
-                            if (p.InputClosed) break;
-                        }
-                    }
-                    // 输入流已结束（EOF）：玩家已经没法再操作了，继续循环只会一回合接一回合地
-                    // 「自动跳过/放弃行动」空转到死。这里直接结束这场战斗 —— 既不算赢也不算输。
-                    if (p.InputClosed)
-                    {
-                        break;
-                    }
-                    RemoveDeadMonsters(p, monsters);
-                    if (!p.IsAlive || monsters.Count == 0) break;
-
-                    // ── 4. 怪物回合：回合头与跳过检查由本循环统一处理 ──
-                    foreach (Monster m in monsters)
-                    {
-                        if (!p.IsAlive) break;
-                        if (!m.IsAlive) continue;
-                        Console.WriteLine("=====" + m.Name + "回合=====");
-                        if (m.TryConsumeSkipTurn()) continue;
-                        m.OnMonsterTurn(p);
-                        BattleDelay.Tick();      // 每只怪出手之后停一下
-                    }
-                    RemoveDeadMonsters(p, monsters);
+                    if (!roundSteps.Run()) break;
 
                     round++;
                 }
@@ -205,6 +147,98 @@ namespace LostCompound.Tools
             {
                 m.ApplyDamageImmunity(env.GetDamageImmunity(m));
             }
+        }
+
+        // ==================== 回合流程的四个步骤 ====================
+        // 每个都返回 bool：false = 战斗结束。
+
+        /// <summary>
+        /// 状态结算：buff 每回合的跳伤（流血等）。
+        /// 这里**不收尸**：buff 跳死的怪由「环境推进」那一步统一处理，
+        /// 保持原有的「环境看到的仍是全量名单」顺序，不改变已有的同归于尽判定。
+        /// </summary>
+        private static bool SettleBuffs(Player p, List<Monster> monsters)
+        {
+            ApplyBuffs(p, monsters);
+            return true;
+        }
+
+        /// <summary>环境推进：掉水 / 涨水位 / 环境判负，然后统一收尸判胜负。</summary>
+        private static bool AdvanceEnvironment(Player p, List<Monster> monsters, Environment env)
+        {
+            // 高温房间（设计文档 §5.1）在这里告诉环境：热量挂在**房间**上，
+            // 而环境对象是整层共享的，它自己查不到玩家站在哪一间。
+            env?.OnBattleTurn(p.CurrentRoom?.IsHot == true);
+
+            // 环境自己声明的「玩家必败」条件（如水淹洞穴水位满）→ 全部对象死亡，玩家直接算输。
+            if (env?.IsFatalToPlayer == true)
+            {
+                Console.WriteLine(env.FatalMessage);
+                p.Hp = 0;
+                foreach (Monster m in monsters)
+                {
+                    // 写 0.01 而不是 0，是为了让 IsAlive（Hp > 0）判定为 false。
+                    m.Hp = 0.01;
+                }
+                return false;
+            }
+
+            RemoveDeadMonsters(p, monsters);
+            return p.IsAlive && monsters.Count > 0;
+        }
+
+        /// <summary>
+        /// 玩家行动**一次**（含额外回合）。
+        /// 「被跳过」不在这里判断 —— 已由「玩家回合开始」那一步统一消费掉
+        /// （城市双动时，被眩晕只会跳过一次，而不是跳一次动一次）。
+        /// </summary>
+        private static bool RunPlayerAction(Player p, List<Monster> monsters, Environment env)
+        {
+            p.OnPlayerTurn(monsters, env?.Type ?? EnvType.None);
+            BattleDelay.Tick();      // 玩家这次行动之后停 100ms
+
+            // ── 额外回合（ExtraTurn buff）──
+            // 每扣一层就**直接再调一次 OnPlayerTurn**：语义是「你多打了一下」，
+            // 不是时间倒流重开一轮 —— 所以怪物这一轮只出手一次，
+            // 额外回合里也不重走 OnTurnStart（道具耐久、流血都不再涨）。
+            // 判断权在 buff 自己身上（Buff.OnPlayerActionEnd），这里只负责「问了、照做」。
+            // ⚠️ 每次额外行动后立刻收尸判胜负 —— 否则会继续打一只已经死了的怪。
+            while (p.IsAlive && monsters.Count > 0 && p.NotifyPlayerActionEnd())
+            {
+                Console.WriteLine("=====额外回合=====");
+                p.OnPlayerTurn(monsters, env?.Type ?? EnvType.None);
+                BattleDelay.Tick();
+
+                RemoveDeadMonsters(p, monsters);
+                if (p.InputClosed) break;
+            }
+
+            RemoveDeadMonsters(p, monsters);
+
+            // 输入流已结束（EOF）：玩家没法再操作了，继续跑只会空转。
+            // 返回 false = 结束这场战斗（既不算赢也不算输）。
+            return p.IsAlive && monsters.Count > 0 && !p.InputClosed;
+        }
+
+        /// <summary>怪物逐个出手（跳过检查也在这里，每只怪一次）。</summary>
+        private static bool RunMonsterTurns(Player p, List<Monster> monsters)
+        {
+            foreach (Monster m in monsters)
+            {
+                if (!p.IsAlive) break;
+                if (!m.IsAlive) continue;
+                Console.WriteLine("=====" + m.Name + "回合=====");
+
+                // ⚠️ 跳过检查**只在这里做一次**。怪物自己的 OnMonsterTurn 里不能再调一遍 ——
+                // 那会把「跳过 1 回合」扣成 2 点库存（探针 probe_skip 抓到过）。
+                if (m.TryConsumeSkipTurn()) continue;
+
+                m.OnMonsterTurn(p);
+                BattleDelay.Tick();      // 每只怪出手之后停一下
+            }
+
+            RemoveDeadMonsters(p, monsters);
+            return p.IsAlive && monsters.Count > 0;
         }
 
         /**

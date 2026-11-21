@@ -1,6 +1,7 @@
 using LostCompound.Items;
 using LostCompound.Monsters;   // GetDamageImmunity(Monster)：环境声明「本环境对某只怪的免疫比例」
 using LostCompound.Tools;
+using LostCompound.Tools.Players;
 
 namespace LostCompound.MapEnvironment
 {
@@ -31,6 +32,51 @@ namespace LostCompound.MapEnvironment
         public EnvType Type { get; }
 
         protected Environment(EnvType type) => Type = type;
+
+        /// <summary>
+        /// **往本回合的执行清单里追加步骤**（Hyberty 2026-11-21 的 B 方案）。
+        ///
+        /// 这是「不同环境让回合流程不一样」的唯一入口。典型用法 —— 城市地图让玩家双动：
+        ///
+        /// <code>
+        /// public override void ContributeTurnSteps(TurnPipeline pipeline, Player p, List&lt;Monster&gt; monsters)
+        /// {
+        ///     pipeline.InsertAfter(TurnPipeline.PlayerActionStep, "玩家行动（城市双动）",
+        ///         () => RunPlayerAction(p, monsters));
+        /// }
+        /// </code>
+        ///
+        /// 注意三件事：
+        ///   ① 传进来的 pipeline 是**本回合的副本**，随便改，跑完就丢 ——
+        ///      所以这里每回合都会重新调用一次，不要试图在里面存状态（要存就存字段）。
+        ///   ② 不要往模板上改：副本是浅拷贝，但列表本身是新的，所以 Add/InsertAfter 安全。
+        ///   ③ 追加的步骤同样要返回 bool（false = 战斗结束），和内置步骤一个规矩。
+        ///
+        /// 默认什么都不做：绝大多数环境不改回合结构。
+        /// </summary>
+        public virtual void ContributeTurnSteps(TurnPipeline pipeline, Player p, List<Monster> monsters) { }
+
+        /// <summary>
+        /// 给「玩家双动」用的现成实现：在「玩家行动」后面再插一次。
+        ///
+        /// 为什么不直接写进基类的 ContributeTurnSteps：
+        ///   双动是**个别环境**（城市地图）的特性，绝大多数环境不该有。
+        ///   基类留空、需要的子类在覆写里调一句这个方法即可：
+        ///
+        /// <code>
+        /// public override void ContributeTurnSteps(TurnPipeline pipeline, Player p, List<Monster> monsters)
+        /// {
+        ///     AddExtraPlayerAction(pipeline, "玩家行动（城市双动）");
+        /// }
+        /// </code>
+        ///
+        /// 注意它插的是「玩家行动」而**不是**「玩家回合开始」：
+        /// 双动只管多一次行动，不该再清一次盾、不该让道具再涨一次耐久。
+        /// </summary>
+        protected static void AddExtraPlayerAction(TurnPipeline pipeline, string name)
+        {
+            pipeline.InsertCopyAfter(TurnPipeline.PlayerActionStep, name);
+        }
 
         /// <summary>
         /// 战斗中的每个回合调用一次：推进环境状态（如水量下降、水位上涨）。
