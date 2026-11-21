@@ -76,6 +76,7 @@ namespace LostCompound.Tools
                     // 这行原先由 ApplyDotEffects 打印。DOT 机制已删除、那个方法整体删掉了，
                     // 所以必须把它搬到这里，否则战斗日志里再也没有「第N回合」的分隔。
                     Console.WriteLine("=====第" + round + "回合=====");
+                    TimelineWindow.WriteRound(round);
                     BattleDelay.Tick();     // 回合分隔前停一下（关键节点，见 BattleDelay）
 
                     // 每回合**克隆**一份再让环境追加：
@@ -194,6 +195,7 @@ namespace LostCompound.Tools
         /// </summary>
         private static bool RunPlayerAction(Player p, List<Monster> monsters, Environment env)
         {
+            TimelineWindow.Write("     · 玩家行动");
             p.OnPlayerTurn(monsters, env?.Type ?? EnvType.None);
             BattleDelay.Tick();      // 玩家这次行动之后停 100ms
 
@@ -231,8 +233,13 @@ namespace LostCompound.Tools
 
                 // ⚠️ 跳过检查**只在这里做一次**。怪物自己的 OnMonsterTurn 里不能再调一遍 ——
                 // 那会把「跳过 1 回合」扣成 2 点库存（探针 probe_skip 抓到过）。
-                if (m.TryConsumeSkipTurn()) continue;
+                if (m.TryConsumeSkipTurn())
+                {
+                    TimelineWindow.Write("     · " + m.Name + " 被跳过（意图：" + m.IntentText(p) + "）");
+                    continue;
+                }
 
+                TimelineWindow.Write("     · " + m.Name + " 出手（意图：" + m.IntentText(p) + "）");
                 m.OnMonsterTurn(p);
                 BattleDelay.Tick();      // 每只怪出手之后停一下
             }

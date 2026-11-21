@@ -126,9 +126,17 @@ namespace LostCompound.Tools
         /// <summary>按顺序执行，任一步返回 false 就停。</summary>
         public bool Run()
         {
-            foreach ((string _, Func<bool> step) in _steps)
+            foreach ((string name, Func<bool> step) in _steps)
             {
-                if (!step()) return false;
+                // 时间轴：每一步进出各记一行（只在窗口开着时才真的有开销）
+                Debug.TimelineWindow.Write("  → " + name);
+                bool ok = step();
+
+                if (!ok)
+                {
+                    Debug.TimelineWindow.Write("  ✕ " + name + " 中止了战斗");
+                    return false;
+                }
             }
             return true;
         }

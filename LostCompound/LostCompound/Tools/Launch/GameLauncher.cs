@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using LostCompound.Save;
 using LostCompound.Tools;
+using LostCompound.Tools.Debug;
 
 namespace LostCompound.Tools.Launch
 {
@@ -97,6 +98,10 @@ namespace LostCompound.Tools.Launch
             GameLobby lobby = new GameLobby();
             lobby.Run();
             Console.WriteLine("游戏已退出。");
+
+            // 时间轴窗口：给它一个"按任意键关闭"，否则进程退出时它会闪一下就消失，
+            // 根本来不及看最后几行。
+            TimelineWindow.Close();
         }
 
         private static void PrintBanner()

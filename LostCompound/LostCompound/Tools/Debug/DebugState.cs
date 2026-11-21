@@ -33,6 +33,14 @@ namespace LostCompound.Tools.Debug
         /// 打开 debug 开关。主菜单的 255 与战斗内的 255 都走这一个入口，
         /// 保证「两边开的是同一个开关」而不是各开各的。
         /// </summary>
-        public static void Enable() => Enabled = true;
+        public static void Enable()
+        {
+            Enabled = true;
+
+            // 进 debug 模式顺手打开时间轴窗口：
+            // 调回合顺序 / 查"谁先手"的时候，最想要的就是能边改边看，
+            // 再让你去记一个命令就太绕了。开不出来（IDE/管道）会自动降级，不报错。
+            TimelineWindow.Open();
+        }
     }
 }
