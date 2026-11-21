@@ -33,10 +33,7 @@ namespace LostCompound.Tools
             p.SetLogTitle("战斗");    // 左列标题跟着当前界面走（Hyberty 2026-11-21）
             int round = 1;
 
-            // 每回合摘要用的「上一回合结束时的血量」：清屏之后补一句净损失。
-            // 为什么需要它：日志每回合清空，玩家就看不到"刚才那轮挨了多少"——
-            // 补这一行摘要，屏幕既干净又不丢信息。
-            double hpAtRoundStart = p.Hp;
+
 
             // ── 0. 开战初始化：按环境给怪物写入「环境相关特性」──
             // 为什么放在这里：Monster.TakeDamage(double) 拿不到环境，改它的签名会牵动基类、
@@ -85,17 +82,10 @@ namespace LostCompound.Tools
                     // ── 1. 回合头 ──
                     // 这行原先由 ApplyDotEffects 打印。DOT 机制已删除、那个方法整体删掉了，
                     // 所以必须把它搬到这里，否则战斗日志里再也没有「第N回合」的分隔。
-                    // ★ 每回合清理：只留当前这一回合发生的事。
-                    //   顺序很重要 —— 先算出「上轮损失」再清屏，否则摘要就没数可写。
-                    double hpLostLastRound = hpAtRoundStart - p.Hp;
-                    p.ClearLog();
-                    hpAtRoundStart = p.Hp;
-
-                    // 摘要只写净损失：谁打的不再重复（怪物阶段已经报过，那部分也已清掉）。
-                    // 没有损失就只写回合号 —— 补一句"损失 0"是噪音。
-                    Console.WriteLine(hpLostLastRound > 0.05
-                        ? "=====第" + round + "回合=====   （上一轮你损失 " + hpLostLastRound.ToString("F1") + " 点生命）"
-                        : "=====第" + round + "回合=====");
+                    // 回合头不再清屏（Hyberty 2026-11-21 的调整）：清屏改到「玩家回合结束之后」，
+                    // 这样玩家做决定时**能看见上一轮怪物阶段的明细**（谁打了我多少、怎么减的），
+                    // 那是决策最需要的上下文。原先在回合头清、再补一行摘要，等于把明细擦掉只留总数。
+                    Console.WriteLine("=====第" + round + "回合=====");
                     TimelineWindow.WriteRound(round);
                     BattleDelay.Tick();     // 回合分隔前停一下（关键节点，见 BattleDelay）
 
@@ -252,6 +242,14 @@ namespace LostCompound.Tools
         /// <summary>怪物逐个出手（跳过检查也在这里，每只怪一次）。</summary>
         private static bool RunMonsterTurns(Player p, List<Monster> monsters)
         {
+            // ★ 玩家回合结束 → 清屏（Hyberty 2026-11-21）。
+            //   清在这里的效果是：
+            //     · 玩家做决定时，屏幕上还留着**上一轮怪物阶段的明细**（最有用的上下文）；
+            //     · 一旦自己动完，那些明细让位给这一轮的怪物行动，不会越积越多；
+            //     · 不再需要"上一轮损失 X"的摘要 —— 明细本身就看得见。
+            //   注意不清标题：玩家还在战斗里。
+            p.ClearLog();
+
             foreach (Monster m in monsters)
             {
                 if (!p.IsAlive) break;
