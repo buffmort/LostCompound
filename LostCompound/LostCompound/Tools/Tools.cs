@@ -30,7 +30,10 @@ namespace LostCompound.Tools
             p.ClearLog();
 
             Console.WriteLine("=======战斗开始=======");
-            p.SetLogTitle("战斗");    // 左列标题跟着当前界面走（Hyberty 2026-11-21）
+            // 标题 = 「战斗」+ 本场战斗里**始终不变**的特殊机制（Hyberty 2026-11-21）。
+            // 为什么放在标题而不是打一行日志：高温这类状态整场都不会变，
+            // 写进日志会被下一次清屏冲掉，玩家就再也看不到「这场水分流失更快」了。
+            p.SetLogTitle(BattleTitleFor(p.CurrentRoom?.IsHot == true));
             int round = 1;
 
 
@@ -164,6 +167,19 @@ namespace LostCompound.Tools
                 m.ApplyDamageImmunity(env.GetDamageImmunity(m));
             }
         }
+
+        /// <summary>
+        /// 战斗界面的日志框标题：「战斗」+ 本场不变的特殊机制。
+        ///
+        /// 为什么要把这些写进标题（Hyberty 2026-11-21）：
+        ///   高温、环境特性这类状态**整场战斗都不变**，但只当成一条日志播报的话，
+        ///   下一次清屏就没了 —— 玩家会忘记"这房间水分流失更快、木头会被烤"。
+        ///   放进标题它就一直挂在眼前，和"你现在在哪个界面"是一类信息。
+        ///
+        /// 以后再加「战斗中恒定的机制」（比如水淹洞穴的"水位 N/15"），
+        /// 都在这里拼接，不要在日志里单独播报。
+        /// </summary>
+        private static string BattleTitleFor(bool hotRoom) => hotRoom ? "战斗【高温】" : "战斗";
 
         // ==================== 回合流程的各个步骤 ====================
         // 每个都返回 bool：false = 战斗结束。
