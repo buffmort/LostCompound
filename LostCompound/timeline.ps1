@@ -1,4 +1,4 @@
-# ============================================================================
+﻿# ============================================================================
 #  LostCompound 战斗时间轴 —— 独立窗口实时跟读
 #
 #  Hyberty 2026-11-21：想要一个单独窗口看回合顺序。
@@ -10,13 +10,14 @@
 #    所以「另开窗口」只能由另一个进程做，游戏只管写文件。
 #
 #  用法：
-#     1. 先进 debug 模式（主菜单输 255）—— 时间轴会自动开始写 timeline.log
-#     2. 双击 / 运行这个脚本，会弹出一个新窗口实时显示
-#     3. 关掉游戏后这个窗口也不会自己关（方便回看最后几回合），按 Ctrl+C 退出
+#     1. 进 debug 模式（主菜单输 255）—— 时间轴自动开始写 timeline.log
+#     2. 双击 / 运行这个脚本，弹出新窗口实时显示
+#     3. 关掉游戏后这个窗口不会自己关（方便回看），按 Ctrl+C 退出
 #
-#  为什么不用 Get-Content -Wait：
-#    它遇到「文件被重写（长度变短）」时会卡住不再输出 —— 而时间轴每次开新局
-#    都是覆盖写，正好会踩到那个坑。所以这里自己轮询文件长度。
+#  ⚠️ 编码：本文件必须带 UTF-8 BOM。Windows PowerShell 5.1 在无 BOM 时按 GBK 读，
+#     中文和箭头符号会被读成乱码、甚至把引号一起吃掉导致语法错。
+#     另外这里的源码**刻意全用 ASCII 匹配**（不写箭头/叉这类符号字面量），
+#     双保险 —— 万一 BOM 又丢了，脚本至少还能跑。
 # ============================================================================
 
 param(
@@ -25,9 +26,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# ---- 等文件出现（游戏可能还没进 debug 模式）----
 if (-not (Test-Path $LogPath)) {
-    Write-Host "等待 $LogPath 出现..." -ForegroundColor DarkGray
+    Write-Host ("等待文件出现: " + $LogPath) -ForegroundColor DarkGray
     Write-Host "（先在游戏里输 255 进 debug 模式，时间轴才会开始写）" -ForegroundColor DarkGray
     while (-not (Test-Path $LogPath)) {
         Start-Sleep -Milliseconds 500
@@ -36,41 +36,42 @@ if (-not (Test-Path $LogPath)) {
 
 Clear-Host
 Write-Host "=== LostCompound 战斗时间轴（跟读中）===" -ForegroundColor Cyan
-Write-Host "文件：$LogPath" -ForegroundColor DarkGray
+Write-Host ("文件: " + $LogPath) -ForegroundColor DarkGray
 Write-Host "按 Ctrl+C 退出" -ForegroundColor DarkGray
 Write-Host ("-" * 70) -ForegroundColor DarkGray
 
-$reader = $null
+$stream = $null
 $lastLength = -1
 
 while ($true) {
     try {
-        if ($null -eq $reader -or $lastLength -gt (Get-Item $LogPath).Length) {
-            # 文件被重写过（新一局）或第一次打开 —— 关掉旧的重新读
-            $reader?.Dispose()
-            $reader = [System.IO.File]::Open($LogPath, 'Open', 'Read', 'ReadWrite')
+        $currentLength = (Get-Item $LogPath).Length
+
+        # 文件被重写过（新一局）或第一次打开 -> 关掉旧的重新读
+        if ($null -eq $stream -or $currentLength -lt $lastLength) {
+            if ($null -ne $stream) { $stream.Dispose() }
+            $stream = [System.IO.File]::Open($LogPath, 'Open', 'Read', 'ReadWrite')
             $lastLength = 0
             Write-Host ""
             Write-Host "--- 检测到新的时间轴文件，从头显示 ---" -ForegroundColor Yellow
+            $currentLength = $stream.Length
         }
 
-        # 只读「上次之后新增的部分」：先看文件有没有变长
-        $currentLength = $reader.Length
         if ($currentLength -gt $lastLength) {
-            $reader.Position = $lastLength
+            $stream.Position = $lastLength
             $buffer = New-Object byte[] ($currentLength - $lastLength)
-            $read = $reader.Read($buffer, 0, $buffer.Length)
+            $read = $stream.Read($buffer, 0, $buffer.Length)
             if ($read -gt 0) {
                 $text = [System.Text.Encoding]::UTF8.GetString($buffer, 0, $read)
-                # 回合分隔线用亮色，其余用默认色，方便一眼看出回合边界
                 foreach ($line in $text -split "`r?`n") {
-                    if ($line -match '────────') {
+                    # 用码点判断，不写符号字面量 —— 见文件头的编码说明
+                    if ($line -match [char]0x2500) {
                         Write-Host $line -ForegroundColor Cyan
-                    } elseif ($line -match '✕') {
+                    } elseif ($line -match [char]0x2715) {
                         Write-Host $line -ForegroundColor Red
-                    } elseif ($line -match '→') {
+                    } elseif ($line -match [char]0x2192) {
                         Write-Host $line -ForegroundColor DarkGray
-                    } else {
+                    } elseif ($line.Trim().Length -gt 0) {
                         Write-Host $line
                     }
                 }
