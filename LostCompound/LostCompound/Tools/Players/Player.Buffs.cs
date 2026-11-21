@@ -195,10 +195,13 @@ namespace LostCompound.Tools.Players
             HandleChangeableItems(envType);
             Inventory.AddRange(PendingItems);
             PendingItems.Clear();
-            Console.WriteLine("你的血量:{0:F1}", Hp);
-            Console.WriteLine("你的防御:{0:F1}", Def);
-            Console.WriteLine("你的护盾剩余:" + Shield);
-            // 环境状态（如熔岩瀑布水量）：供玩家决定要不要用水瓶
+            // ⚠️ 血量 / 防御 / 护盾这三行**已删除**（Hyberty 2026-11-21 的信息化简）。
+            // 理由：右列状态框本来就常驻显示它们，日志里每回合再打一遍是纯噪音 ——
+            // 一回合光"框架"就占 5 行，真正发生的事只有 2-3 行。
+            // 日志只留「发生的事」（谁打了谁、掉了多少），状态看固定区域。
+            //
+            // 环境状态保留：它**不是**每回合都显示在别处（熔岩瀑布水量、水淹洞穴水位），
+            // 而且是玩家决定"要不要用水瓶"的依据，不能省。
             if (CurrentEnvironment != null)
             {
                 Console.WriteLine(CurrentEnvironment.DescribeStatus());

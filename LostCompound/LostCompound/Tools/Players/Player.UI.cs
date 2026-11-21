@@ -100,7 +100,9 @@ namespace LostCompound.Tools.Players
             // 编号必须一直挂在眼前；写进滚动日志的话，几行之后就被冲掉了。
             RefreshEnemyBox(monsters);
             Console.WriteLine();
-            Console.WriteLine("请选择操作");
+            // ⚠️ 这里**不再**打「请选择操作」（Hyberty 2026-11-21 信息化简）：
+            //     下面 ReadInt("请选择操作") 自己会打一次，原先连着打两遍。
+            //     选项列表保留 —— 它不在别的固定区域显示。
             Console.WriteLine("1.攻击  2.防御  3.打开背包  4.合成  5.饰品栏");
 
             // 第 6 项只在「这里能采东西」时出现（目前只有沙漠，DESIGN §5.3 采沙）。

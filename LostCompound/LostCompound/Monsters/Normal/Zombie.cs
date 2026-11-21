@@ -99,6 +99,9 @@ namespace LostCompound.Monsters.Normal
                     Console.WriteLine(Name + " 增加了 5 点护盾！");
                     break;
                 case 2:
+                    // ⚠️ 必须打一行。原先这里是空的 break，日志上只剩一个「=====僵尸回合=====」——
+                    // 玩家会以为它漏了、或者游戏卡了。什么都不做也要说一声。
+                    Console.WriteLine(Name + "呆站着，什么也没做。");
                     break;
             }
         }

@@ -110,6 +110,10 @@ namespace LostCompound.Tools.Players
         /// </summary>
         private double ApplyIncomingDamage(double dmg, bool ignoreDefenseAndShield)
         {
+            // 进门前先记下盾的厚度：后面扣盾时才能算出「护盾到底挡了多少」，
+            // 用于日志明细（Hyberty 2026-11-21 的信息化简：伤害要能看出明细）。
+            double shieldAtEntry = Shield;
+
             // 无视 DEF 与盾时，最终伤害就是原始伤害（下面还要再乘一次装备减伤）
             double realDmg = ignoreDefenseAndShield ? dmg : Calculator.ApplyDefense(Def, dmg);
 
@@ -132,7 +136,10 @@ namespace LostCompound.Tools.Players
             {
                 // 盾够厚：完全挡住，血量一点不掉
                 Shield -= realDmg;
-                Console.WriteLine("你的护盾挡下了伤害!");
+                // 报「原始 → 实际」的差：玩家看到「打来 10」却只听到一句「挡下了」，
+                // 根本不知道自己为什么没掉血（DEF 减免了多少？盾原本多厚？）。
+                Console.WriteLine("你被打了 {0:F1} 点，护盾全部挡下（DEF {1:F1} 减免 {2:F1}，盾剩 {3:F1}）",
+                    dmg, Def, dmg - realDmg, Shield);
                 // ⚠️ 这条提前 return 上**不**通知装备「受伤了」（IOnDamaged）：本项目的口径是
                 //   「真的受伤 = 血被扣了」，被盾全挡下的一跳并没有打到身上，斗篷的耐久
                 //   （受伤 50 次后破损）不该因为盾厚而被消耗。realDmg 为 0（如 100% 减伤）也走这里。
@@ -148,8 +155,21 @@ namespace LostCompound.Tools.Players
                 Shield = 0;
             }
             Hp -= remaining;
-            Console.WriteLine("你受到{0:F1}点伤害!", remaining);
-            Console.WriteLine();
+            // 明细只在「真的有减免」时才写，否则就是一串 0 —— 那比不写还吵。
+            double defSave = ignoreDefenseAndShield ? 0 : dmg - realDmg;
+            double shieldSave = ignoreDefenseAndShield ? 0 : (shieldAtEntry - Shield);
+            if (defSave > 0.05 || shieldSave > 0.05)
+            {
+                List<string> parts = [];
+                if (defSave > 0.05) parts.Add("DEF " + Def.ToString("F1") + " 减免 " + defSave.ToString("F1"));
+                if (shieldSave > 0.05) parts.Add("护盾挡下 " + shieldSave.ToString("F1"));
+                Console.WriteLine("你受到{0:F1}点伤害!（打来 {1:F1}，{2}）",
+                    remaining, dmg, string.Join("，", parts));
+            }
+            else
+            {
+                Console.WriteLine("你受到{0:F1}点伤害!", remaining);
+            }
 
             // ── 装备的「受伤」通知（IOnDamaged，如斗篷按次数记耐久）──
             // 为什么只写在这一条分支里：这是「血真的掉了」唯一的分支 ——
