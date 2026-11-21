@@ -143,8 +143,11 @@ namespace LostCompound.Monsters.Normal
          * 怪物回合行为：直接执行攻击
          * @param p 玩家对象
          */
-        /// <summary>意图：这只怪只会普攻，所以永远是「打 N」（Hyberty 2026-11-21）。</summary>
-        public override string IntentText() => "打 " + Calculator.CalculateAttack(Str, Atk).ToString("F0");
+        /// <summary>
+        /// 意图：50% 概率附加灼烧（2 回合 × 3 点流血），所以要标 debuff。
+        /// 伤害用 Atk 原值（不走 Calculator 公式 —— Attack 里就是 p.TakeDamage(Atk)）。
+        /// </summary>
+        public override string IntentText() => "打 " + Atk.ToString("F0") + " debuff";
         public override void OnMonsterTurn(Player p)
         {
             // 回合头与跳过检查都集中在 Tools.RunBattle：

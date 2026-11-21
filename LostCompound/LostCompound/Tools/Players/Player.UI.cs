@@ -54,7 +54,14 @@ namespace LostCompound.Tools.Players
         /// </summary>
         private RoomType _lastRoomType = RoomType.Start;
 
-        private bool _inBattle;                 // 是否处于战斗中（决定状态栏是否追加血量等）
+        /// <summary>是否处于战斗中（决定状态栏是否追加血量等）。</summary>
+        private bool _inBattle;
+
+        /// <summary>
+        /// 本场战斗的意图编排者（敌人框显示用）。开战时建、结束后清空。
+        /// 由 Player 持有而不是每次 RefreshEnemyBox 现建：现建的话每次重绘都要分配新对象。
+        /// </summary>
+        private MonsterIntents _intents;
 
         /// <summary>
         /// 「换层之后，等起点房的 OnEnter 走完再存一次档」的牌子。
@@ -343,21 +350,12 @@ namespace LostCompound.Tools.Players
 
             _screen.SetEnemyRows(monsters.Count);
 
-            List<string> lines = [];
-            for (int i = 0; i < monsters.Count && i < ConsoleScreen.MaxEnemyRows; i++)
-            {
-                Monster m = monsters[i];
-                string line = "[" + i + "] " + m.ToString().TrimEnd();
-
-                // 意图接在名字+血量后面（Hyberty 2026-11-21）：
-                //   [0] 僵尸(30.0/30) - 打 20
-                // 空串 = 这只怪还没接意图，就不加尾巴（不留一个孤零零的破折号）。
-                string intent = m.IntentText(this);
-                if (!string.IsNullOrEmpty(intent)) line += " - " + intent;
-
-                lines.Add(line);
-            }
-            _screen.DrawEnemies(string.Join("\n", lines));
+            // 显示格式（`[i] 名字(血) - 意图`）由 MonsterIntents 决定，这里只负责画：
+            // 界面不该知道「意图怎么拼词」这件事。
+            // 兜底：正常流程里 SetInBattle(true) 会建好 _intents，
+            // 但调试路径有可能在没走 SetInBattle 的情况下重画敌人框。
+            _intents ??= new MonsterIntents(monsters);
+            _screen.DrawEnemies(string.Join("\n", _intents.FormatLines(this, ConsoleScreen.MaxEnemyRows)));
         }
 
         /// <summary>
@@ -381,9 +379,14 @@ namespace LostCompound.Tools.Players
                 // （调试战斗 / 将来的其它战斗入口会绕过房间）。
                 AddFightCount();
                 ApplyEquipmentPassives();
+
+                // 意图编排者：本场战斗每回合由它给全体怪物摇一次意图。
+                // 开战时建一个，留到战斗结束 —— 敌人框每回合都要用它格式化。
+                _intents = null;      // 先清：下面 RefreshEnemyBox 会重新注入
             }
             else
             {
+                _intents = null;
                 // 空战斗 = 0 只怪：敌人框缩回 1 行，把省下的纵向空间还给日志
                 // （上限与夹取见 ConsoleScreen.SetEnemyRows）。
                 _screen?.SetEnemyRows(0);

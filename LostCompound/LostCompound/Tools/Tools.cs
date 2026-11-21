@@ -43,7 +43,10 @@ namespace LostCompound.Tools
             }
             try
             {
-                while (p.IsAlive && monsters.Count > 0)
+                // 意图编排者：整场战斗一个，循环每回合只叫它摇一次
+            MonsterIntents intents = new(monsters);
+
+            while (p.IsAlive && monsters.Count > 0)
                 {
 
                     // ── 1. 大回合开场：回合头 ──
@@ -87,17 +90,11 @@ namespace LostCompound.Tools
                     RemoveDeadMonsters(p, monsters);
                     if (!p.IsAlive || monsters.Count == 0) break;
 
-                    // ── 2.5 摇意图：玩家行动**之前**就把怪物这回合要做什么定下来 ──
-                    // 这是意图系统的全部意义 —— 玩家要能看到「它下回合打我多少」再决定防御还是攻击。
-                    // 摇一次存进怪身上，怪物回合执行时复用（TakePlannedOption），
-                    // 保证「显示打 27」和「实际打 27」是同一个骰子。
-                    //
-                    // 顺序：环境推进之后、玩家回合之前 ——
-                    // 环境可能改了怪的数值（缺水扣 STR 之类），先推进再摇才是准的。
-                    foreach (Monster intentMonster in monsters)
-                    {
-                        if (intentMonster.IsAlive) intentMonster.PlanIntent(p);
-                    }
+                    // ── 2.5 摇意图：玩家行动**之前**定下怪物这回合要做什么 ──
+                    // 为什么在这里摇：玩家要能看到「它这回合打我多少」再决定防御还是攻击。
+                    // 为什么在环境推进之后：环境可能改了怪的数值（缺水扣 STR），先推进再摇才准。
+                    // 「怎么摇、哪些怪参与」由 MonsterIntents 自己管，循环只发一句指令。
+                    intents.BeginRound(p);
 
                     // ── 3. 玩家回合：先做回合开始的簿记，再判跳过，最后才是行动 ──
                     // 簿记（道具计时/待入包合并/状态栏）即使本回合被跳过也要执行，

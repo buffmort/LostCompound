@@ -81,8 +81,11 @@ namespace LostCompound.Monsters.Normal
         /// 然后才挨打 —— 这样它越来越脆这件事在日志里是可读的，
         /// 玩家能判断「再撑两回合它就没防御了」。
         /// </summary>
-        /// <summary>意图：锈铁傀儡每回合先掉一层 DEF 再攻击，所以玩家看到的就是「打 N」。</summary>
-        public override string IntentText() => "打 " + Calculator.CalculateAttack(Str, Atk).ToString("F0");
+        /// <summary>
+        /// 意图：先掉一层 DEF 再攻击，并且附带锈蚀（DESIGN：每回合 -1 DEF，最多 5 层）。
+        /// 伤害用 Atk 原值（Attack 里就是 p.TakeDamage(Atk)，不走公式）。
+        /// </summary>
+        public override string IntentText() => "打 " + Atk.ToString("F0") + " debuff";
         public override void OnMonsterTurn(Player p)
         {
             if (Def > 0)

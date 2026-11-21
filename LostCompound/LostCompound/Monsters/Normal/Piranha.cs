@@ -69,7 +69,8 @@ namespace LostCompound.Monsters.Normal
         public override string IntentText()
         {
             if (!HasLivingAlly()) return "0";
-            return "打 " + Calculator.CalculateAttack(Str, Atk).ToString("F0");
+            // 食人鱼 Atk = 0，伤害是固定值 BiteDamage（不走攻击公式），套公式会算出 0
+            return "打 " + BiteDamage.ToString("F0");
         }
 
         public override void OnMonsterTurn(Player p)

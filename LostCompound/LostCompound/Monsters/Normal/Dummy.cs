@@ -45,8 +45,12 @@ namespace LostCompound.Monsters.Normal
             Console.WriteLine(Name + "受到{0:F1}点伤害!", hpLoss);
         }
 
-        /// <summary>意图：这只怪只会普攻，所以永远是「打 N」（Hyberty 2026-11-21）。</summary>
-        public override string IntentText() => "打 " + Calculator.CalculateAttack(Str, Atk).ToString("F0");
+        /// <summary>
+        /// 意图：假人**不造成任何伤害**（Attack 只打印一句「假人无动于衷...」），
+        /// 所以意图是 `0` —— 不能套用「打 N」那个通用公式，
+        /// 否则玩家会看到「打 2」然后白白防御一整回合。
+        /// </summary>
+        public override string IntentText() => "0";
         public override void OnMonsterTurn(Player p)
         {
             // 回合头与跳过检查由 Tools.RunBattle 统一处理

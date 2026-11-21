@@ -107,8 +107,16 @@ namespace LostCompound.Monsters.Normal
         }
 
         /// <summary>怪物回合：必定攻击。</summary>
-        /// <summary>意图：这只怪只会普攻，所以永远是「打 N」（Hyberty 2026-11-21）。</summary>
-        public override string IntentText() => "打 " + Calculator.CalculateAttack(Str, Atk).ToString("F0");
+        /// <summary>
+        /// 意图：遁地时伤害翻倍（BurrowDamageMultiplier = 2），必须如实显示 ——
+        /// 否则玩家看到一个「打 8」实际挨 16 点，防御判断全错。
+        /// 伤害不走 Calculator 公式（Attack 里就是 Atk × 倍率）。
+        /// </summary>
+        public override string IntentText()
+        {
+            double dmg = Atk * (IsBurrowed ? BurrowDamageMultiplier : 1.0);
+            return "打 " + dmg.ToString("F0");
+        }
         public override void OnMonsterTurn(Player p)
         {
             Attack(p);
