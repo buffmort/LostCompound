@@ -654,6 +654,12 @@ namespace LostCompound.Tools.Players
                     // ---- 3. 事件可能改变了状态（如水量），重画一次 ----
                     DrawScreen(screen, map, tmg);
 
+                    // ★ 刚在房间里死了（战斗 / 环境）就直接收场（Hyberty 2026-11-21）。
+                    //   为什么必须在这里判：while 的条件只在**循环顶部**检查，
+                    //   而战斗发生在这一轮的中段 —— 不判的话死后还会再画一屏
+                    //   「可行动方向 + 4.退出 5.使用道具…」，让玩家对着菜单发呆。
+                    if (!IsAlive) break;
+
                     ShowAvailableDirections();
 
                     // 地图上也能用的三项（原先只有战斗菜单里才有 —— 玩家反馈「发现只有战斗才能
