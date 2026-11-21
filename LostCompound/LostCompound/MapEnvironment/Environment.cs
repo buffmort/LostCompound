@@ -41,8 +41,7 @@ namespace LostCompound.MapEnvironment
         /// <code>
         /// public override void ContributeTurnSteps(TurnPipeline pipeline, Player p, List&lt;Monster&gt; monsters)
         /// {
-        ///     pipeline.InsertAfter(TurnPipeline.PlayerActionStep, "玩家行动（城市双动）",
-        ///         () => RunPlayerAction(p, monsters));
+        ///     AddExtraPlayerAction(pipeline, "玩家行动（城市双动）");
         /// }
         /// </code>
         ///
@@ -76,6 +75,13 @@ namespace LostCompound.MapEnvironment
         protected static void AddExtraPlayerAction(TurnPipeline pipeline, string name)
         {
             pipeline.InsertCopyAfter(TurnPipeline.PlayerActionStep, name);
+
+            // ⚠️ 插入位置是「玩家行动」的**正后方**，而「额外回合」（ExtraTurn buff）
+            //    是排在「玩家行动」之后的另一独立步骤。所以同时存在两者时，顺序是：
+            //        玩家行动 → 玩家行动（本方法插入的） → 额外回合 → 怪物回合
+            //    也就是「双动」会先跑完，再由 buff 追加额外行动。
+            //    如果将来想让额外回合夹在两次行动中间，就得改成「在额外回合步骤之后再插一次」，
+            //    那属于玩法顺序的裁定，别顺手改 —— 改之前先确认设计意图。
         }
 
         /// <summary>

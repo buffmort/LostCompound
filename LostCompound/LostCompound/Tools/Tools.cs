@@ -10,6 +10,8 @@ namespace LostCompound.Tools
 {
     public static class Tools
     {
+        /// <summary>额外回合那一步在清单里的名字（TurnPipeline 不预置它，因为它是玩法而非流程骨架）。</summary>
+        private const string ExtraTurnStepName = "额外回合";
 
         /**
          * 战斗主循环
@@ -51,23 +53,21 @@ namespace LostCompound.Tools
                 // 顺序现在是**数据**，不再藏在语句和缩进里：一眼能看完，环境还能往副本里追加。
                 // 每一步返回 bool：false = 战斗结束（有人死了 / 怪清空了 / 输入流断了）。
                 //
-                // 「被跳过」这件事在这里就消费掉了（playerSkipped），而不是放在玩家行动里 ——
-                // 因为城市地图可能会追加第二次「玩家行动」，
-                // 被眩晕的回合应该是**整个回合都不能动**，而不是只少动一次。
-                bool playerSkipped = false;
+                // 「被跳过」不再靠这里的局部变量往后面的步骤传（闭包共享状态 = 两步暗地里耦合），
+                // 改由 Player.OnTurnStart 消费后记在 Player.SkippedThisTurn 上，见 RunPlayerActionOnce。
+                // 于是城市地图追加第二次「玩家行动」时，被眩晕的回合仍然是**整个回合都不能动**。
+
+                // 玩家「行动一次」的委托：既给「玩家行动」那一步用，也给「额外回合」复用 ——
+                // 额外回合不该有第二份实现，否则两边的收尸/判胜负迟早不一致。
+                Func<bool> playerAction = () => RunPlayerActionOnce(p, monsters, env);
 
                 TurnPipeline template = new();
                 template.Add(TurnPipeline.BuffStep, () => SettleBuffs(p, monsters));
                 template.Add(TurnPipeline.EnvironmentStep, () => AdvanceEnvironment(p, monsters, env));
                 template.Add(TurnPipeline.IntentStep, () => { intents.BeginRound(p); return true; });
-                template.Add(TurnPipeline.PlayerTurnStartStep, () =>
-                {
-                    p.OnTurnStart(env?.Type ?? EnvType.None);
-                    playerSkipped = p.TryConsumeSkipTurn();
-                    return true;
-                });
-                template.Add(TurnPipeline.PlayerActionStep, () =>
-                    playerSkipped ? true : RunPlayerAction(p, monsters, env));
+                template.Add(TurnPipeline.PlayerTurnStartStep, () => { p.OnTurnStart(env?.Type ?? EnvType.None); return true; });
+                template.Add(TurnPipeline.PlayerActionStep, playerAction);
+                template.Add(ExtraTurnStepName, () => RunExtraTurnActions(p, monsters, playerAction));
                 template.Add(TurnPipeline.MonsterTurnStep, () => RunMonsterTurns(p, monsters));
 
                 while (p.IsAlive && monsters.Count > 0)
@@ -115,6 +115,11 @@ namespace LostCompound.Tools
                 // 清在 finally 里而不是循环末尾：异常退出、EOF 中止、战败三条路都覆盖得到。
                 p.SkipTurn = 0;
 
+                // SkippedThisTurn 同理：它是「本回合被跳过」的标记，本来下一回合的
+                // OnTurnStart 会覆盖它，但战斗结束时不会有下一回合 ——
+                // 留着会让下一场战斗的第一个判断读到上一场的残留（不报错、只是莫名少一次行动）。
+                p.ClearSkippedThisTurn();
+
                 p.SetInBattle(false);
             }
 
@@ -150,8 +155,9 @@ namespace LostCompound.Tools
             }
         }
 
-        // ==================== 回合流程的四个步骤 ====================
+        // ==================== 回合流程的各个步骤 ====================
         // 每个都返回 bool：false = 战斗结束。
+        // 「玩家行动」与「额外回合」各占一步：前者只做一次动作，后者只是把同一个委托重复调用。
 
         /// <summary>
         /// 状态结算：buff 每回合的跳伤（流血等）。
@@ -188,37 +194,38 @@ namespace LostCompound.Tools
             return p.IsAlive && monsters.Count > 0;
         }
 
-        /// <summary>
-        /// 玩家行动**一次**（含额外回合）。
-        /// 「被跳过」不在这里判断 —— 已由「玩家回合开始」那一步统一消费掉
-        /// （城市双动时，被眩晕只会跳过一次，而不是跳一次动一次）。
-        /// </summary>
-        private static bool RunPlayerAction(Player p, List<Monster> monsters, Environment env)
+        /// <summary>玩家行动**一次**：不判跳过、不管额外回合，只执行一次 OnPlayerTurn 并收尾。</summary>
+        private static bool RunPlayerActionOnce(Player p, List<Monster> monsters, Environment env)
         {
+            // 这一回合被眩晕：整回合都不能动（双动也一起去掉）。
+            // 判断放在这里而不是「回合开始」那一步，是为了不再靠闭包往后面的步骤传状态。
+            if (p.SkippedThisTurn) return true;
+
             TimelineWindow.Write("     · 玩家行动");
             p.OnPlayerTurn(monsters, env?.Type ?? EnvType.None);
             BattleDelay.Tick();      // 玩家这次行动之后停 100ms
-
-            // ── 额外回合（ExtraTurn buff）──
-            // 每扣一层就**直接再调一次 OnPlayerTurn**：语义是「你多打了一下」，
-            // 不是时间倒流重开一轮 —— 所以怪物这一轮只出手一次，
-            // 额外回合里也不重走 OnTurnStart（道具耐久、流血都不再涨）。
-            // 判断权在 buff 自己身上（Buff.OnPlayerActionEnd），这里只负责「问了、照做」。
-            // ⚠️ 每次额外行动后立刻收尸判胜负 —— 否则会继续打一只已经死了的怪。
-            while (p.IsAlive && monsters.Count > 0 && p.NotifyPlayerActionEnd())
-            {
-                Console.WriteLine("=====额外回合=====");
-                p.OnPlayerTurn(monsters, env?.Type ?? EnvType.None);
-                BattleDelay.Tick();
-
-                RemoveDeadMonsters(p, monsters);
-                if (p.InputClosed) break;
-            }
-
             RemoveDeadMonsters(p, monsters);
 
             // 输入流已结束（EOF）：玩家没法再操作了，继续跑只会空转。
             // 返回 false = 结束这场战斗（既不算赢也不算输）。
+            return p.IsAlive && monsters.Count > 0 && !p.InputClosed;
+        }
+
+        /// <summary>
+        /// 额外回合（ExtraTurn buff）：每有一层就再执行一次**同一份**玩家行动。
+        /// 之所以单独占一步：它是「玩家行动」的重复，不是玩家行动本身，
+        /// 混在一起会让那一步既是一次动作又是循环。
+        /// </summary>
+        private static bool RunExtraTurnActions(Player p, List<Monster> monsters, Func<bool> action)
+        {
+            if (p.SkippedThisTurn) return true;
+
+            while (p.IsAlive && monsters.Count > 0 && p.NotifyPlayerActionEnd())
+            {
+                Console.WriteLine("=====额外回合=====");
+                if (!action()) return false;
+            }
+
             return p.IsAlive && monsters.Count > 0 && !p.InputClosed;
         }
 

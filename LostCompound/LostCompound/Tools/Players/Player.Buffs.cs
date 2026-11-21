@@ -32,6 +32,27 @@ namespace LostCompound.Tools.Players
         /// </summary>
         public void AddSkipTurn(int count) => SkipTurn += count;
 
+        /// <summary>
+        /// 本回合是否被跳过（眩晕 / 被困住 / 压缩沙瓶）。
+        ///
+        /// 由 <see cref="OnTurnStart"/> 在回合开始时消费一次并记录，
+        /// 之后同一回合里的**每一次玩家行动**都读它 ——
+        /// 这样「城市双动」被眩晕时是整回合都不能动，而不是少动一次。
+        ///
+        /// 为什么做成 Player 上的属性，而不是在回合清单里用一个局部变量往下传：
+        ///   局部变量要靠闭包捕获取值，等于让「玩家回合开始」那一步和「玩家行动」
+        ///   暗地里共享状态 —— 清单上看起来是两步，实际是耦合的。
+        ///   状态本来就属于玩家，放在玩家身上最直白。
+        /// </summary>
+        public bool SkippedThisTurn { get; private set; }
+
+        /// <summary>
+        /// 清掉「本回合被跳过」的标记。**只在战斗结束时**调用（见 Tools.RunBattle 的 finally）：
+        /// 平时它由每回合的 <see cref="OnTurnStart"/> 覆盖，但战斗结束没有"下一回合"，
+        /// 不清的话下一场战斗的第一个判断会读到上一场的残留。
+        /// </summary>
+        public void ClearSkippedThisTurn() => SkippedThisTurn = false;
+
         // ==================== 状态效果（buff，如流血） ====================
         // 原先这里的 DotDamage / DotDuration 字段与 AddDotDamage / AddDotDuration
         // 已按你的要求整体删除（DOT 机制改为流血 buff），周期性伤害只走下面这条出口。
@@ -93,7 +114,8 @@ namespace LostCompound.Tools.Players
         }
 
         /// <summary>跳过回合：返回"这次是否被跳过"，顺手扣一次计数。
-        /// 与 Monster.TryConsumeSkipTurn 对称 —— 由战斗循环统一调用。</summary>
+        /// 与 Monster.TryConsumeSkipTurn 对称 —— 由 <see cref="OnTurnStart"/> 每回合调用一次，
+        /// 结果记进 <see cref="SkippedThisTurn"/> 供本回合的每一次玩家行动读取。</summary>
         public bool TryConsumeSkipTurn()
         {
             if (SkipTurn <= 0) return false;
@@ -137,12 +159,19 @@ namespace LostCompound.Tools.Players
         public void RefreshBuffBoxPublic() => RefreshBuffBox();
 
         /// <summary>
-        /// 回合开始的处理。战斗循环每回合先调用它，再做跳过检查 ——
+        /// 回合开始的处理。战斗循环每回合先调用它；跳过检查也在它内部完成
+        /// （见 <see cref="SkippedThisTurn"/>）——
         /// 被跳过的回合里，道具计时、待入包合并、状态栏刷新仍然要照常执行。
         /// </summary>
         public void OnTurnStart(EnvType envType)
         {
             Console.WriteLine("=====你的回合=====");
+
+            // 跳过检查原先由 Tools.RunBattle 在 OnTurnStart 之后单独调一次，
+            // 现在收进这里，并把结果记在 SkippedThisTurn 上供本次回合的每一次玩家行动读取。
+            // 位置刻意放在「你的回合」之后：这样日志顺序仍是「你的回合」→「你被跳过回合！」，
+            // 与搬家前一致；而 SkipTurn 每回合只在这里消费一次（不是每个行动扣一次）。
+            SkippedThisTurn = TryConsumeSkipTurn();
 
             // 护盾是「本回合」的资源，不跨回合累积 —— 回合一开始先清空，
             // 再由装备被动（盾牌 +5）和本回合的「防御」动作重新攒。
