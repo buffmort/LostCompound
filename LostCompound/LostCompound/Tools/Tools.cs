@@ -102,11 +102,15 @@ namespace LostCompound.Tools
                         // 所以怪物这一轮只出手一次，额外回合里也不重走 OnTurnStart
                         // （道具耐久、流血都不再涨）。
                         //
+                        // 判断权在 buff 自己身上（Buff.OnPlayerActionEnd）：
+                        // 这里只负责「问一遍、照做」，不再关心是谁要求的。
+                        // 将来再有「行动后触发」的效果，加一个覆写就够，这个循环不用动。
+                        //
                         // ⚠️ 三件事必须在这里做，缺一个就会出问题：
                         //   ① 每次额外行动后立刻收尸判胜负 —— 否则会继续打一只已经死了的怪；
                         //   ② EOF 检查 —— 输入流结束时再调会一直空转；
                         //   ③ 玩家死了就停 —— 不能对着尸体继续要输入。
-                        while (p.IsAlive && monsters.Count > 0 && p.TryConsumeExtraTurn())
+                        while (p.IsAlive && monsters.Count > 0 && p.NotifyPlayerActionEnd())
                         {
                             Console.WriteLine("=====额外回合=====");
                             p.OnPlayerTurn(monsters, env?.Type ?? EnvType.None);

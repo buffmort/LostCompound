@@ -350,5 +350,25 @@ namespace LostCompound.Buffs
 
         /// <summary>怪物身上的版本（结算规则与玩家侧一致，由各 buff 自己决定要不要区分）。</summary>
         public abstract void OnTurnTick(Monster owner);
+
+        /// <summary>
+        /// **玩家每次行动结束后**的钩子（攻击 / 防御 / 用道具 / 采沙 / 合成……都算一次）。
+        ///
+        /// 什么时候调：由战斗循环（Tools.RunBattle）在 <c>Player.OnPlayerTurn</c> 返回后调用。
+        /// 返回 true = **玩家还能再行动一次**（调用方会再调一次 OnPlayerTurn）。
+        ///
+        /// 为什么单开一个钩子，而不是塞进 OnTurnTick：
+        ///   OnTurnTick 的时机是「大回合开场」，而「额外回合」要的是「玩家这一下打完之后」——
+        ///   两者在时间轴上是两个完全不同的点。硬塞进 OnTurnTick 的话，
+        ///   回合头就会要求额外行动，而玩家这个回合还什么都没做。
+        ///
+        /// 为什么是虚方法而不是让调用方自己找 buff：
+        ///   这样「要不要再来一次」的判断留在各个 buff 内部（谁有这能力谁说话），
+        ///   Tools 只负责「问一遍、照做」。以后再加「行动后触发」的效果
+        ///   （反伤结算、连击、回血……）全部覆写这一个方法即可，Tools 一行都不用改。
+        ///
+        /// 默认什么都不做、也不给额外行动 —— 绝大多数 buff 用不上这个时机。
+        /// </summary>
+        public virtual bool OnPlayerActionEnd(Player owner) => false;
     }
 }

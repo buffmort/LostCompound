@@ -40,5 +40,27 @@ namespace LostCompound.Buffs
         public override void OnTurnTick(Player owner) { }
 
         public override void OnTurnTick(Monster owner) { }
+
+        /// <summary>
+        /// 玩家这次行动结束 → 扣一层，并告诉调用方「还能再动一次」。
+        ///
+        /// 这是 ExtraTurn 唯一的执行点：层数的消费、上限判断、用光移除全在这里，
+        /// 战斗循环只负责「问了、照做」（见 <see cref="Buff.OnPlayerActionEnd"/> 的注释）。
+        ///
+        /// 用光之后**立刻从 owner 身上摘掉**，而不是等下一次 BuffTick：
+        /// 否则右列 Buff 框会挂着一个「可再行动 0 次」的图标，
+        /// 玩家会以为还能动，但下一次行动就没了 —— 那是最糟的一种"看起来能用"。
+        /// </summary>
+        public override bool OnPlayerActionEnd(Player owner)
+        {
+            if (owner == null || Stacks <= 0) return false;
+
+            AddStacks(-1);
+
+            if (Stacks <= 0) owner.RemoveBuff(this);
+
+            owner.RefreshBuffBoxPublic();     // 扣层后右列立刻跟上
+            return true;
+        }
     }
 }

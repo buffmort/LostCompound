@@ -103,40 +103,38 @@ namespace LostCompound.Tools.Players
         }
 
         /// <summary>
-        /// **额外回合**：返回「这次还给不给一次行动」，给了就扣一层。
+        /// 玩家**一次行动结束**时调用：把机会交给各个 buff 自己判断。
         ///
-        /// 什么时候调：玩家**每次行动结束**之后（见 Tools.RunBattle）——
-        /// 不是回合头。因为层数的单位是「一次行动」，不是「一个大回合」；
-        /// 放在回合头递减的话，一次大回合只会扣一层，而玩家可能已经用掉了好几层。
+        /// 返回 true = 有 buff 要求「再动一次」（例如 <see cref="ExtraTurn"/>）。
+        /// 具体谁要、扣不扣层，全部由 buff 内部的 <see cref="Buff.OnPlayerActionEnd"/> 决定 ——
+        /// 这里只负责问一遍。
         ///
-        /// 为什么用 AddStacks/负数而不是直接改 Stacks：
-        ///   Buff 的效果量上限由 MaxStacks 管，走基类的方法才不会绕过那条规矩
-        ///   （ExtraTurn 没覆写 MaxStacks，所以实际就是无上限）。
-        /// 层数归零后由这里**立刻移除**，不等下一次 BuffTick ——
-        /// 否则地上会挂着一个写着「可再行动 0 次」的图标，玩家会以为还能动。
+        /// 为什么倒序 + 立刻 break：同一时刻只需要一次额外行动。
+        /// 万一将来有两个 buff 都返回 true（比如「额外回合」+「连击」），
+        /// 应该由设计决定谁优先，而不是在这里糊里糊涂地叠加两次。
         /// </summary>
-        public bool TryConsumeExtraTurn()
+        public bool NotifyPlayerActionEnd()
         {
+            // 用下标 while 而不是 foreach：回调里可能把 buff 从列表里删掉
+            // （ExtraTurn 用光的那一层就是自己删自己），foreach 会抛「集合已修改」。
+            // 每次循环条件都重新读 Count，所以删完也不会越界。
             for (int i = Buffs.Count - 1; i >= 0; i--)
             {
-                if (Buffs[i] is ExtraTurn extra)
-                {
-                    if (extra.Stacks <= 0)
-                    {
-                        Buffs.RemoveAt(i);
-                        RefreshBuffBox();
-                        return false;
-                    }
-
-                    extra.AddStacks(-1);
-                    if (extra.Stacks <= 0) Buffs.RemoveAt(i);
-
-                    RefreshBuffBox();
-                    return true;
-                }
+                if (i >= Buffs.Count) break;             // 上一轮回调删掉了元素，下标已失效
+                if (Buffs[i].OnPlayerActionEnd(this)) return true;
             }
             return false;
         }
+
+        /// <summary>把一个 buff 从身上摘掉（供 buff 自己在回调里「用光了就消失」）。</summary>
+        public void RemoveBuff(Buff buff)
+        {
+            if (buff == null) return;
+            if (Buffs.Remove(buff)) RefreshBuffBox();
+        }
+
+        /// <summary>刷新右列 Buff 框（供 buff 在回调里改了自己的层数之后调用）。</summary>
+        public void RefreshBuffBoxPublic() => RefreshBuffBox();
 
         /// <summary>
         /// 回合开始的处理。战斗循环每回合先调用它，再做跳过检查 ——
