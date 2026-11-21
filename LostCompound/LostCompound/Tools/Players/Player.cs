@@ -39,7 +39,7 @@ namespace LostCompound.Tools.Players
         /// </summary>
         public double BaseHp { get; private set; } = 100;
 
-        /// <summary>
+        /// <summary>3
         /// 基础 STR（设计文档 7.3：3）。这是角色的**固有属性**，是「永久成长」的载体
         /// —— 如通关奖励、永久强化道具，将来都走 <see cref="GrowBaseStr"/> 改它。
         ///

@@ -49,17 +49,10 @@ namespace LostCompound.UI
         private readonly TextWriter _raw;          // 真实输出，必须在 SetOut 之前抓住
         private readonly LogRegionWriter _writer;
 
-        /// <summary>日志的**全部历史**（不只是当前可见的 LogRows 行）—— 翻页要看得到之前的内容。</summary>
-        private readonly List<string> _logHistory = [];
-
         /// <summary>
-        /// 日志翻页偏移：0 = 停在最新（跟随输出），N = 往回翻了 N 行。
-        /// 由 <see cref="ScrollLog"/> 改，界面上用标题里的「▲N」提示玩家当前不在底部。
+        /// 日志内容：**只留最近 LogRows 行**（翻页功能已删除，Hyberty 2026-11-20）。
         /// </summary>
-        private int _logScroll;
-
-        /// <summary>日志历史上限 —— 足够翻很久，又不会让内存无限涨。</summary>
-        private const int MaxLogHistory = 500;
+        private readonly List<string> _log = [];
 
         private string _lastMap;                   // 上次画过的地图文本（跳过无变化的重绘）
         private string _lastStatus;                // 上次画过的状态文本
@@ -441,10 +434,7 @@ namespace LostCompound.UI
 
             EnemyRows = target;
 
-            // 日志变矮后不必裁历史 —— 历史留着供翻页，只是可见窗口变短。
-            // 唯一要处理的是翻页偏移可能超过新的上限，夹一下即可。
             LogRows = Math.Max(MinimumLogRows, _terminalHeight - LeftColumnFixedHeight - EnemyRows - InfoRows);
-            _logScroll = Math.Clamp(_logScroll, 0, Math.Max(0, _logHistory.Count - LogRows));
 
             // 位置变了：清屏后重画两列所有框，避免旧边框残留。
             _raw.Write("\u001b[2J");
@@ -506,12 +496,8 @@ namespace LostCompound.UI
             DrawBoxBottom(LogBoxTop + LogRows + 1, LeftBoxLeft, LeftWidth);
         }
 
-        /// <summary>
-        /// 日志框标题：停在最新时就是「日志」，往回翻时显示「日志 ▲N」（N = 往回翻了几行）。
-        /// 为什么要把偏移写进标题：翻页之后**新日志还在往下追加**，玩家如果不看提示，
-        /// 会以为游戏卡住了（画面不更新）—— 标题里那个 ▲N 就是「你现在不在底部」的证据。
-        /// </summary>
-        private string LogTitle => _logScroll == 0 ? "日志" : "日志 ▲" + _logScroll;
+        /// <summary>日志框标题（固定为「日志」，翻页已删除）。</summary>
+        private const string LogTitle = "日志";
 
         /// <summary>单独重画输入框的边框（位置变化时用）。</summary>
         private void RedrawInputFrame()
@@ -523,99 +509,20 @@ namespace LostCompound.UI
         /// <summary>
         /// 提交一条日志（由 <see cref="LogRegionWriter"/> 在遇到换行时调用）。
         ///
-        /// ⚠️ 日志现在有**两套存储**：`_logHistory`（全部历史，供翻页）与屏幕上的 LogRows 行窗口。
-        ///    追加时先更新历史、再按 `_logScroll` 重画窗口 —— 玩家翻着旧日志时，
-        ///    新行会追加在下面但**不会把他的视口拽走**（否则翻页根本没法用）。
+        /// 只保留最近 LogRows 行：日志框就那么大，更早的看不见，留着只是占内存。
         /// </summary>
         public void AppendLog(string line)
         {
-            _logHistory.Add(line);
-            if (_logHistory.Count > MaxLogHistory)
-            {
-                // 裁掉最旧的。若玩家正翻着旧日志，偏移要跟着减，否则视口会往下跳一格。
-                int drop = _logHistory.Count - MaxLogHistory;
-                _logHistory.RemoveRange(0, drop);
-                _logScroll = Math.Max(0, _logScroll - drop);
-            }
+            _log.Add(line);
+
+            // 多留一行余量，避免边界上差一行闪烁。
+            int keep = Math.Max(1, LogRows) + 1;
+            if (_log.Count > keep) _log.RemoveRange(0, _log.Count - keep);
 
             RedrawLog();
             RedrawInputBox();
         }
 
-        /// <summary>
-        /// 日志翻页。`delta` 为正 = 往回看（更旧的），为负 = 往新的方向。
-        /// 返回「是否真的动了」—— 到顶/到底时返回 false，调用方可以据此给一句提示（也可以不给）。
-        ///
-        /// **带滚动动画**（Hyberty 2026-11-08）：不是一帧跳到位，而是**逐行**滚动，
-        /// 每行停 <see cref="ScrollFrameDelayMs"/> 毫秒。翻一屏（约 15 行）≈ 250ms，
-        /// 短到不打断操作，又足够让人看出「内容在往上/往下走」。
-        ///
-        /// 什么时候**不做动画**：
-        ///   · 输出被重定向（探针 / 管道 / 重定向到文件）—— 那种场景没人看动画，白等；
-        ///   · 一次要翻的行数过多（超过 <see cref="MaxAnimatedSteps"/>）—— 直接跳，别卡半秒以上。
-        /// </summary>
-        public bool ScrollLog(int delta)
-        {
-            if (delta == 0) return false;
-
-            int maxScroll = Math.Max(0, _logHistory.Count - LogRows);
-            int target = Math.Clamp(_logScroll + delta, 0, maxScroll);
-            if (target == _logScroll) return false;
-
-            bool animate = Math.Abs(target - _logScroll) <= MaxAnimatedSteps && !Console.IsOutputRedirected;
-
-            if (!animate)
-            {
-                _logScroll = target;
-                RedrawLogFrame();   // 标题里的 ▲N 要更新
-                RedrawLog();
-                RedrawInputBox();
-                return true;
-            }
-
-            int step = Math.Sign(target - _logScroll);
-            try
-            {
-                // 每帧挪 ScrollRowsPerFrame 行，而不是 1 行：
-                // Windows 的默认计时器精度约 15.6ms，Thread.Sleep(7) 实际也会睡满一个 tick ——
-                // 所以想「变快一倍」只能减少**帧数**，光调小睡眠时长是无效的（Hyberty 2026-11-08 要求快 2 倍）。
-                int remainingRows = Math.Abs(target - _logScroll);
-                while (remainingRows > 0)
-                {
-                    int move = Math.Min(ScrollRowsPerFrame, remainingRows);
-                    _logScroll += step * move;
-                    remainingRows -= move;
-
-                    RedrawLogFrame();   // 每帧都刷标题，▲N 会跟着一起变
-                    RedrawLog();
-                    Thread.Sleep(ScrollFrameDelayMs);
-                }
-            }
-            catch
-            {
-                // 睡眠被中断（Ctrl+C 等）不该让翻页失败：直接落到目标位置。
-                _logScroll = target;
-                RedrawLog();
-            }
-
-            RedrawInputBox();       // 光标最后放回输入框
-            return true;
-        }
-
-        /// <summary>滚动动画每帧停多久（毫秒）。</summary>
-        private const int ScrollFrameDelayMs = 15;
-
-        /// <summary>
-        /// 每帧滚几行。**调这个才是调速度**（调 <see cref="ScrollFrameDelayMs"/> 会被
-        /// Windows 的 15.6ms 计时器精度吃掉）。2 = 比最初的一行一帧快一倍。
-        /// </summary>
-        private const int ScrollRowsPerFrame = 2;
-
-        /// <summary>一次最多动画多少帧 —— 超过就瞬移，避免一下卡住半秒。</summary>
-        private const int MaxAnimatedSteps = 40;
-
-        /// <summary>日志是否正翻在历史里（没停在最新）。</summary>
-        public bool IsLogScrolled => _logScroll > 0;
 
         /// <summary>
         /// 往**信息框**推一条状态变化（获得物品 / 装备变化 / 中了 debuff）。
@@ -646,12 +553,12 @@ namespace LostCompound.UI
 
         private void RedrawLog()
         {
-            // 窗口末端（不含）= 历史长度 - 往回翻的行数
-            int end = _logHistory.Count - _logScroll;
+            // 只画最后 LogRows 行（翻页已删除）
+            int end = _log.Count;
             for (int i = 0; i < LogRows; i++)
             {
                 int idx = end - LogRows + i;
-                string text = idx >= 0 && idx < _logHistory.Count ? _logHistory[idx] : "";
+                string text = idx >= 0 && idx < _log.Count ? _log[idx] : "";
                 DrawBoxContent(LogBoxTop + 1 + i, LeftBoxLeft, LeftWidth, text);
             }
         }

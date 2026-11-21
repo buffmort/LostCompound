@@ -241,8 +241,6 @@ namespace LostCompound.Tools.Players
                 {
                     return value;
                 }
-                // 「[」「]」是日志翻页，不算输错 —— 先吃掉，再重问。
-                if (TryHandleLogScroll(line)) continue;
                 Console.WriteLine("输入无效，请输入数字。");
             }
         }
@@ -286,42 +284,6 @@ namespace LostCompound.Tools.Players
             _screen.PushInfo(message);
         }
 
-        /// <summary>
-        /// 处理**日志翻页**输入（`[` 往回看 / `]` 回到底部）。
-        ///
-        /// 为什么用方括号而不是 PageUp/PageDown 或鼠标滚轮：
-        ///   终端里的功能键与滚轮事件**根本进不了 Console.ReadLine 的返回值** ——
-        ///   它们要么被终端自己处理（滚轮滚动缓冲区），要么以转义序列的形式留在输入缓冲里
-        ///   把下一次读取搞乱。要做到真滚轮，得把所有菜单的 ReadLine 换成逐键读取
-        ///   （自己处理退格、方向键、转义序列），那是另一次大改；Hyberty 2026-11-08 决定
-        ///   先上键盘翻页，滚轮以后再说。方括号是**可打印字符**，ReadLine 能原样拿到。
-        ///
-        /// 返回 true = 这一行是翻页指令，调用方应该继续读下一行（不算一次操作）。
-        /// </summary>
-        private bool TryHandleLogScroll(string line)
-        {
-            if (_screen == null) return false;
-
-            if (line == "[")
-            {
-                // 一次翻一屏（与 PageUp 的直觉一致）
-                if (!_screen.ScrollLog(_screen.LogRows))
-                {
-                    NotifyInfo("已经是最早的日志了。");
-                }
-                return true;
-            }
-            if (line == "]")
-            {
-                _screen.ScrollLog(-_screen.LogRows);
-                if (!_screen.IsLogScrolled)
-                {
-                    NotifyInfo("已回到最新日志。");
-                }
-                return true;
-            }
-            return false;
-        }
 
         /// <summary>
         /// 血量条形图（如 `██████░░░░`），10 格宽。
@@ -613,7 +575,7 @@ namespace LostCompound.Tools.Players
                     // 之前只挂在 OnPlayerTurn 的战斗 switch 里）。
                     // 放这里而不是让它们在别处各调一次：地图循环每回合都会回到这里，
                     // 与方向输入共用同一个 ReadLine，行为统一（输入 5/6/7 不移动，直接 continue）。
-                    Console.WriteLine("5.使用道具  6.合成  7.饰品栏   [ ]翻日志");
+                    Console.WriteLine("5.使用道具  6.合成  7.饰品栏");
 
                     // 方向提示**不再塞进输入框**（输入框只画 ">"，避免提示与回显叠加导致错位）。
                     // 可走方向已经由 ShowAvailableDirections 写进日志了，这里再写一遍只会每回合刷屏；
@@ -642,8 +604,6 @@ namespace LostCompound.Tools.Players
                     {
                         if (!int.TryParse(line, out int direction))
                         {
-                            // 「[」「]」是日志翻页：不算输错，吃掉这一行继续等输入。
-                            if (TryHandleLogScroll(line)) continue;
                             Console.WriteLine("输入无效，请输入数字。");
                             continue;
                         }
