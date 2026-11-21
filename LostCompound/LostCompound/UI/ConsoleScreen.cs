@@ -49,6 +49,9 @@ namespace LostCompound.UI
         private readonly TextWriter _raw;          // 真实输出，必须在 SetOut 之前抓住
         private readonly LogRegionWriter _writer;
 
+        /// <summary>是否正接管着 Console.Out（Install / Uninstall 的幂等标记）。</summary>
+        private bool _installed;
+
         /// <summary>
         /// 日志内容：**只留最近 LogRows 行**（翻页功能已删除，Hyberty 2026-11-20）。
         /// </summary>
@@ -213,8 +216,12 @@ namespace LostCompound.UI
         /// </summary>
         public ConsoleScreen(int mapRows, int mapColumns, int terminalWidth, int terminalHeight)
         {
-            _raw = Console.Out;                    // ← 关键：先抓真实输出
+            // ★ 必须用 LogRegionWriter.RealOut，不能直接 Console.Out。
+            //   构造这一刻 Console.Out 可能**已被别的界面接管**（嵌套界面 / 从地图里开调试战斗），
+            //   那样 _raw 会指向旧的 LogRegionWriter：所有光标定位码都会被当成日志内容画进框里，
+            //   终端一执行就花屏（Hyberty 2026-11-21 报的那串 `[36;5H` 就是它）。
             _writer = new LogRegionWriter(this);
+            _raw = LogRegionWriter.RealOut ?? Console.Out;
 
             _terminalWidth = terminalWidth;
 
@@ -299,6 +306,12 @@ namespace LostCompound.UI
         /// </summary>
         public void Install()
         {
+            // 幂等：装着的时候再装一次等于什么都没做。
+            // 重复 Install 会让 Console.Out 层层套着自己的重定向器，
+            // 每层都往日志里塞一份光标码 —— 比花屏更难查的「日志自己变长」。
+            if (Console.Out == _writer) return;
+            _installed = true;
+
             _raw.Write("\u001b[2J");
             Console.SetOut(_writer);
 
@@ -327,6 +340,10 @@ namespace LostCompound.UI
         /// <summary>把 Console.Out 还给真实输出（离开地图时调用）。</summary>
         public void Uninstall()
         {
+            // 幂等：本来就没接管，直接返回，否则会把**别人**装的重定向器摘掉。
+            if (!_installed && Console.Out != _writer) return;
+            _installed = false;
+
             // 把光标移到整个布局下方，否则退出地图后主菜单的输出会盖在框上面
             _raw.Write($"\u001b[{TotalRows + 1};1H");
             Console.SetOut(_raw);
@@ -631,11 +648,42 @@ namespace LostCompound.UI
         /// </summary>
         private void DrawBoxContent(int row, int col, int width, string text)
         {
-            string clamped = Clamp(text, width);
+            string clamped = Clamp(StripControl(text), width);
             int inner = width - 2 - ContentOffset;                 // 可用内容宽度
             int pad = Math.Max(0, inner - DisplayWidth(clamped));
 
             WriteRawAt(row, col, "│" + new string(' ', ContentOffset) + clamped + new string(' ', pad) + "│");
+        }
+
+        /// <summary>
+        /// 把**控制字符**从要画进框里的文本中剔掉（ESC、换行、制表符等）。
+        ///
+        /// 为什么需要这一层：日志内容来自游戏里上百处 Console.WriteLine，
+        /// 只要有一处把带 ESC 的字符串打出来，它就会被当成日志文本画进框里 ——
+        /// 终端读到 ESC 会**真的执行它**（移动光标 / 改色），屏幕上就是花屏。
+        /// 兜底在这里做，比指望「所有打印都不带控制字符」可靠。
+        /// </summary>
+        private static string StripControl(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return "";
+
+            // 绝大多数行都干净 —— 先扫一遍，干净就原样返回，不额外分配
+            bool dirty = false;
+            for (int i = 0; i < text.Length; i++)
+            {
+                char ch = text[i];
+                if (ch < 0x20 || ch == 0x7F) { dirty = true; break; }
+            }
+            if (!dirty) return text;
+
+            System.Text.StringBuilder sb = new System.Text.StringBuilder(text.Length);
+            for (int i = 0; i < text.Length; i++)
+            {
+                char ch = text[i];
+                if (ch < 0x20 || ch == 0x7F) continue;
+                sb.Append(ch);
+            }
+            return sb.ToString();
         }
 
         /// <summary>按显示宽度截断，避免撑破右边框。</summary>

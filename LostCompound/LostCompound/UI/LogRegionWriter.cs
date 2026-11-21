@@ -18,7 +18,25 @@ namespace LostCompound.UI
         private readonly ConsoleScreen _screen;
         private readonly StringBuilder _pending = new();
 
-        public LogRegionWriter(ConsoleScreen screen) => _screen = screen;
+        /// <summary>
+        /// **真实输出**（第一次创建重定向器时抓住的 Console.Out）。
+        ///
+        /// 为什么必须存成静态：ConsoleScreen 的构造函数里写的是 `_raw = Console.Out`，
+        /// 那只在「构造时控制台还没被接管」的情况下成立。一旦某个界面**装着的时候**
+        /// 又构造了第二个 ConsoleScreen（调试战斗从地图里开、或者嵌套界面），
+        /// 新对象的 `_raw` 就会指向**旧的 LogRegionWriter** ——
+        /// 于是所有光标定位序列（ESC[行;列H）都会被当成日志内容塞进日志框，
+        /// 终端一执行就花屏（Hyberty 2026-11-21 报的「花屏」，日志里那串 `[36;5H` 就是它）。
+        ///
+        /// 存成静态之后，无论构造多少次、嵌套多少层，拿到的都是同一条真实输出流。
+        /// </summary>
+        public static TextWriter RealOut { get; private set; }
+
+        public LogRegionWriter(ConsoleScreen screen)
+        {
+            _screen = screen;
+            RealOut ??= Console.Out;      // 只记第一次（那时控制台一定还没被接管）
+        }
 
         public override Encoding Encoding => Encoding.UTF8;
 
