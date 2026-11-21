@@ -23,21 +23,28 @@ namespace LostCompound.Rooms
          * 以后要加一只「只在第 3-5 层」的怪，只需在本表加一行：
          *     ("Xxx", () => new Xxx(), 3, 5)
          */
-        private static readonly (string Name, Func<Monster> Create, int FromLayer, int ToLayer)[] CommonPool =
+        /// <summary>
+        /// 池里的一只怪。Weight = **相对权重**（不是绝对概率）：
+        /// 抽怪时把候选的权重加起来，按各自占比抽 —— 所以 1 和 3 表示「3 倍于 1 的那只」，
+        /// 而不是「30%」。全部写 1 就退化成原来的等权重。
+        /// </summary>
+        private readonly record struct PoolEntry(string Name, Func<Monster> Create, int FromLayer, int ToLayer, double Weight);
+
+        private static readonly PoolEntry[] CommonPool =
         [
             // 僵尸与骷髅：只在第 1-3 层（闭区间 [1, 3]，第 1 层和第 3 层都算）。
-            ("僵尸", () => new Zombie(), 1, 3),
-            ("骷髅", () => new Skeleton(), 1, 3),
+            new("僵尸", () => new Zombie(), 1, 3, 1),
+            new("骷髅", () => new Skeleton(), 1, 3, 1),
 
             // 盾兵：第 1-5 层（闭区间 [1, 5]）。它是**纯辅助**怪 —— 自己不打人，
             // 每回合给随机一只其它怪加盾（见 ShieldSoldier 的类注释）。
             // ⚠️「仅在多怪物时出现」不靠这张表表达：单只出场时由 SpawnMany 重抽（见那里）。
-            ("盾兵", () => new ShieldSoldier(), 1, 5),
+            new("盾兵", () => new ShieldSoldier(), 1, 5, 1),
 
             // 锈铁傀儡：第 2-5 层（闭区间 [2, 5]）。补的是「第 4-5 层通用怪只剩盾兵」这个空档 ——
             // 僵尸与骷髅到第 3 层就退场了，而盾兵自己不打人，没有它的话第 4-5 层
             // 常规战斗全靠环境专属怪撑着。机制是「双向生锈」，见 RustedGolem 的类注释。
-            ("锈铁傀儡", () => new RustedGolem(), 2, 5),
+            new("锈铁傀儡", () => new RustedGolem(), 2, 5, 1),
         ];
 
         /**
@@ -48,15 +55,15 @@ namespace LostCompound.Rooms
          *   - 第 1-3 层 = 僵尸 / 骷髅 / 岩浆怪，各 1/3（与加层数参数之前完全一致）；
          *   - 第 4 层起 = 僵尸与骷髅被层数过滤掉，只剩岩浆怪（必定出岩浆怪）。
          */
-        private static readonly (string Name, Func<Monster> Create, int FromLayer, int ToLayer)[] LavaWaterfallPool =
+        private static readonly PoolEntry[] LavaWaterfallPool =
         [
             // 岩浆怪：熔岩瀑布的环境专属怪，不限层。
-            ("岩浆怪", () => new LavaSlime(), 1, int.MaxValue),
+            new("岩浆怪", () => new LavaSlime(), 1, int.MaxValue, 1),
 
             // 硫磺怪（Hyberty 2026-11-08 定）：同样是熔岩瀑布专属、不限层。
             // 它在高温房间里攻击无视 DEF 与盾并附带流血，普通房间里只是普通的 5 点攻击 ——
             // 所以它把「要不要进高温房」这件事的成本又抬高了一档。
-            ("硫磺怪", () => new SulphurMonster(), 1, int.MaxValue),
+            new("硫磺怪", () => new SulphurMonster(), 1, int.MaxValue, 1),
         ];
 
         /**
@@ -69,21 +76,33 @@ namespace LostCompound.Rooms
          *     「忽略层数限制」再抽一次，于是**破例**出僵尸 / 骷髅（见该方法的注释）。
          *
          * 一旦实现食人鱼 / 洞潜僵尸，只需在下面加两行，MobSpawner 其它代码一行都不用改：
-         *     ("食人鱼", () => new Piranha(), 1, int.MaxValue),
-         *     ("洞潜僵尸", () => new DiverZombie(), 1, int.MaxValue),
+         *     new("食人鱼", () => new Piranha(), 1, int.MaxValue, 1),
+         *     new("洞潜僵尸", () => new DiverZombie(), 1, int.MaxValue, 1),
          * 有了专属怪之后，第 4 层起的候选池就不再为空，**不会**再走到「忽略层数」的兜底。
          */
-        private static readonly (string Name, Func<Monster> Create, int FromLayer, int ToLayer)[] FloodedCavernPool =
+        /// <summary>
+        /// 食人鱼在池子里的**相对权重**（Hyberty 2026-11-21 定）。
+        ///
+        /// 它是**相对权重**，不是"33.3% 的绝对概率"：抽怪时把候选的权重加起来按占比抽，
+        /// 最终概率由同池其它怪的权重占比决定。
+        ///   第 1 层（6 只候选，食人鱼权重 2，其余各 1）= 2/7 ≈ 28.6%
+        ///   第 6 层起（食人鱼 / 洞潜僵尸 / 水蛭）= 2/4 = 50%
+        ///
+        /// 为什么需要提高：食人鱼的机制（只能 AOE 打、同伴死光自灭）要求它**成对出现**
+        /// 才有威胁；等权重时它只有 1/6~1/3，经常孤零零刷出来等于白送。
+        /// </summary>
+        private const double PiranhaWeight = 2;
+        private static readonly PoolEntry[] FloodedCavernPool =
         [
             // 食人鱼：普通怪，不能被单体选中、只能被 AOE 打；同伴全死时自己消失。
-            ("食人鱼", () => new Piranha(), 1, int.MaxValue),
+            new("食人鱼", () => new Piranha(), 1, int.MaxValue, PiranhaWeight),
 
             // 洞潜僵尸：精英，100 血，每回合 10% 猝死 / 50% 挂 debuff。
-            ("洞潜僵尸", () => new DiverZombie(), 1, int.MaxValue),
+            new("洞潜僵尸", () => new DiverZombie(), 1, int.MaxValue, 1),
 
             // 水蛭（Hyberty 2026-11-08 定）：普通怪，开局只有 10 血，但靠吸血能涨到 200。
             // 70% 攻击 + 30% 不动；吸血按玩家**实际掉血**算，被盾挡住就吸不到。
-            ("水蛭", () => new Leech(), 1, int.MaxValue),
+            new("水蛭", () => new Leech(), 1, int.MaxValue, 1),
         ];
 
         /// <summary>
@@ -91,18 +110,18 @@ namespace LostCompound.Rooms
         ///
         /// 只有一只精英，所以沙漠的战斗里它每场都在（与熔岩瀑布的岩浆怪同一写法）。
         /// </summary>
-        private static readonly (string Name, Func<Monster> Create, int FromLayer, int ToLayer)[] DesertPool =
+        private static readonly PoolEntry[] DesertPool =
         [
             // 穿模骆驼：精英，50 血，20% 让玩家跳过一回合。
-            ("穿模骆驼", () => new Camel(), 1, int.MaxValue),
+            new("穿模骆驼", () => new Camel(), 1, int.MaxValue, 1),
 
             // 沙虫（Hyberty 2026-11-08 定）：普通怪，开局遁地 ——
             // 单体攻击打不中，只能靠采沙（把它翻出来）或 AOE；遁地时它的伤害翻倍。
-            ("沙虫", () => new Sandworm(), 1, int.MaxValue),
+            new("沙虫", () => new Sandworm(), 1, int.MaxValue, 1),
 
             // 木乃伊（Hyberty 2026-11-08 定）：精英，100 血、DEF 10 ——
             // 怕磷系/火系道具（中了磷灼烧 DEF 归零），每回合一半概率给自己上易伤。
-            ("木乃伊", () => new Mummy(), 1, int.MaxValue),
+            new("木乃伊", () => new Mummy(), 1, int.MaxValue, 1),
         ];
 
         /// <summary>
@@ -216,18 +235,24 @@ namespace LostCompound.Rooms
 
             for (int i = 0; i < count; i++)
             {
-                // 只有「这一整场就 1 只」时才禁止盾兵：多怪物时它才允许出场。
+                // 只有「这一整场就 1 只」时才禁止这些怪：多怪物时它们才允许出场。
                 // 注意判定依据是 **count**（本场计划生成几只），不是 monsters.Count ——
                 // 后者在循环中还没填满，用它判断会把「多怪」误判成「单怪」。
-                monsters.Add(SpawnOne(envType, currentLayer, allowShieldSoldier: count > 1));
+                //
+                // 盾兵：纯辅助，单只时没人可保护。
+                // 食人鱼（Hyberty 2026-11-21）：单只时玩家打死它身边的怪它就自灭，
+                //   构不成威胁 —— 所以单只场次换成池里别的怪。
+                bool multi = count > 1;
+                monsters.Add(SpawnOne(envType, currentLayer, allowShieldSoldier: multi, allowPiranha: multi));
             }
 
             // 双保险：万一因为兜底逻辑还是抽出了「只有一只盾兵」的场面，重抽一次（最多 8 次）。
             // 为什么需要它：SpawnOne 的兜底分支会忽略层数过滤，理论上可能绕过上面的 count 判断。
             // 重抽仍失败就保持原样（宁可出一只盾兵，也不能在这里死循环或崩）。
-            for (int attempt = 0; attempt < 8 && monsters.Count == 1 && monsters[0] is ShieldSoldier; attempt++)
+            for (int attempt = 0; attempt < 8 && monsters.Count == 1 &&
+                   (monsters[0] is ShieldSoldier || monsters[0] is Piranha); attempt++)
             {
-                monsters[0] = SpawnOne(envType, currentLayer, allowShieldSoldier: false);
+                monsters[0] = SpawnOne(envType, currentLayer, allowShieldSoldier: false, allowPiranha: false);
             }
 
             return monsters;
@@ -239,7 +264,7 @@ namespace LostCompound.Rooms
          * 这样加新环境时只需在这里加一个 case + 一张专属池表；
          * 专属池为空的含义是「该环境还没有原生怪」，不是「该环境没有怪」。
          */
-        private static (string Name, Func<Monster> Create, int FromLayer, int ToLayer)[] EnvPool(EnvType envType) =>
+        private static PoolEntry[] EnvPool(EnvType envType) =>
             envType switch
             {
                 EnvType.LavaWaterfall => LavaWaterfallPool,
@@ -265,9 +290,9 @@ namespace LostCompound.Rooms
          * 为什么第 1 步不直接回退到岩浆怪：水淹洞穴第 4 层起出岩浆怪（熔岩专属怪）
          * 比出通用池的僵尸 / 骷髅更不符合环境设定；借用通用池的怪是偏差最小的临时解。
          */
-        private static Monster SpawnOne(EnvType envType, int layer, bool allowShieldSoldier = true)
+        private static Monster SpawnOne(EnvType envType, int layer, bool allowShieldSoldier = true, bool allowPiranha = true)
         {
-            (string Name, Func<Monster> Create, int FromLayer, int ToLayer)[] pool =
+            PoolEntry[] pool =
                 [.. CommonPool, .. EnvPool(envType)];
 
             // 「盾兵只在多怪物时出现」：单只出场的场合由调用方传 false，
@@ -277,12 +302,21 @@ namespace LostCompound.Rooms
                 pool = pool.Where(m => m.Name != "盾兵").ToArray();
             }
 
-            (string Name, Func<Monster> Create, int FromLayer, int ToLayer)[] available =
+            // 「食人鱼只在多怪物时出现」（Hyberty 2026-11-21）：
+            // 它单只刷出等于白送 —— 机制是「只能被 AOE 打 + 同伴死光自灭」，
+            // 孤零零一只时玩家只要打死它身边的怪它就自己没了，完全构不成威胁。
+            // 所以单只场次直接把它排除（与盾兵同一写法）。
+            if (!allowPiranha)
+            {
+                pool = pool.Where(m => m.Name != "食人鱼").ToArray();
+            }
+
+            PoolEntry[] available =
                 pool.Where(m => m.FromLayer <= layer && layer <= m.ToLayer).ToArray();
 
             if (available.Length > 0)
             {
-                return CreateSpawned(available[Random.Shared.Next(available.Length)].Create, layer);
+                return CreateSpawned(PickWeighted(available).Create, layer);
             }
 
             // 兜底 1：忽略层数限制，从「通用池 + 专属池」的全部成员里抽。
@@ -291,13 +325,42 @@ namespace LostCompound.Rooms
                 Console.WriteLine("【警告】" + envType + " 第 " + layer +
                                   " 层没有符合层数区间的怪（专属池为空、通用池又被层数滤掉），" +
                                   "临时忽略层数限制，从全部候选里抽一只。实现该环境的原生怪后不会再走到这里。");
-                return CreateSpawned(pool[Random.Shared.Next(pool.Length)].Create, layer);
+                return CreateSpawned(PickWeighted(pool).Create, layer);
             }
 
             // 兜底 2：两张表都空（理论上不该发生）—— 醒目警告 + 岩浆怪（[1, ∞]，永远可用）。
             Console.WriteLine("【警告】" + envType + " 第 " + layer +
                               " 层的候选池完全为空（通用池与环境专属池都没有成员），已回退到岩浆怪。请检查 MobSpawner 的池表！");
             return CreateSpawned(() => new LavaSlime(), layer);
+        }
+
+        /// <summary>
+        /// 按权重抽一条（Hyberty 2026-11-21）。
+        ///
+        /// 权重是**相对值**：把候选的 Weight 加起来，掷一个 [0, 总权重) 的数，
+        /// 落在谁的区间里就是谁。全部填 1 时，这就是原来的"等权重随机"。
+        ///
+        /// 权重 <= 0 的条目会被跳过（防御性：将来有人填 0 表示"暂时禁用"也能按预期工作）；
+        /// 万一所有条目都是 0（理论上不该发生），退回等权重，绝不返回 null。
+        /// </summary>
+        private static PoolEntry PickWeighted(PoolEntry[] entries)
+        {
+            double total = 0;
+            foreach (PoolEntry e in entries) if (e.Weight > 0) total += e.Weight;
+
+            if (total <= 0) return entries[Random.Shared.Next(entries.Length)];
+
+            double roll = Random.Shared.NextDouble() * total;
+            foreach (PoolEntry e in entries)
+            {
+                if (e.Weight <= 0) continue;
+                roll -= e.Weight;
+                if (roll < 0) return e;
+            }
+
+            // 浮点误差兜底：上面没返回就说明刚好落在末端，取最后一个有权重的
+            for (int i = entries.Length - 1; i >= 0; i--) if (entries[i].Weight > 0) return entries[i];
+            return entries[^1];
         }
 
         /// <summary>
