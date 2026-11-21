@@ -69,8 +69,13 @@ namespace LostCompound.Tools.Players
         /// 饰品栏交互界面：可以装备（把背包里的被动物件放上去）或卸下。
         /// 选 0 退出，不消耗回合。
         /// </summary>
-        private void OpenAccessoryMenu()
+        /// <summary>
+        /// 饰品栏面板。返回 **true = 真的换了装备**（算一次行动）；
+        /// false = 只查看 / 返回（Hyberty 2026-11-21：查面板不该消耗回合）。
+        /// </summary>
+        private bool OpenAccessoryMenu()
         {
+            bool changed = false;
             // 同背包：面板打开时把主界面藏起来。
             ClearLog();
 
@@ -81,11 +86,11 @@ namespace LostCompound.Tools.Players
 
                 Console.WriteLine("1.装备   2.卸下   0.返回");
                 int action = ReadInt("饰品栏：1装备 2卸下 0返回");
-                if (action == 0) return;
+                if (action == 0) return changed;
                 // 输入流结束：菜单再问也读不到输入（ReadInt 会一直立刻返回 -1），
                 // 直接退出饰品栏菜单，等价于玩家选了「0.返回」。手输 -1 时 _inputClosed 为 false，
                 // 仍按原来的「什么都不做、重画菜单」处理，交互不变。
-                if (_inputClosed) return;
+                if (_inputClosed) return changed;
 
                 if (action == 1)
                 {
@@ -116,10 +121,10 @@ namespace LostCompound.Tools.Players
                     if (pick == -1)
                     {
                         // 输入流结束：不再重画菜单空转，直接退出饰品栏
-                        if (_inputClosed) return;
+                        if (_inputClosed) return changed;
                         continue;
                     }
-                    EquipAccessory(pick);
+                    if (EquipAccessory(pick)) changed = true;
                 }
                 else if (action == 2)
                 {
@@ -133,10 +138,10 @@ namespace LostCompound.Tools.Players
                     if (pick == -1)
                     {
                         // 输入流结束：不再重画菜单空转，直接退出饰品栏
-                        if (_inputClosed) return;
+                        if (_inputClosed) return changed;
                         continue;
                     }
-                    UnequipAccessory(pick);
+                    if (UnequipAccessory(pick)) changed = true;
                 }
             }
         }

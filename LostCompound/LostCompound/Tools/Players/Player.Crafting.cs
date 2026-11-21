@@ -90,8 +90,13 @@ namespace LostCompound.Tools.Players
         /// 退出统一用 <see cref="MenuBack"/>（-1），与背包菜单一致；输入流结束（EOF）也返回 -1，
         /// 两者同义，不再像以前那样有的地方用 255、有的地方用 -1。
         /// </summary>
-        public void CraftMenu()
+        /// <summary>
+        /// 合成面板。返回 **true = 真的合出了东西**（算一次行动）；
+        /// false = 只是查配方表 / 返回（Hyberty 2026-11-21：查面板不该消耗回合）。
+        /// </summary>
+        public bool CraftMenu()
         {
+            bool crafted = false;
             // 每进一次合成菜单清一次（与背包同一套：面板打开 = 主界面藏起来）。
             // 放在 while 外面而不是里面：里面每轮都清的话，"查完配方表回到菜单"会把刚看到的结果
             // 一起擦掉 —— 那正是玩家要抄下来的东西。
@@ -105,8 +110,8 @@ namespace LostCompound.Tools.Players
                 Console.WriteLine(MenuBack + ". 返回");
 
                 int choice = ReadInt("选择操作");
-                if (choice == MenuBack) return;
-                if (_inputClosed) return;
+                if (choice == MenuBack) return crafted;
+                if (_inputClosed) return crafted;
                 if (choice == 1)
                 {
                     ShowRecipeBook();
@@ -115,7 +120,8 @@ namespace LostCompound.Tools.Players
                 if (choice == 2)
                 {
                     CraftOne();
-                    continue;      // 合完回到菜单 —— 可以连续合
+                    crafted = true;   // 只要进过一次合成就算用掉了行动（成功后可以继续合）
+                    continue;         // 合完回到菜单 —— 可以连续合
                 }
                 Console.WriteLine("选择无效，请输入 1 / 2 / " + MenuBack);
             }

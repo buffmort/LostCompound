@@ -100,30 +100,47 @@ namespace LostCompound.Tools.Players
             // 编号必须一直挂在眼前；写进滚动日志的话，几行之后就被冲掉了。
             RefreshEnemyBox(monsters);
             Console.WriteLine();
-            // ⚠️ 这里**不再**打「请选择操作」（Hyberty 2026-11-21 信息化简）：
-            //     下面 ReadInt("请选择操作") 自己会打一次，原先连着打两遍。
-            //     选项列表保留 —— 它不在别的固定区域显示。
-            Console.WriteLine("1.攻击  2.防御  3.打开背包  4.合成  5.饰品栏");
 
-            // 第 6 项只在「这里能采东西」时出现（目前只有沙漠，DESIGN §5.3 采沙）。
-            // 问的是环境能力位，不是 `env is Desert` —— 将来再有能采的环境不用改这里。
-            bool canDigSand = CurrentEnvironment?.CanDigSand == true;
-            if (canDigSand)
+            // ★ 菜单放进循环（Hyberty 2026-11-21：查背包不应消耗回合）。
+            //   打开背包/合成/饰品栏之后如果只是看了看就返回，要回到这个菜单重新选，
+            //   而不是白白用掉一次行动。
+            //   只有「真的做了事」（攻击/防御/采沙/用掉道具/合出东西/换了装备）才退出循环。
+            bool turnConsumed = false;
+            bool firstShow = true;
+
+            while (!turnConsumed)
             {
-                Console.WriteLine("6.采沙");
-            }
-            if (DebugState.Enabled)
-            {
-                Console.WriteLine("debug模式操作:");
-                Console.WriteLine("127, 超雄模式");
-                Console.WriteLine("128, 获得全部合成");
-                // 129 是新增的：战斗中当场拿道具（主菜单的「4. 获取道具」发到常驻调试玩家身上，
-                // 战斗中由这里拿到正在战斗的这个玩家身上）。编号避开 127/128/255。
-                Console.WriteLine("129, 获取道具");
-                // 130 同理：战斗中当场挂 buff（ID → 效果量 → 剩余回合），逻辑见 DebugMenu.AddBuffTo。
-                Console.WriteLine("130, 添加buff");
-            }
-            int option = ReadInt("请选择操作");
+                if (!firstShow)
+                {
+                    // 从面板回来：面板内容清掉，重新给一屏干净的战斗菜单
+                    ClearLog();
+                }
+                firstShow = false;
+
+                // ⚠️ 这里**不再**打「请选择操作」（Hyberty 2026-11-21 信息化简）：
+                //     下面 ReadInt("请选择操作") 自己会打一次，原先连着打两遍。
+                //     选项列表保留 —— 它不在别的固定区域显示。
+                Console.WriteLine("1.攻击  2.防御  3.打开背包  4.合成  5.饰品栏");
+
+                // 第 6 项只在「这里能采东西」时出现（目前只有沙漠，DESIGN §5.3 采沙）。
+                // 问的是环境能力位，不是 `env is Desert` —— 将来再有能采的环境不用改这里。
+                bool canDigSand = CurrentEnvironment?.CanDigSand == true;
+                if (canDigSand)
+                {
+                    Console.WriteLine("6.采沙");
+                }
+                if (DebugState.Enabled)
+                {
+                    Console.WriteLine("debug模式操作:");
+                    Console.WriteLine("127, 超雄模式");
+                    Console.WriteLine("128, 获得全部合成");
+                    // 129 是新增的：战斗中当场拿道具（主菜单的「4. 获取道具」发到常驻调试玩家身上，
+                    // 战斗中由这里拿到正在战斗的这个玩家身上）。编号避开 127/128/255。
+                    Console.WriteLine("129, 获取道具");
+                    // 130 同理：战斗中当场挂 buff（ID → 效果量 → 剩余回合），逻辑见 DebugMenu.AddBuffTo。
+                    Console.WriteLine("130, 添加buff");
+                }
+                int option = ReadInt("请选择操作");
             if (option == -1 && _inputClosed)
             {
                 // 输入流已结束：本回合没法行动，直接放弃这次行动返回。
@@ -135,6 +152,7 @@ namespace LostCompound.Tools.Players
             {
                 case 1:
                     Attack(monsters);
+                    turnConsumed = true;
                     break;
                 case 2:
                     // 原为 Block += 1（次数制，一次全免）；改为加 5 点护盾值。
@@ -143,15 +161,17 @@ namespace LostCompound.Tools.Players
                     // 一回合换半刀比旧机制「一回合换一整刀」弱得多，符合「旧机制太超模」的裁定。
                     AddShield(5);
                     Console.WriteLine("你进行了防御!");
+                    turnConsumed = true;
                     break;
                 case 3:
-                    OpenItems(monsters);
+                    // 只有真的用掉道具才算一次行动；只是翻了翻就退出的话回到菜单重选
+                    turnConsumed = OpenItems(monsters);
                     break;
                 case 4:
-                    CraftMenu();
+                    turnConsumed = CraftMenu();
                     break;
                 case 5:
-                    OpenAccessoryMenu();
+                    turnConsumed = OpenAccessoryMenu();
                     break;
                 case 6 when CurrentEnvironment?.CanDigSand == true:
                     // 采沙：一次行动换一堆沙子（DESIGN §5.3「花费 1 回合获得 5 沙子」）。
@@ -169,6 +189,7 @@ namespace LostCompound.Tools.Players
                     {
                         monster.OnSandDug();
                     }
+                    turnConsumed = true;
                     break;
                 // 127 / 128 / 129 / 130 是调试指令，必须**先开开关**（255）才可用。
                 //
@@ -210,9 +231,12 @@ namespace LostCompound.Tools.Players
                     Console.WriteLine("你已进入debug模式!");
                     break;
                 default:
+                    // 乱输仍然当作"放弃这次行动"（保持改造前的行为，不因为面板可取消而变成无限重问）
                     Console.WriteLine("你输入的类型不正确！ 已自动跳过回合");
+                    turnConsumed = true;
                     break;
             }
+            }   // while (!turnConsumed)
         }
 
         /// <summary>

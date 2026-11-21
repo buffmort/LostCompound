@@ -186,7 +186,12 @@ namespace LostCompound.Tools.Players
             }
         }
 
-        private void OpenItems(List<Monster> monsters)
+        /// <summary>
+        /// 背包面板。返回 **true = 真的用掉了某个道具**（算一次行动）；
+        /// false = 取消 / 空背包 / 被封住 / 选了个不能用的 —— 那些都不该消耗回合
+        /// （Hyberty 2026-11-21：查背包不应消耗回合）。
+        /// </summary>
+        private bool OpenItems(List<Monster> monsters)
         {
             // ★ 打开背包 = GUI 里"弹出面板、藏起主界面"（Hyberty 2026-11-21）。
             //   清掉日志，玩家看到的是一屏干净的背包清单，不会和刚才的战斗日志混在一起。
@@ -203,7 +208,7 @@ namespace LostCompound.Tools.Players
                 Console.WriteLine("泥沙糊住了你的背包，这一回合打不开！");
                 Buffs.RemoveAt(i);
                 RefreshBuffBox();
-                return;
+                return false;
             }
 
             int count = 0;
@@ -225,7 +230,7 @@ namespace LostCompound.Tools.Players
             {
                 // 空背包没有任何合法编号，重问会死循环
                 Console.WriteLine("你的背包空空如也！");
-                return;
+                return false;
             }
 
             // 选错道具不再结束回合：重问直到选到合法编号为止
@@ -239,7 +244,7 @@ namespace LostCompound.Tools.Players
                     // 直接返回。原来是 break，但那样 choice 仍是 -1，
                     // 紧接着的 Inventory[choice] 就会越界访问。
                     // 输入流结束（EOF）也走这条：同样返回、不消耗回合，不会空转。
-                    return;
+                    return false;
                 }
                 if (choice >= 0 && choice < Inventory.Count) break;
                 Console.WriteLine("您的使用无效！请重新选择(0-" + (Inventory.Count - 1) + "):");
@@ -283,11 +288,11 @@ namespace LostCompound.Tools.Players
                 // 再刷一次界面：Use 可能直接改了玩家状态（镜子的 Base 对换 / Hp 夹取），
                 // 不刷的话状态框要等到下次挨打或下一回合才更新（见 RefreshAfterItemUse 的注释）。
                 RefreshAfterItemUse();
+                return true;      // 真的用掉了 —— 这才算一次行动
             }
-            else
-            {
-                Console.WriteLine("您的使用无效！");
-            }
+
+            Console.WriteLine("您的使用无效！");
+            return false;
         }
 
         /// <summary>
