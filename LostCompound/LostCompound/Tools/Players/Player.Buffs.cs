@@ -165,7 +165,13 @@ namespace LostCompound.Tools.Players
         /// </summary>
         public void OnTurnStart(EnvType envType)
         {
-            Console.WriteLine("=====你的回合=====");
+            // ⚠️ 原先这里打「=====你的回合=====」。已删（Hyberty 2026-11-21）：
+            //     回合头已经写了「=====第 N 回合=====」，玩家马上就会看到选项菜单 ——
+            //     两行标题挨着出现，读者得先分辨"哪句是新回合、哪句是同一件事的第二次播报"。
+            //     玩家回合的边界已经由「选项菜单出现」这个动作本身表达了，不需要额外一行。
+            //
+            //     保留它的唯一场景是「额外回合」（Tools 会打 =====额外回合=====），
+            //     那种情况下确实是新的一段，所以那一行不动。
 
             // 跳过检查原先由 Tools.RunBattle 在 OnTurnStart 之后单独调一次，
             // 现在收进这里，并把结果记在 SkippedThisTurn 上供本次回合的每一次玩家行动读取。

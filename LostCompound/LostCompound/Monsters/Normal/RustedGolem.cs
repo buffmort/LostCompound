@@ -65,6 +65,13 @@ namespace LostCompound.Monsters.Normal
         /// </summary>
         public override void Attack(Player p)
         {
+            // ⚠️ 顺序：**先报名，再扣血**（Hyberty 2026-11-21 的日志清理）。
+            // 原先先 TakeDamage 再打印，日志上就是：
+            //     你受到 6.0 点伤害!（...）        ← 谁打的？
+            //     锈铁傀儡的锈屑钻进你的护甲缝隙
+            // 读者得往下看一行才知道上面那下是谁打的。回合标题删掉之后更明显，
+            // 所以把报名提到前面：每只怪的第一句都必须能认出"是谁在动"。
+            Console.WriteLine(Name + "挥起锈蚀的拳头砸向你。");
             p.TakeDamage(Atk);
 
             _hitsLanded++;
