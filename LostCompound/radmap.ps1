@@ -98,7 +98,7 @@ function Read-Map($path) {
 function Show-Header($m) {
     Clear-Host
     Write-Host ""
-    Write-Host ("  " + $m.Title) -ForegroundColor Cyan -NoNewline
+    Write-Host ($m.Title) -ForegroundColor Cyan -NoNewline
     if ($m.State -eq "ready") {
         Write-Host ("   第 " + $m.Layer + " 层   " + $m.Rows + "x" + $m.Cols) -ForegroundColor DarkGray
     } else {
@@ -107,23 +107,23 @@ function Show-Header($m) {
 
     if ($m.State -eq "ready") {
         # 图例：左绿右红，中间标出两端对应的秒数
-        Write-Host "  " -NoNewline
+        Write-Host "" -NoNewline
         for ($i = 0; $i -lt $Palette.Count; $i++) {
             $pf = $Palette[$i].Fg
             Write-Host ([string][char]0x2588 + [string][char]0x2588) -ForegroundColor $pf -NoNewline
         }
         Write-Host ("   安全 " + $m.Max.ToString("F1") + " 秒/次") -ForegroundColor Green -NoNewline
-        Write-Host "   ->   " -NoNewline
+        Write-Host " -> " -NoNewline
         Write-Host ("致命 " + $m.Min.ToString("F1") + " 秒/次") -ForegroundColor Red
-        Write-Host ("  " + $m.Note) -ForegroundColor DarkGray
+        Write-Host ($m.Note) -ForegroundColor DarkGray
         Write-Host ""
     }
     else {
         Write-Host ""
-        Write-Host ("  " + $m.Note) -ForegroundColor Yellow
+        Write-Host ($m.Note) -ForegroundColor Yellow
         Write-Host ""
-        Write-Host "  进放射性区域、并带上盖革计数器后，这里会自动出现热力图。" -ForegroundColor DarkGray
-        Write-Host "  （主菜单输 255 可以开 debug，再用 129 拿一个盖革计数器）" -ForegroundColor DarkGray
+        Write-Host "进放射性区域、并带上盖革计数器后，这里会自动出现热力图。" -ForegroundColor DarkGray
+        Write-Host "（主菜单输 255 可以开 debug，再用 129 拿一个盖革计数器）" -ForegroundColor DarkGray
     }
 }
 
@@ -132,9 +132,10 @@ function Show-Grid($m) {
 
     # 每格占 3 个字符（2 个色块 + 1 个间隔）：格子有标签时把标签压在**中间那格**上，
     # 这样即使一格 3 字符，也还能看清 F / B / T / C / E / S。
+    #
+    # 行首不留缩进（Hyberty 要求「列之前不要有空格」）：
+    # 缩进会让整个网格整体右移，和上面的图例/标题对不齐，看起来像没对齐的表格。
     for ($r = 0; $r -lt $m.Rows; $r++) {
-        $isCenterRow = $false
-        Write-Host "   " -NoNewline
         for ($c = 0; $c -lt $m.Cols; $c++) {
             $cell = $null
             foreach ($x in $m.Cells) {
@@ -165,12 +166,12 @@ function Show-Grid($m) {
 function Show-Footer($m) {
     if ($m.State -eq "ready") {
         Write-Host ""
-        Write-Host "  颜色 = 这一格的辐射强度（柏林噪声铺出来的，成片出现的部分就是毒气带）" -ForegroundColor DarkGray
-        Write-Host "  * = 你现在的房间   第二行起每格 3 个字符，标签 F/B/T/C/E/S 是房型" -ForegroundColor DarkGray
+        Write-Host "颜色 = 这一格的辐射强度（柏林噪声铺出来的，成片出现的部分就是毒气带）" -ForegroundColor DarkGray
+        Write-Host "* = 你现在的房间   每格 3 个字符，标签 F/B/T/C/E/S 是房型" -ForegroundColor DarkGray
     }
     Write-Host ""
-    Write-Host ("  跟读中： " + $MapPath) -ForegroundColor DarkGray
-    Write-Host "  Ctrl+C 退出" -ForegroundColor DarkGray
+    Write-Host ("跟读中： " + $MapPath) -ForegroundColor DarkGray
+    Write-Host "Ctrl+C 退出" -ForegroundColor DarkGray
 }
 
 # ---------------------------------------------------------------------------
@@ -178,8 +179,8 @@ function Show-Footer($m) {
 # ---------------------------------------------------------------------------
 $MapPath = Find-MapPath -Hint $MapPath
 Write-Host ""
-Write-Host "  等待游戏写出辐射地图……" -ForegroundColor DarkGray
-Write-Host ("  " + $MapPath) -ForegroundColor DarkGray
+Write-Host "等待游戏写出辐射地图……" -ForegroundColor DarkGray
+Write-Host ($MapPath) -ForegroundColor DarkGray
 while (-not (Test-Path $MapPath)) { Start-Sleep -Milliseconds 400 }
 
 $lastStamp = ""
