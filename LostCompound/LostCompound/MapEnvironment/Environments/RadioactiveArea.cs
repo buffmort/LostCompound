@@ -3,6 +3,7 @@ using System.Threading;
 using LostCompound.Tools;
 using LostCompound.Tools.Players;
 using Environment = LostCompound.MapEnvironment.Environment;
+using Monster = LostCompound.Monsters.Monster;
 
 namespace LostCompound.MapEnvironment.Environments
 {
@@ -160,6 +161,13 @@ namespace LostCompound.MapEnvironment.Environments
             {
                 // 盖革计数器：戴了就乘 1.25（只乘一次，不可堆叠）
                 if (HasGeigerCounter(p)) seconds *= GeigerMultiplier;
+
+                // 秒针虫（Hyberty 2026-11-22）：只要它活着，interval **减半**。
+                //   乘在盖革之后、夹下限之前 —— 两个加成互不覆盖，最毒的房间戴表 + 虫
+                //   依然被 MinSeconds 兜住（5 秒以下太狠了，见常量注释）。
+                int wormFactor = SecondHandWormFactor(p);
+                if (wormFactor > 1) seconds /= wormFactor;
+
                 if (seconds < MinSeconds) seconds = MinSeconds;
             }
 
@@ -182,6 +190,36 @@ namespace LostCompound.MapEnvironment.Environments
 
                 _intervalSeconds = seconds;
             }
+        }
+
+        /// <summary>
+        /// 场上有没有「让辐射加速」的怪物（秒针虫），返回它的加速倍数；没有则返回 1。
+        ///
+        /// 为什么读 `p.BattleMonsters` 而不是让怪直接改环境的秒数：
+        ///   秒数只有 <see cref="UpdateTracking"/> 一个写入口，怪物只负责「声明自己在场」，
+        ///   乘不乘、乘多少留在环境这边 —— 这样「谁在改秒数」永远只有一个地方。
+        /// 为什么每次重算而不是缓存一个 bool：
+        ///   虫被打死之后倍率必须立刻回到 1（玩家这一刀就是下一跳的计时依据），
+        ///   缓存会漏掉「怪死了但没人通知环境」这种情况。
+        ///
+        /// ⚠️ **每只取最大值、不叠乘**：两只秒针虫 = 仍然 ×2，不是 ×4。
+        ///   叠乘的话四只虫就能把间隔压到 1 秒以下，等于直接判负；
+        ///   「数量多」的压力应该体现在「要花更多回合去杀」，而不是「秒数爆炸」。
+        /// </summary>
+        private static int SecondHandWormFactor(Player p)
+        {
+            IReadOnlyList<Monster> monsters = p.BattleMonsters;
+            if (monsters == null) return 1;
+
+            int best = 1;
+            for (int i = 0; i < monsters.Count; i++)
+            {
+                Monster m = monsters[i];
+                if (m is not Monsters.Normal.SecondHandWorm worm) continue;
+                if (!m.IsAlive) continue;
+                if (worm.RadiationSpeedFactor > best) best = worm.RadiationSpeedFactor;
+            }
+            return best;
         }
 
         /// <summary>

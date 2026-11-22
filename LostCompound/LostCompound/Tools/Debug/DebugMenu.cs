@@ -61,6 +61,7 @@ namespace LostCompound.Tools.Debug
             ("龙", () => [new Dragon()]),
             ("沙葬者", () => [new SandBurial()]),
             ("涨潮者", () => [new Tidecaller()]),
+            ("秒针虫", () => [new SecondHandWorm()]),
             ("岩浆怪", () => [new LavaSlime()]),
             ("硫磺怪", () => [new SulphurMonster()]),
             ("水蛭", () => [new Leech()]),

@@ -64,6 +64,17 @@ namespace LostCompound.Tools.Players
         private MonsterIntents _intents;
 
         /// <summary>
+        /// 当前在场上的怪物（战斗外为 null / 空）。
+        /// 存在的理由只有一个：环境辐射要在**秒**这一层读怪物
+        /// （秒针虫只要活着就让辐射间隔减半，见 `RadioactiveArea.UpdateTracking`）。
+        ///
+        /// ⚠️ 它是**易变**的（每场战斗一份、战斗结束为 null），
+        /// 读它的人必须自己判空 —— 不要换成「一直维护一份存活列表」那种缓存，
+        /// 那会引入「怪打死了但列表没更新」的静默错值。
+        /// </summary>
+        internal IReadOnlyList<Monster> BattleMonsters => _intents?.Monsters;
+
+        /// <summary>
         /// 「换层之后，等起点房的 OnEnter 走完再存一次档」的牌子。
         ///
         /// 为什么不在 <see cref="AdvanceLayer"/> 里直接存：那一刻新层的起点房还没进，

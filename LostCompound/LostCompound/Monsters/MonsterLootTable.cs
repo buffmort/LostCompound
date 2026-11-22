@@ -207,6 +207,13 @@ namespace LostCompound.Monsters
                         SandBurial.MinLootSand, SandBurial.MaxLootSand + 1)));
                     break;
 
+                case MonsterType.SecondHandWorm:
+                    // 秒针虫（Hyberty 2026-11-22 定）：掉 1 个放射性矿物。
+                    // 它本身就是「这层辐射更快」的化身，掉一块放射矿 = 把它身上的东西带走
+                    // （而且那块矿会继续按回合侵蚀玩家，代价延续到战斗之外）。
+                    loots.Add(new RadioactiveOre(1));
+                    break;
+
                 case MonsterType.Tidecaller:
                     // 涨潮者（Hyberty 2026-11-22 定）：Boss 掉落，数量按 Hyberty「掉落数量 X2」翻倍。
                     //

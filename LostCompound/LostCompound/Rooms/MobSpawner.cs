@@ -125,6 +125,18 @@ namespace LostCompound.Rooms
         ];
 
         /// <summary>
+        /// 放射性区域专属池（Hyberty 2026-11-22 定）。
+        ///
+        /// 这层只有一个专属怪，进来「先杀谁」的优先级决策就是它：
+        /// 秒针虫不攻击，但它活着辐射间隔减半 —— 放着不管每 25 秒多掉 2~3 血。
+        /// </summary>
+        private static readonly PoolEntry[] RadioactiveAreaPool =
+        [
+            // 秒针虫：普通，75 血、不攻击，只要活着就把环境辐射间隔 ×2（减半）。
+            new("秒针虫", () => new SecondHandWorm(), 1, int.MaxValue, 1),
+        ];
+
+        /// <summary>
         /// 一场战斗里同时出现的怪物数上限（= 敌人框能显示的 7 行）。
         ///
         /// 与 <see cref="UI.ConsoleScreen.MaxEnemyRows"/> 是同一个数字的两端：
@@ -270,6 +282,7 @@ namespace LostCompound.Rooms
                 EnvType.LavaWaterfall => LavaWaterfallPool,
                 EnvType.FloodedCavern => FloodedCavernPool,
                 EnvType.Desert => DesertPool,
+                EnvType.RadioactiveArea => RadioactiveAreaPool,
                 // 未实现的环境（含 None）：没有专属怪，只用通用池。
                 _ => [],
             };

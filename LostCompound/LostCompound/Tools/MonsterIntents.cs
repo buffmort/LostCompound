@@ -20,8 +20,14 @@ namespace LostCompound.Tools
     {
         private readonly IReadOnlyList<Monster> _monsters;
 
-        public MonsterIntents(IReadOnlyList<Monster> monsters)
-        {
+        /// <summary>
+        /// 本场战斗的存活怪物（只读快照）。
+        /// 给「站在战场外面却要读怪物」的东西用 —— 目前是 `RadioactiveArea` 读秒针虫。
+        /// 拿不到 (null) 的意思就是「现在没在打」，那边的加速自然也就不生效。
+        /// </summary>
+        public IReadOnlyList<Monster> Monsters => _monsters;
+
+        public MonsterIntents(IReadOnlyList<Monster> monsters)        {
             _monsters = monsters ?? [];
         }
 

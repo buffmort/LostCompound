@@ -38,5 +38,8 @@ namespace LostCompound.Monsters
 
         /// <summary>涨潮者（水淹洞穴专属 Boss，Hyberty 2026-11-22 定）。</summary>
         Tidecaller,
+
+        /// <summary>秒针虫（放射性区域专属，Hyberty 2026-11-22 定）。</summary>
+        SecondHandWorm,
     }
 }
