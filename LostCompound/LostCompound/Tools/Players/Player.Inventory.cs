@@ -268,9 +268,9 @@ namespace LostCompound.Tools.Players
                 }
                 if (choice >= 0 && choice < Inventory.Count && Inventory[choice].Contaminated)
                 {
-                    // 被污染的道具「本场战斗不可使用」——但可以拿去合成。
-                    // 这里**不**退出背包：玩家可以改选别的、也可以干脆退出去合成。
-                    Console.WriteLine("「" + Inventory[choice].Name + "」被寄生虫污染了，这一场用不了（可以先拿去合成）。");
+                    // 被污染的道具本场战斗不可使用。
+                    // 不在提示里解释「还能拿去合成」之类的补救办法 —— Hyberty：直接一句拒绝就够了。
+                    Console.WriteLine("使用被拒绝。");
                     continue;
                 }
                 if (choice >= 0 && choice < Inventory.Count) break;

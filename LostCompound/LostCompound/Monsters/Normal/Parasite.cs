@@ -113,7 +113,7 @@ namespace LostCompound.Monsters.Normal
 
             Item victim = candidates[Random.Shared.Next(candidates.Count)];
             victim.Contaminated = true;
-            Console.WriteLine("寄生虫在你的背包里产了卵 —— 「" + victim.Name + "」被污染了，这一场用不了。");
+            Console.WriteLine("寄生虫在你的背包里产了卵 —— 「" + victim.Name + "」被污染了。");
         }
 
         /// <summary>
