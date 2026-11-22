@@ -64,6 +64,10 @@ namespace LostCompound.Tools.Players
             ("盾", [[ItemIds.Metal, 3]], () => new Shield(1)),
             ("硫酸", [[ItemIds.WaterBottle, 1], [ItemIds.FushionSluphur, 1]], () => new SulfuricAcid(1)),
             ("放射金属罐", [[ItemIds.RadioactiveOre, 2], [ItemIds.MetalCan, 1]], () => new RadioactiveMetalCan(1)),
+            // 盖革计数器：外壳（金属）+ 计数管（玻璃罐）+ 电池电解液（硫酸）。
+            // 放在配方 1 而不是配方 0 —— 它只在放射性区域那一层才有意义，
+            // 而硫酸本身是配方 1 的产物，配方 0 里根本凑不出来。
+            ("盖革计数器", [[ItemIds.Metal, 2], [ItemIds.GlassJar, 1], [ItemIds.SulfuricAcid, 1]], () => new GeigerCounter(1)),
         ];
 
         /// <summary>按档位造一批配方（`tier0Only` = 只要配方 0 的那前 12 条）。</summary>
