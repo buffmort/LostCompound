@@ -60,11 +60,15 @@ namespace LostCompound.Maps
 
         // ── 辐射场参数（设计文档 §5.6，Hyberty 2026-11-22 定下了区间与"保留小数"）──
 
-        /// <summary>辐射间隔下限（秒）：噪声值 0 → 每 5 秒扣 1 血。</summary>
-        private const double RadiationMinSeconds = 5.0;
+        /// <summary>
+        /// 辐射间隔下限（秒）：噪声值 0 → 每 5 秒扣 1 血。
+        /// **必须 public**：辐射热力图（<c>Tools/Debug/RadiationMapExport</c>）要拿它算色域，
+        /// 渲染端不该再抄一份数字 —— 否则改了区间这里忘了改，热力图就会悄悄错位。
+        /// </summary>
+        public const double RadiationMinSeconds = 5.0;
 
-        /// <summary>辐射间隔上限（秒）：噪声值 1 → 每 30 秒扣 1 血。</summary>
-        private const double RadiationMaxSeconds = 15;
+        /// <summary>辐射间隔上限（秒）：噪声值 1 → 每 15 秒扣 1 血（Hyberty 把 30 调成了 15）。</summary>
+        public const double RadiationMaxSeconds = 15;
 
         /// <summary>
         /// 噪声频率：**决定"多长的距离内变化一次"**，也就是毒气带有多大。

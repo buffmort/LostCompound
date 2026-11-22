@@ -547,6 +547,10 @@ namespace LostCompound.Tools.Players
             // 那种格子不画星号的话地图上就找不到自己了（见 IsaacMazeGenerator.ToDisplayString(int,int)）。
             screen.DrawMap(tmg.ToDisplayString(PlayerRow, PlayerCol));
 
+            // 辐射热力图（radmap.log）：给独立窗口的脚本读。
+            // 放在这里而不是每帧：地图内容只在换房/换层时变，Refresh 内部还会比对内容、没变不写盘。
+            RadiationMapExport.Refresh(this, tmg);
+
             // 只记「在哪个房间」；状态栏首行由 RefreshStatus 现拼（房间 + 玩家名）。
             // 「当前位置」已按要求去掉：地图上玩家所在格子本来就有 * 标记，再报坐标是冗余。
             _lastRoomType = map[PlayerRow][PlayerCol]?.Type ?? RoomType.Blank;
