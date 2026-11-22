@@ -144,6 +144,8 @@ namespace LostCompound.Tools.Players
                     Console.WriteLine("130, 添加buff");
                     // 131（TP）**不在这里列**：它只有地图循环里那个分支，战斗中按了没反应。
                     // 列出来等于骗玩家「这里能用」（地图上的提示见 RunMainLoop 里的那段）。
+                    // 132 是行为计数（1 = 一回合一次，2 = 城市双动）；只有战斗里改才有意义，所以只列在这里。
+                    Console.WriteLine("132, 行为计数");
                 }
                 int option = ReadInt("请选择操作");
             if (option == -1 && _inputClosed)
@@ -245,6 +247,24 @@ namespace LostCompound.Tools.Players
                     // 与 129 同一结构：清单、选择、容错全在 DebugMenu 里，这里只转发一行，
                     // 免得「主菜单能挂、战斗中不能挂」两套逻辑各写一遍（CONVENTIONS 2.5）。
                     DebugMenu.AddBuffTo(this);
+                    break;
+                case 132 when DebugState.Enabled:
+                    // 行为计数（1 = 一回合一次行动，2 = 城市双动）。
+                    // 做成指令而不是只留一个属性：没有入口的机制没法验，
+                    // 「计数 2 时额外回合还能不能叠加」这种问题只能靠实机打一遍。
+                    Console.WriteLine("行为计数改为几次？(1-3)");
+                    int actions = ReadInt("输入次数(回车取消)");
+                    if (actions >= 1 && actions <= 3)
+                    {
+                        ActionCount = actions;
+                        // 注意是**下一回合**起：本回合的次数已在「玩家行动」那一步开始时读走了，
+                        // 这里改的是下一次进来时读到的值。
+                        Console.WriteLine("行为计数 = " + ActionCount + "（下一回合起生效）");
+                    }
+                    else
+                    {
+                        Console.WriteLine("已取消，行为计数仍是 " + ActionCount + "。");
+                    }
                     break;
                 case 255:
                     // 255 只负责开开关（并打印提示）—— 现在它真的有意义了：

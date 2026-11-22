@@ -76,7 +76,7 @@ namespace LostCompound.Tools
                 template.Add(TurnPipeline.EnvironmentStep, () => AdvanceEnvironment(p, monsters, env));
                 template.Add(TurnPipeline.IntentStep, () => { intents.BeginRound(p); return true; });
                 template.Add(TurnPipeline.PlayerTurnStartStep, () => { p.OnTurnStart(env?.Type ?? EnvType.None); return true; });
-                template.Add(TurnPipeline.PlayerActionStep, playerAction);
+                template.Add(TurnPipeline.PlayerActionStep, () => RunPlayerActions(p, monsters, playerAction));
                 template.Add(ExtraTurnStepName, () => RunExtraTurnActions(p, monsters, playerAction));
                 template.Add(TurnPipeline.MonsterTurnStep, () => RunMonsterTurns(p, monsters));
 
@@ -227,6 +227,36 @@ namespace LostCompound.Tools
 
             RemoveDeadMonsters(p, monsters);
             return p.IsAlive && monsters.Count > 0;
+        }
+
+        /// <summary>
+        /// 「玩家行动」这一步：按 <see cref="Player.ActionCount"/> 把**同一份**行动跑几次。
+        ///
+        /// 为什么要包一层而不是让这一步自己循环：<see cref="TurnPipeline"/> 的一个步骤
+        /// 就是「一件事做一次」，循环是这一步的**次数**，属于调用方（清单）知道的事。
+        /// 现在清单上是「玩家行动 → 额外回合 → 怪物回合」三步，行为计数只影响第一步内部，
+        /// 额外回合仍是独立的一步 —— 两者叠加（计数 2 + 额外 1 = 动 3 次）自动成立。
+        ///
+        /// 被眩晕时不用在这里判断：<see cref="RunPlayerActionOnce"/> 自己会返回，
+        /// 反复调用只是几次空转、不产生任何输出（所以整回合都不能动，而不是少动一次）。
+        /// </summary>
+        private static bool RunPlayerActions(Player p, List<Monster> monsters, Func<bool> action)
+        {
+            int count = p.ActionCount;
+
+            for (int i = 0; i < count; i++)
+            {
+                // 第 2 次开始才打分隔：计数为 1 时不该多出一行标题。
+                if (i > 0)
+                {
+                    Console.WriteLine("=====第" + (i + 1) + "次行动=====");
+                    BattleDelay.Tick();
+                }
+
+                if (!action()) return false;
+            }
+
+            return p.IsAlive && monsters.Count > 0 && !p.InputClosed;
         }
 
         /// <summary>玩家行动**一次**：不判跳过、不管额外回合，只执行一次 OnPlayerTurn 并收尾。</summary>
