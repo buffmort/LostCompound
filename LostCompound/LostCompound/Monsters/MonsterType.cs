@@ -41,5 +41,8 @@ namespace LostCompound.Monsters
 
         /// <summary>秒针虫（放射性区域专属，Hyberty 2026-11-22 定）。</summary>
         SecondHandWorm,
+
+        /// <summary>放射僵尸（放射性区域专属精英，Hyberty 2026-11-22 定）。</summary>
+        RadioactiveZombie,
     }
 }

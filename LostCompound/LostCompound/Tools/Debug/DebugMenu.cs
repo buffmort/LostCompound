@@ -62,6 +62,7 @@ namespace LostCompound.Tools.Debug
             ("沙葬者", () => [new SandBurial()]),
             ("涨潮者", () => [new Tidecaller()]),
             ("秒针虫", () => [new SecondHandWorm()]),
+            ("放射僵尸", () => [new RadioactiveZombie()]),
             ("岩浆怪", () => [new LavaSlime()]),
             ("硫磺怪", () => [new SulphurMonster()]),
             ("水蛭", () => [new Leech()]),

@@ -58,5 +58,11 @@ namespace LostCompound.Buffs
         /// 与 EnvRadioactive（按秒）成对，但那个不走 buff 体系（环境自己用秒表）。
         /// </summary>
         public const int NonEnvRadioactive = 12;
+
+        /// <summary>
+        /// 辐照（<see cref="RadiationStack"/>）：**纯读数**，没有直接效果。
+        /// 放射僵尸按它的层数给自己加攻击（10 + 层数 × 5）。
+        /// </summary>
+        public const int RadiationStack = 13;
     }
 }

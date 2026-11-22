@@ -127,13 +127,18 @@ namespace LostCompound.Rooms
         /// <summary>
         /// 放射性区域专属池（Hyberty 2026-11-22 定）。
         ///
-        /// 这层只有一个专属怪，进来「先杀谁」的优先级决策就是它：
-        /// 秒针虫不攻击，但它活着辐射间隔减半 —— 放着不管每 25 秒多掉 2~3 血。
+        /// 这层的优先级决策是「先杀谁」：
+        ///   秒针虫 —— 不攻击，但只要活着辐射间隔减半，放着不管每 25 秒多掉 2~3 血；
+        ///   放射僵尸 —— 每次命中给玩家叠辐照，而辐照又让它自己越打越疼。
+        /// 两者都不「直接」打你，但拖下去都会致命，是全层唯一需要排序的图。
         /// </summary>
         private static readonly PoolEntry[] RadioactiveAreaPool =
         [
             // 秒针虫：普通，75 血、不攻击，只要活着就把环境辐射间隔 ×2（减半）。
             new("秒针虫", () => new SecondHandWorm(), 1, int.MaxValue, 1),
+
+            // 放射僵尸：精英，90 血、def 5，攻击力随玩家身上的辐照层数成长。
+            new("放射僵尸", () => new RadioactiveZombie(), 1, int.MaxValue, 1),
         ];
 
         /// <summary>

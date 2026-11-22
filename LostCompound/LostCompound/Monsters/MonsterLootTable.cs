@@ -214,6 +214,20 @@ namespace LostCompound.Monsters
                     loots.Add(new RadioactiveOre(1));
                     break;
 
+                case MonsterType.RadioactiveZombie:
+                    // 放射僵尸（Hyberty 2026-11-22 定）：
+                    //   2~3 个放射性矿物（权重 1）+ 1 金属（权重 0.5）。
+                    // 矿物数量用 Next(2, 4) 取 2 或 3；金属按 50% 掷一次 ——
+                    // 「权重 0.5」在这个项目里就是「以 0.5 的概率出场」，
+                    // 与池子里的权重（相对概率）不是一个东西，别混。
+                    loots.Add(new RadioactiveOre(Random.Shared.Next(2, 4)));
+
+                    if (Random.Shared.NextDouble() < 0.5)
+                    {
+                        loots.Add(new Metal(1));
+                    }
+                    break;
+
                 case MonsterType.Tidecaller:
                     // 涨潮者（Hyberty 2026-11-22 定）：Boss 掉落，数量按 Hyberty「掉落数量 X2」翻倍。
                     //
