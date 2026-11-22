@@ -214,6 +214,9 @@ namespace LostCompound.Tools.Players
 
             // 被动物件会加属性，装/卸之后要重算，否则属性不会立刻变化
             ApplyEquipmentPassives();
+            // 放射金属罐只有在**饰品栏**里才屏蔽辐射（文档 §7.4），
+            // 所以挪进装饰品栏这个时刻必须重建辐射账，否则玩家会白白多挨好几十回合。
+            SyncRadiationBuff();
             RefreshStatus();
             return true;
         }
@@ -254,6 +257,8 @@ namespace LostCompound.Tools.Players
             NotifyInfo("卸下 " + item.Name + " → 背包");
 
             ApplyEquipmentPassives();
+            // 卸下来的若是放射金属罐，屏蔽随之失效 —— 辐射账要重建。
+            SyncRadiationBuff();
             RefreshStatus();
             return true;
         }

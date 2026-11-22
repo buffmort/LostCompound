@@ -1,6 +1,4 @@
 using LostCompound.MapEnvironment;
-using LostCompound.Tools;
-using LostCompound.Items;
 using LostCompound.Items.Capabilities;
 
 using LostCompound.Tools.Players;
@@ -11,75 +9,51 @@ namespace LostCompound.Items.Materials
     /// 放射性矿物（配方 0，ID 11）：材料，堆叠 99。
     /// 设计文档第九章原文：背包时每 5 回合扣 1（困难 2）血，可叠加。
     ///
-    /// 获取途径：文档写的是「Mine / 放射性区域开采」，这两个系统目前都还没做 ——
-    /// 所以本类暂时无法从正常游戏流程拿到（只能调试/以后接开采系统）。
-    /// 按约定不擅自加掉落表，缺口在实现报告里单独列出。
+    /// 获取途径：放射性区域的矿脉（地图上有 3 个以上的房间可以采）。
+    ///
+    /// ## 为什么本类自己不再计时（2026-11-22 改）
+    /// 原先这里挂着 `ITurnCount` + 自己的 `Timer` 字段，每回合由
+    /// `Player.HandleChangeableItems` 逐个道具推进。
+    /// 现在辐射统一收进 <see cref="Buffs.NonEnvRadioactive"/> 这个 debuff：
+    ///   · 状态栏要把「你还剩多少辐射」显示出来，散在道具里就显示不了；
+    ///   · 放射金属罐(18) 要能**屏蔽**整类辐射 —— 屏蔽一个 buff 只有一处判断，
+    ///     屏蔽「散在一堆道具里的 Timer」就要在 N 个道具里各判一次。
+    /// 于是本类只剩两件东西：**声明数值**（间隔 / 每次伤害），以及
+    /// 「我被放进背包了，请重建那张账」的通知。
     /// </summary>
-    public sealed class RadioactiveOre(int count) : Item(ItemIds.RadioactiveOre, "放射性矿物", 99, true, count), ITurnCount, IItemState
+    public sealed class RadioactiveOre(int count) : Item(ItemIds.RadioactiveOre, "放射性矿物", 99, true, count)
     {
-        /// <summary>每多少回合扣一次血（困难模式的「2 点伤害」要等困难模式系统，暂记 TODO）。</summary>
+        /// <summary>
+        /// 每多少回合扣一次血。
+        /// **这是本道具唯一的数值出口** —— <see cref="Buffs.NonEnvRadioactive"/> 直接读它，
+        /// 不要在别处再写一遍 5。
+        ///
+        /// 困难模式改的是「每次伤害」（1 → 2），**不是**本间隔，见 DESIGN §7.4。
+        /// </summary>
         public const int DamageInterval = 5;
 
-        /// <summary>
-        /// 距离下一次扣血还剩几个回合。每个道具实例各算各的计时器，
-        /// 而 Player.AddItem 会把同类型可堆叠道具合并进同一个条目（Count 累加），
-        /// 所以「可叠加」实际体现为：同一格里的 Count 份，每次结算各扣 1 点。
-        ///
-        /// **必须跨存档保留**：计时器若在读档后重置成 5，玩家可以靠存读档无限推迟辐射发作。
-        /// </summary>
-        public int Timer { get; set; } = DamageInterval;
-
-        /// <summary>存档键名。**发布后不能改**。</summary>
-        private const string StateKeyTimer = "timer";
-
-        public Dictionary<string, int> SaveState() => new() { [StateKeyTimer] = Timer };
-
-        public void LoadState(IReadOnlyDictionary<string, int> state)
-        {
-            // 缺键 = 旧存档没这一项，保持构造时的默认值 DamageInterval
-            if (state.TryGetValue(StateKeyTimer, out int timer))
-            {
-                Timer = timer;
-            }
-        }
+        /// <summary>每次扣多少血（普通难度）。困难模式另算，等难度系统做出来再接。</summary>
+        public const int DamagePerTick = 1;
 
         public override ItemType? Type => ItemType.RadioactiveOre;
 
         /// <summary>
-        /// ITurnCount 的真实调用时机（不是「每场战斗一次」）：
-        ///   Tools.RunBattle 每个大回合开头调用 p.OnTurnStart(...)（Tools.cs:51）
-        ///   → Player.OnTurnStart 调 HandleChangeableItems（Player.cs:191）
-        ///   → 遍历背包，对实现了 ITurnCount 的条目调 OnBattleStart（Player.cs:604-606）。
-        /// 即：每个战斗回合调用一次。方法名叫 OnBattleStart 是历史命名，语义是「回合推进」。
-        /// 注意它只遍历 Inventory，不含饰品栏 —— 本道具没实现 IEquippable，本来也进不了饰品栏。
+        /// 道具进背包时重建辐射账（见 <see cref="Player.SyncRadiationBuff"/>）。
+        ///
+        /// 为什么挂在「进背包」而不是「每回合检查一次背包」：
+        ///   辐射的存续完全由「身上有没有这个道具」决定，没有其它变量。
+        ///   每回合扫两遍道具表纯属浪费，而进/出背包是个确定的事件。
+        ///   （退出背包那条线由 <see cref="Player.RemoveConsumedItems"/> 统一处理，
+        ///   它会调同一个重建方法 —— 那里管着所有移除路径，不会漏。）
         /// </summary>
-        public void OnBattleStart(Player p, EnvType envType)
+        public void OnAcquired(Player p)
         {
-            Timer -= 1;
-            if (Timer > 0) return;
-
-            Timer = DamageInterval;   // 满 5 回合结算一次，然后重新计时
-
-            // 为什么用 p.TakeDamage 而不是直接 p.Hp -= 1：
-            //   与项目现有的「每回合固定扣血」写法保持一致 —— Tools.ApplyBuffs
-            //   结算玩家流血时用的就是 p.TakeDamage，它会走护盾/防御结算。
-            //   若直接改 Hp 就会绕开护盾，出现「同是定期扣血、行为却不一致」的静默偏差。
-            // 为什么扣 Count 次 1 点，而不是一次扣 Count 点：
-            //   设计 7.1 是「每层格挡免疫一次伤害」，1 点就是「一层辐射」的粒度；
-            //   且 Calculator.ApplyDefense 最低取 1，逐点结算才能保证每份真的扣到 1 血，
-            //   合并成一次会被 DEF 白吃一部分。
-            Console.WriteLine($"放射性矿物正在侵蚀你！（每 {DamageInterval} 回合发作一次）");
-            for (int i = 0; i < Count; i++)
-            {
-                p.TakeDamage(1);
-            }
-
-            // TODO（困难模式）：困难下这里应为每次扣 2 血 —— 等困难模式系统做出来再接。
+            p?.SyncRadiationBuff();
         }
 
         public void OnBattleEnd(Player p, EnvType envType)
         {
-            // 无需处理：计时器跨战斗保留（与热硫的「跨战斗重置」不同，文档没要求重置）。
+            // 无需处理：辐射账由 NonEnvRadioactive 自己维护，跨战斗保留。
         }
     }
 }

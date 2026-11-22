@@ -62,6 +62,7 @@ namespace LostCompound.Tools.Players
                 }
                 Inventory.Add(newItem);
                 NotifyInfo($"获得 {newItem.Name} x{newItem.Count}");
+                SyncRadiationBuff();
                 return;
             }
 
@@ -109,6 +110,8 @@ namespace LostCompound.Tools.Players
             {
                 NotifyInfo($"获得 {newItem.Name} x{added}");
             }
+
+            SyncRadiationBuff();
         }
 
         /// <summary>
@@ -506,6 +509,10 @@ namespace LostCompound.Tools.Players
             {
                 AddItem(newItem);
             }
+
+            // 收尸可能把「放射性矿物」整个移除了（它是材料，被合成吃掉时 Count 归零）——
+            // 辐射账要跟着重建，否则 Buff 框里会挂着一个已经不发作的辐射。
+            SyncRadiationBuff();
         }
 
         public int CountItemById(int id) => Inventory.Where(item => item.Id == id).Sum(item => item.Count);

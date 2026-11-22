@@ -87,5 +87,24 @@ namespace LostCompound.Items
             }
             return false;
         }
+
+        /// <summary>
+        /// 按 ID 查**显示名**；未登记的 ID 返回 <c>null</c>。
+        ///
+        /// 为什么单独开一个而不是让调用方 `Create(id, 1).Name`：
+        ///   只为了打一行播报就造一个对象，会白白跑一遍构造器（有的道具构造器会建状态、
+        ///   有的还会读存档键）—— 而且那些副作用对「只想问名字」的调用方是纯噪音。
+        /// </summary>
+        public static string NameOf(int id)
+        {
+            foreach ((int Id, string Name, Func<int, Item> Create) entry in All)
+            {
+                if (entry.Id == id)
+                {
+                    return entry.Name;
+                }
+            }
+            return null;
+        }
     }
 }

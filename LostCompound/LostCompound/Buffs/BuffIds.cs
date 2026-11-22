@@ -1,4 +1,4 @@
-﻿namespace LostCompound.Buffs
+namespace LostCompound.Buffs
 {
     /// <summary>
     /// Buff 的 ID 常量表。与 <see cref="Items.ItemIds"/> 同一套做法。
@@ -52,5 +52,11 @@
         /// 消费点在 <c>Player.TryConsumeExtraTurn</c>（玩家每次行动结束），不在回合头的 BuffTick 里。
         /// </summary>
         public const int ExtraTurn = 11;
+
+        /// <summary>
+        /// 非环境辐射（<see cref="NonEnvRadioactive"/>）：身上带辐射源时按**回合**掉血。
+        /// 与 EnvRadioactive（按秒）成对，但那个不走 buff 体系（环境自己用秒表）。
+        /// </summary>
+        public const int NonEnvRadioactive = 12;
     }
 }

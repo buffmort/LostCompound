@@ -38,6 +38,7 @@ namespace LostCompound.Buffs
             (BuffIds.Vulnerability, "易伤", (stacks, turns) => new Vulnerability(stacks, turns)),
             (BuffIds.Rusted, "锈蚀", (stacks, turns) => new Rusted(stacks, turns)),
             (BuffIds.ExtraTurn, "额外回合", (stacks, turns) => new ExtraTurn(stacks, turns)),
+            (BuffIds.NonEnvRadioactive, "非环境辐射", (stacks, turns) => new NonEnvRadioactive(stacks, turns)),
         ];
 
         /// <summary>

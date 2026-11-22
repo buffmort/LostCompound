@@ -186,6 +186,45 @@ namespace LostCompound.Tools.Players
         public void RefreshBuffBoxPublic() => RefreshBuffBox();
 
         /// <summary>
+        /// 按「身上现在有哪些辐射源」重建非环境辐射 buff。
+        ///
+        /// 谁调它：道具进背包（<c>OnAcquired</c>）、道具被移除、装/卸饰品栏。
+        /// 为什么是「重建」而不是增量加减一条账，见 <see cref="Buffs.NonEnvRadioactive.Sync"/>。
+        ///
+        /// 这个方法是**幂等**的：身上没有辐射源时它会把这个 buff 摘掉，
+        /// 有辐射源时会挂上（或刷新）一个 —— 所以调用方不用先判断再调。
+        /// </summary>
+        internal void SyncRadiationBuff()
+        {
+            NonEnvRadioactive existing = null;
+            foreach (Buff b in Buffs)
+            {
+                if (b is NonEnvRadioactive found)
+                {
+                    existing = found;
+                    break;
+                }
+            }
+
+            if (existing == null)
+            {
+                existing = new NonEnvRadioactive(0, Buff.Permanent);
+                Buffs.Add(existing);
+            }
+
+            existing.Sync(this);
+
+            // Sync 之后可能一条账都不剩（道具全扔了 / 戴着金属罐屏蔽了）——
+            // 那就别让 Buff 框挂着一个「非环境辐射」却什么都不做。
+            if (existing.IsExpired)
+            {
+                Buffs.Remove(existing);
+            }
+
+            RefreshBuffBox();
+        }
+
+        /// <summary>
         /// 回合开始的处理。战斗循环每回合先调用它；跳过检查也在它内部完成
         /// （见 <see cref="SkippedThisTurn"/>）——
         /// 被跳过的回合里，道具计时、待入包合并、状态栏刷新仍然要照常执行。
