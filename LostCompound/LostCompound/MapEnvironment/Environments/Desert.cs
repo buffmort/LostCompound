@@ -49,7 +49,7 @@ namespace LostCompound.MapEnvironment.Environments
 
         public override string DescribeStatus()
         {
-            return "沙漠：风把沙吹得老高（只能采沙、怪物不掉落）";
+            return "沙漠：除沙子没有其他掉落";
         }
     }
 }

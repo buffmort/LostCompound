@@ -222,7 +222,7 @@ namespace LostCompound.Tools.Players
                     ? "  n=下一页  p=上一页  " + MenuBack + "=返回"
                     : "  " + MenuBack + "=返回");
 
-                Console.WriteLine("请选择（编号 / n / p）:");
+                Console.WriteLine("请选择:");
                 string line = Console.ReadLine();
                 if (line == null)
                 {

@@ -39,7 +39,7 @@ namespace LostCompound.Items.Consumables
             // 用光（Durability 归零）后仍然留在背包、再点会提示「已经用完了」——
             // 这部分行为与改动前一致（改动前是整叠被移除，但那条是上面这个 bug 的副作用）。
             Durability -= 1;
-            Console.WriteLine("你服下碘片，可免疫 3 次辐射扣血（剩余耐久 " + Durability + "）。");
+            Console.WriteLine("你服下碘片，可免疫 3 次辐射扣血（剩余耐久 " + Durability + "）");
             // 辐射系统尚未实现，免疫效果先只记录，等放射性区域做出来再接。
         }
 

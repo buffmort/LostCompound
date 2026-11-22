@@ -94,6 +94,14 @@ namespace LostCompound.Tools.Players
                 return false;
             }
             Room current = _map[PlayerRow][PlayerCol];
+            // 脚下没有房间（131 传送到空地）：没有门可言，只能靠传送离开。
+            // 不判空的话 `current.HasDoor` 会空引用，直接崩在移动里。
+            if (current == null)
+            {
+                Console.WriteLine("?你是怎么到这里的 快快回去。");
+                Console.WriteLine();
+                return false;
+            }
             if (!current.HasDoor(direction))
             {
                 Console.WriteLine("这个方向没有门！");
@@ -168,7 +176,10 @@ namespace LostCompound.Tools.Players
             _map = map;
             PlayerRow = Math.Clamp(row, 0, map.Length - 1);
             PlayerCol = Math.Clamp(col, 0, map[0].Length - 1);
-            map[PlayerRow][PlayerCol].MarkArrived();
+            // 目标格可能**没有房间**（131 传送可以落到空格上，读档也可能碰到坏档的越界格）。
+            // 没房间就没有 MarkArrived 的对象 —— 位置照样落过去，
+            // 地图上的星号由 IsaacMazeGenerator.ToDisplayString(playerRow, playerCol) 按坐标补画。
+            map[PlayerRow][PlayerCol]?.MarkArrived();
         }
     }
 }

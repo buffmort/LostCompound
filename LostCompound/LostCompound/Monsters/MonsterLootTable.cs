@@ -9,6 +9,7 @@ using LostCompound.Items.Consumables;
 using LostCompound.Items.Containers;
 using LostCompound.Monsters.Normal;
 using LostCompound.Monsters.Elite;
+using LostCompound.Monsters.Boss;
 
 /**
  * 怪物掉落表。
@@ -193,6 +194,32 @@ namespace LostCompound.Monsters
                     {
                         loots.Add(new Sand(1));
                     }
+                    break;
+
+                case MonsterType.SandBurial:
+                    // 沙葬者（Hyberty 2026-11-22 定）：它与沙虫同源，掉的也是沙 ——
+                    // 数量比沙虫高一档（沙虫 15~30），因为它是 Boss。
+                    // ⚠️ 但沙漠环境有 <c>SuppressMonsterLoot</c>（DESIGN §5.3 第 2 条「怪物不掉落物品」），
+                    //    所以这条在沙漠层实际不会被执行到（Monster.Die 连表都不摇）。
+                    //    保留它是因为「环境抑制掉落」是环境的能力位、不是永久规则 ——
+                    //    将来若给沙漠放行，这里就立刻生效。
+                    loots.Add(new Sand(Random.Shared.Next(
+                        SandBurial.MinLootSand, SandBurial.MaxLootSand + 1)));
+                    break;
+
+                case MonsterType.Tidecaller:
+                    // 涨潮者（Hyberty 2026-11-22 定）：Boss 掉落，数量按 Hyberty「掉落数量 X2」翻倍。
+                    //
+                    // 三样东西都贴着水淹洞穴的既有玩法，不是随手凑数：
+                    //   玻璃罐 —— 容器，水淹洞穴的通用产出；
+                    //   水瓶   —— 它是「吸水」的 Boss，掉水最直白；
+                    //   硫酸   —— 本环境用硫酸采金属矿（<c>FloodedCavern.MineOreWithAcid</c>），
+                    //             打完 Boss 给一瓶才对得上「这层能挖矿」。
+                    // ⚠️ 与沙葬者一样：水淹洞穴有自己的掉落规则，这条未必跑到 ——
+                    //    保留它是「环境抑制掉落是能力位、不是永久规则」的余地。
+                    loots.Add(new GlassJar(2));
+                    loots.Add(new WaterBottle(2));
+                    loots.Add(new SulfuricAcid(1));
                     break;
 
                 case MonsterType.TwistedPair1:

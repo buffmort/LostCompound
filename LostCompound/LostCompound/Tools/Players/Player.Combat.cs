@@ -352,6 +352,7 @@ namespace LostCompound.Tools.Players
             }
 
             Monster target = targets[choice];
+            ClearLog();
             target.TakeDamage(dmg);
             Console.WriteLine("你攻击了" + target + "!");
 

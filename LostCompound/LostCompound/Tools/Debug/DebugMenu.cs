@@ -59,6 +59,8 @@ namespace LostCompound.Tools.Debug
             ("僵尸", () => [new Zombie()]),
             ("骷髅", () => [new Skeleton()]),
             ("龙", () => [new Dragon()]),
+            ("沙葬者", () => [new SandBurial()]),
+            ("涨潮者", () => [new Tidecaller()]),
             ("岩浆怪", () => [new LavaSlime()]),
             ("硫磺怪", () => [new SulphurMonster()]),
             ("水蛭", () => [new Leech()]),
@@ -66,7 +68,7 @@ namespace LostCompound.Tools.Debug
             ("木乃伊", () => [new Mummy()]),
             ("锈铁傀儡", () => [new RustedGolem()]),
             ("测试假人", () => [new Dummy()]),
-            ("作孽双子（P1+P2 一起）", () =>
+            ("作孽双子P1+P2", () =>
             {
                 TwistedPairState state = new TwistedPairState();
                 TwistedPairP1 p1 = new TwistedPairP1(state);
@@ -111,7 +113,7 @@ namespace LostCompound.Tools.Debug
             // 为什么这么做是安全的：JoinMap 只调用 StartRoom.MarkArrived()，
             // 不会触发 OnEnter —— 所以不会弹「初始物品选择」、不会重复发初始道具。
             // 层数用当前值（调试不推进度）：这样在调试菜单里也能看到「第 N 层的盾兵是 N×10 血」。
-            IsaacMazeGenerator tmg = new(10, 10, env.Type, Random.Shared.NextInt64(), GameProgress.Layer);
+            IsaacMazeGenerator tmg = new(10, 10, env.Type, Random.Shared.NextInt64(), GameProgress.Layer, env);
             tmg.Generate();
             Room[][] map = tmg.Grid;
             p.JoinMap(map);
@@ -152,6 +154,7 @@ namespace LostCompound.Tools.Debug
             {
                 if (entry.Id > maxId) maxId = entry.Id;
             }
+                
             int pageCount = Math.Max(1, (maxId + PageSize - 1) / PageSize);
 
             Console.WriteLine("------------ 获取道具 ------------");
@@ -165,7 +168,7 @@ namespace LostCompound.Tools.Debug
                 {
                     Console.WriteLine("  " + p + ". " + ((p - 1) * PageSize + 1) + "-" + (p * PageSize));
                 }
-                Console.WriteLine("  " + (pageCount + 1) + ". 全部（会刷满日志）");
+                Console.WriteLine("  " + (pageCount + 1) + ". 全部1");
                 Console.WriteLine("  0. 取消");
 
                 int? input = ReadIntOrCancel("请输入区间编号: ");
@@ -225,7 +228,7 @@ namespace LostCompound.Tools.Debug
                 Console.WriteLine("  n=下一页  p=上一页  数字=直接填 ID  0=取消");
                 Console.WriteLine("----------------------------------");
 
-                Console.WriteLine("请选择（字母 / n / p / 数字）:");
+                Console.WriteLine("请选择:");
                 string line = Console.ReadLine();
                 if (line == null || line.Trim().Length == 0)
                 {
@@ -412,7 +415,7 @@ namespace LostCompound.Tools.Debug
                 {
                     Console.WriteLine("  " + i + ". " + MonsterCatalog[i].Label);
                 }
-                Console.WriteLine("  （空行取消）");
+                Console.WriteLine("  （回车取消）");
                 Console.WriteLine("----------------------------------");
 
                 int? choice = ReadIntOrCancel("请选择: ");
@@ -448,7 +451,7 @@ namespace LostCompound.Tools.Debug
                 {
                     Console.WriteLine("  " + (i + 1) + ". " + EnvironmentCatalog.All[i].Name);
                 }
-                Console.WriteLine("  （空行取消）");
+                Console.WriteLine("  （回车取消）");
                 Console.WriteLine("--------------------------------------");
 
                 int? choice = ReadIntOrCancel("请选择: ");
@@ -498,6 +501,110 @@ namespace LostCompound.Tools.Debug
                 _debugPlayer.AddDefaultRecipes();
             }
             return _debugPlayer;
+        }
+
+        /// <summary>
+        /// 调试 TP（131）：列出当前地图上**所有真房间**，玩家按编号选一个瞬移过去。
+        ///
+        /// 为什么收在这里而不是 Player 里：与 129 发道具 / 130 挂 buff 同一个位置。
+        /// 本类的注释里也写了这条规矩 —— 「那两个入口把正在战斗的玩家直接传进来，
+        /// 逻辑都收在本类里，不在 Player 里另写一份」。TP 是第三个这种入口。
+        ///
+        /// 为什么是「选房间」而不是「输行号 + 列号」（Hyberty 2026-11-22 原话：
+        /// 「tp有点问题 建议直接选进入哪个房间类得了」）：坐标要从地图上一格格数出来，
+        /// 还得先开 debug 看全图才知道哪格是什么 —— 调一次试一次根本没法用。
+        /// 列表按**房间类型分组**：一张图二十多间战斗房平铺出来是一大坨编号，
+        /// 想跳去 Boss 还得一行行读；分组之后一眼就能看到「Boss房: 10(3,9)」。
+        ///
+        /// 复用 <see cref="Player.JoinMap(Room[][], int, int)"/> 而不是 <see cref="Player.Move"/>：
+        ///   · Move 要求「相邻 + 有门」，TP 本来就是要跨墙过去；
+        ///   · Move 会触发 <c>LeaveSetup</c>（离开事件的副作用）—— TP 不是「走了一步」，
+        ///     是「本来就在这里」，不该给旧房间补一次离开结算。
+        ///
+        /// ⚠️ JoinMap 只「标记到达」，**不触发 OnEnter**。事件由调用方随后设的
+        /// <c>pendingEnter = true</c> 在主循环顶部补上 —— 所以 TP 落到战斗房会真的开打
+        /// （Hyberty 2026-11-22 选的 B：要能直接踩过去打 Boss）。
+        /// </summary>
+        /// <returns>true 表示真的挪了位置（调用方要设 pendingEnter）；取消 / 编号非法都返回 false。</returns>
+        public static bool TeleportPlayer(Player p, Room[][] map)
+        {
+            // 收集所有真房间。Blank 格子在绘制时就被跳过了，这里同样不给它一个 TP 目的地
+            // —— 落到空地上除了能看星号没有任何意义。
+            var targets = new List<(int Row, int Col, Room Room)>();
+            var byType = new Dictionary<RoomType, List<int>>();
+            for (int r = 0; r < map.Length; r++)
+            {
+                for (int c = 0; c < map[r].Length; c++)
+                {
+                    Room room = map[r][c];
+                    if (room == null || room.Type == RoomType.Blank) continue;
+                    int slot = targets.Count;
+                    targets.Add((r, c, room));
+                    if (!byType.TryGetValue(room.Type, out List<int> list))
+                    {
+                        list = new List<int>();
+                        byType[room.Type] = list;
+                    }
+                    list.Add(slot);
+                }
+            }
+
+            if (targets.Count == 0)
+            {
+                Console.WriteLine("这张图上没有房间可去。");
+                return false;
+            }
+
+            Console.WriteLine("TP：选一个房间");
+            foreach (KeyValuePair<RoomType, List<int>> pair in byType)
+            {
+                var parts = new List<string>();
+                foreach (int slot in pair.Value)
+                {
+                    (int row, int col, _) = targets[slot];
+                    parts.Add(slot + "(" + row + "," + col + ")");
+                }
+                Console.WriteLine("  " + RoomTypeName(pair.Key) + ": " + string.Join("  ", parts));
+            }
+
+            // 用本类的 ReadIntOrCancel：回车 = 取消。这里**不能**走 Player.ReadInt ——
+            // 那个把 -1 当 EOF 哨兵，会在输入 -1 时把 _inputClosed 置位，
+            // 玩家只是想输个坏编号却会被后面当成「输入流断了」直接收场。
+            int? choice = ReadIntOrCancel("编号：");
+            if (choice == null)
+            {
+                Console.WriteLine("TP 取消。");
+                return false;
+            }
+            if (choice < 0 || choice >= targets.Count)
+            {
+                Console.WriteLine("没有这个编号，TP 取消。");
+                return false;
+            }
+
+            (int targetRow, int targetCol, Room target) = targets[choice.Value];
+            p.JoinMap(map, targetRow, targetCol);
+            Console.WriteLine("TP 到 " + RoomTypeName(target.Type) + " (" + targetRow + "," + targetCol + ")。");
+            return true;
+        }
+
+        /// <summary>
+        /// 房间类型 → 人话名字，只给 <see cref="TeleportPlayer"/> 的列表用。
+        /// 地图上的单字母（B/F/E/C/S）在「选一个」的列表里认不出来，这里给全名；
+        /// 两处各管一处、互不影响。
+        /// </summary>
+        private static string RoomTypeName(RoomType type)
+        {
+            return type switch
+            {
+                RoomType.Start => "起点房",
+                RoomType.Boss => "Boss房",
+                RoomType.Fight => "战斗房",
+                RoomType.Empty => "空房",
+                RoomType.Craft => "合成房",
+                RoomType.Treasure => "宝箱房",
+                _ => type.ToString(),
+            };
         }
 
         /// <summary>

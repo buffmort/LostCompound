@@ -141,6 +141,19 @@ namespace LostCompound.Monsters
         public IReadOnlyList<Monster> BattleAllies { get; internal set; } = [];
 
         /// <summary>
+        /// 本场战斗的环境对象，由 `Tools.ApplyEnvironmentMonsterTraits` 在开战时注入。
+        ///
+        /// 为什么不用 <c>p.CurrentEnvironment</c>：那读的是**玩家当前站的房间**的环境，
+        /// 而战斗可能跑在一张调试用地图上（`RunDebugBattleOnScreen`），
+        /// 那时玩家脚下根本没有房间 → `CurrentEnvironment` 是 null，
+        /// 怪物的环境相关技能会静默失效（实测涨潮者的潮涌只回血、不涨水）。
+        /// 战斗真正推进的环境是 `RunBattle(env)` 传进来那个，所以按那个注入。
+        ///
+        /// 默认 null：不关心环境的怪（绝大多数）不用管它。
+        /// </summary>
+        public MapEnvironment.Environment BattleEnvironment { get; internal set; }
+
+        /// <summary>
         /// 怪物被生成时的钩子：拿到**本场战斗的层数**，用来做「随层数成长」的数值。
         ///
         /// 为什么需要它：盾兵的血量是 `10 × 当前层数`、给盾量是 `5 × 当前层数` ——
@@ -400,6 +413,20 @@ namespace LostCompound.Monsters
             }
             Buffs.Add(b);
         }
+
+        /// <summary>
+        /// 本回合出手**之前**清一次护盾。默认什么都不做（恒等）。
+        ///
+        /// 为什么是虚方法而不是「所有怪都清」：
+        ///   目前只有沙葬者的设计书明确要求「护盾每回合重置」。
+        ///   龙也会加盾（<c>ShieldPerTurn = 5</c>）—— 如果给基类统一清空，
+        ///   龙的盾会在「它加完盾 → 玩家那一刀砍过来之前」就被清掉，数值直接废掉。
+        ///   所以这里按「谁的设计要重置，谁自己覆写」来做，不改变任何现有怪的行为。
+        ///
+        /// 调用点：<c>Tools.RunMonsterTurns</c>，每只怪每次出手前一次（被跳过的回合不调 ——
+        /// 被跳过等于这段窗口没经过它，盾该留到它真出手的那回合）。
+        /// </summary>
+        public virtual void ResetShieldForTurn() { }
 
         // 跳过回合：返回"这次是否被跳过"，顺手扣一次计数
         public bool TryConsumeSkipTurn()

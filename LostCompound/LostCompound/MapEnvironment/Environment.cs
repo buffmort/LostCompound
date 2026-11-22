@@ -261,6 +261,19 @@ namespace LostCompound.MapEnvironment
         /// </summary>
         public virtual void OnFusionSulphurUsed() { }
 
+        /// <summary>
+        /// 水源是否被堵住了（设计文档 5.2：热硫堵住水淹洞穴的出水口）。
+        /// 默认 false —— 没有水源的环境永远不算堵。
+        ///
+        /// 为什么要提升到基类：怪物（<c>Tidecaller</c> 的潮涌）需要问「我现在能不能吸水」，
+        /// 而**怪物不该认识具体环境类型**。原先只能在怪物里写
+        /// `if (p.CurrentEnvironment is FloodedCavern fc &amp;&amp; fc.IsPlugged)`
+        /// —— 每加一种可堵的环境，怪物就多一个 is。
+        /// 与 <see cref="CanMine"/> / <see cref="OnFusionSulphurUsed"/> 同一套做法：
+        /// 环境声明能力，调用方只问能力位。
+        /// </summary>
+        public virtual bool IsWaterSourceBlocked => false;
+
         /// <summary>拼进玩家状态栏的一行环境状态。</summary>
         public abstract string DescribeStatus();
 

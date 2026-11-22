@@ -53,6 +53,30 @@ namespace LostCompound.MapEnvironment.Environments
         /// <summary>是否处于被堵住状态。</summary>
         public bool IsPlugged => _pluggedTurns > 0;
 
+        /// <summary>
+        /// 本回合的涨水被某个 Boss 技能接管（潮涌）。
+        ///
+        /// 语义：本回合**不再掷随机数**，改为固定涨 <see cref="_surgeAmount"/> 点。
+        /// 由出怪（<c>Tidecaller</c>）在自己出手前调 <see cref="ForceSurge"/> 设置，
+        /// <see cref="OnBattleTurn"/> 读到之后用一次就清掉 —— 所以它只管一个回合，
+        /// 怪物死了或者被跳过都不会把状态挂到下一回合。
+        ///
+        /// 为什么不让怪物直接改 WaterLevel：
+        ///   水位是环境的私有状态，写入口留在环境里，涨水规则（含上限夹取、播报）
+        ///   才能保持只有一处。怪物只负责声明「这一回合我要涨多少」。
+        /// </summary>
+        private int _surgeAmount;
+
+        /// <summary>
+        /// 让本回合的水位固定上涨 <paramref name="amount"/> 点（潮涌）。
+        /// 堵住期间调用无效 —— 出水口被堵就是吸水失败，这一点由 <see cref="IsPlugged"/> 决定。
+        /// </summary>
+        public void ForceSurge(int amount)
+        {
+            if (amount <= 0) return;
+            if (amount > _surgeAmount) _surgeAmount = amount;
+        }
+
         public FloodedCavern() : base(EnvType.FloodedCavern) { }
 
         /// <summary>
@@ -86,6 +110,24 @@ namespace LostCompound.MapEnvironment.Environments
                 if (_pluggedTurns == 0)
                 {
                     Console.WriteLine("堵住出水口的热硫失效了，水位又开始上涨！");
+                }
+                return;
+            }
+
+            // ① 先看本回合有没有被潮涌接管。
+            //    接管时**完全不掷随机数**：潮涌说的是「本回合涨 N」（N 由 Tidecaller.SurgeWater 定），
+            //    再叠一层随机涨水就等于同一个回合涨两次，玩家数不准回合数也就没法规划。
+            //    这里仍然要先判堵：堵住期间吸水失败，潮涌不生效（见 Tidecaller）。
+            int surge = _surgeAmount;
+            _surgeAmount = 0;
+            if (surge > 0)
+            {
+                WaterLevel += surge;
+                if (WaterLevel > MaxWaterLevel) WaterLevel = MaxWaterLevel;
+                Console.WriteLine("水流轰然上涨，水位 +" + surge + "！");
+                if (WaterLevel >= MaxWaterLevel)
+                {
+                    Console.WriteLine("水流已经漫过了你的胸口——水位到达了极限！");
                 }
                 return;
             }
@@ -131,6 +173,12 @@ namespace LostCompound.MapEnvironment.Environments
         /// 「热硫在水淹洞穴堵 3 回合」整条都归环境，道具侧只负责喊一声「我用了热硫」。
         /// </summary>
         public override void OnFusionSulphurUsed() => PlugOutlet(3);
+
+        /// <summary>
+        /// 把「堵住」暴露成基类的能力位，怪物（<c>Tidecaller</c> 的潮涌）
+        /// 据此判断「这一回合能不能吸水回血」。怪物不需要认识本类型。
+        /// </summary>
+        public override bool IsWaterSourceBlocked => IsPlugged;
 
         /// <summary>存档键名。**发布后不能改**。</summary>
         private const string StateKeyWaterLevel = "waterLevel";

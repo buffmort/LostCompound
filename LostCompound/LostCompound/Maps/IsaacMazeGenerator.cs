@@ -102,7 +102,18 @@ namespace LostCompound.Maps
         /// </summary>
         public const int GeneratorVersion = 7;
 
-        public IsaacMazeGenerator(int rows, int cols, EnvType envType, long seed, int layer)
+        /// <param name="sharedEnv">
+        /// 已经创建好的环境对象。给了就直接用，不给就按 <paramref name="envType"/> 自己造一个。
+        ///
+        /// 为什么需要这个参数（Hyberty 2026-11-22 实测发现）：调试战斗由
+        /// <c>DebugMenu</c> 先造一个环境交给 <c>RunBattle</c>，再在这里生成一张图撑版面。
+        /// 如果这里**再造一个**，玩家脚上那个（<c>p.CurrentEnvironment</c>，状态栏读它）
+        /// 和战斗真正推进的那个就不是同一个实例 —— 涨潮者的潮涌涨的是战斗那份水位，
+        /// 状态栏显示的却是地图那份，永远停在 0/15，看起来像技能没生效。
+        /// 正常一局里两者本来就是同一个实例，只有调试路径会分叉。
+        /// </param>
+        public IsaacMazeGenerator(int rows, int cols, EnvType envType, long seed, int layer,
+                                  Environment sharedEnv = null)
         {
             _rows = rows;
             _cols = cols;
@@ -118,7 +129,8 @@ namespace LostCompound.Maps
 
             // 全场先铺成 BlankRoom（没有门、走不进去），再由 Generate() 挑出真正的房间。
             // 环境对象只创建一次，同一层所有房间共享（水量等状态才能互相看见）。
-            _env = EnvironmentFactory.Create(envType);
+            // 调用方备好了就复用它（见 sharedEnv 的说明），否则按 envType 造一个。
+            _env = sharedEnv ?? EnvironmentFactory.Create(envType);
             for (int r = 0; r < rows; r++)
             {
                 for (int c = 0; c < cols; c++)
@@ -522,7 +534,30 @@ namespace LostCompound.Maps
         /// </summary>
         private const int RoomCellWidth = 5;
 
+        /// <summary>
+        /// 画地图。星号 `*` **按房间对象上的 <c>IsPlayerHere</c>** 画 —— 也就是说玩家必须
+        /// 站在一个真实存在的房间上才会出现星号。
+        ///
+        /// 需要「玩家脚下没有房间也照样画星号」时用带坐标的重载
+        /// <see cref="ToDisplayString(int,int)"/>（131 传送会把人扔到空地上）。
+        /// </summary>
         public string ToDisplayString()
+        {
+            return ToDisplayString(-1, -1);
+        }
+
+        /// <summary>
+        /// 画地图，并**额外**在 (<paramref name="playerRow"/>, <paramref name="playerCol"/>) 这一格打星号。
+        ///
+        /// 为什么要有这个重载：原先星号完全挂在 <c>Room.IsPlayerHere</c> 上，而绘制循环在
+        /// 第 1 步就把「空格 / BlankRoom」整格 `continue` 掉了（那些格子压根不画），
+        /// 于是玩家靠传送站到没有房间的位置时，地图上**找不到自己**（Hyberty 2026-11-22）。
+        /// 现在把「玩家在哪」和「那里有没有房间」解耦：
+        ///   · 有房间 → 照旧由房间自己的 IsPlayerHere 画（老路径不变）；
+        ///   · 没房间 → 由这组坐标补画一个 ` * `，墙也不画（那格本来就没有墙可言）。
+        /// 传 (-1, -1) 等于「不知道玩家在哪」，行为与旧版完全一致。
+        /// </summary>
+        public string ToDisplayString(int playerRow, int playerCol)
         {
             // ── 先裁掉空白行列 ──
             // 房间是从地图中心长出来的，只占中间一小块：13×13 的图里常常只有 8×8 有内容。
@@ -586,7 +621,6 @@ namespace LostCompound.Maps
                 for (int c = 0; c < _cols; c++)
                 {
                     if (!visible[r][c] || _grid[r][c] == null) continue;
-
                     int centerRow = 2 * (r - rowOffset) + 1;
                     int centerCol = RoomCellWidth * (c - colOffset) + 2;
                     if (!InDisplay(centerRow, centerCol)) continue;
@@ -683,6 +717,25 @@ namespace LostCompound.Maps
                     {
                         display[crossRow][crossCol] = '+';
                     }
+                }
+            }
+
+            // 5.5 玩家坐标补画星号（见方法注释）：玩家脚下没有房间时要在这里兜底。
+            // 只在「那一格确实没有可画的房间」时动手 —— 有房间的格子已经由第 2 步按 IsPlayerHere 画好了，
+            // 这里再覆盖一次虽然结果一样，但会盖掉别人加在标签上的东西，没必要。
+            bool playerRoomMissing =
+                playerRow >= 0 && playerCol >= 0 &&
+                playerRow < _rows && playerCol < _cols &&
+                (_grid[playerRow][playerCol] == null || _grid[playerRow][playerCol].Type == RoomType.Blank);
+            if (playerRoomMissing)
+            {
+                int pr = 2 * (playerRow - rowOffset) + 1;
+                int pc = RoomCellWidth * (playerCol - colOffset) + 2;
+                if (InDisplay(pr, pc - 1) && InDisplay(pr, pc + 1))
+                {
+                    display[pr][pc - 1] = ' ';
+                    display[pr][pc] = '*';
+                    display[pr][pc + 1] = ' ';
                 }
             }
 

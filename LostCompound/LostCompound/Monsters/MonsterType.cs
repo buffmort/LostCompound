@@ -32,5 +32,11 @@ namespace LostCompound.Monsters
 
         /// <summary>锈铁傀儡（通用池，第 2~5 层，Hyberty 2026-11-08 由助手设计）。</summary>
         RustedGolem,
+
+        /// <summary>沙葬者（沙漠层专属 Boss，Hyberty 2026-11-22 定）。</summary>
+        SandBurial,
+
+        /// <summary>涨潮者（水淹洞穴专属 Boss，Hyberty 2026-11-22 定）。</summary>
+        Tidecaller,
     }
 }

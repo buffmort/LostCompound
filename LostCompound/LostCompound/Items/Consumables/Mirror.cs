@@ -59,7 +59,7 @@ namespace LostCompound.Items.Consumables
         /// </summary>
         public void ExplainBattleOnly(Player p)
         {
-            Console.WriteLine("镜子随时可以用（一次性消耗品）。");
+            Console.WriteLine("镜子随时可以用。");
         }
     }
 }

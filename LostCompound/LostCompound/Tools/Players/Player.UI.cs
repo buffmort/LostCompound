@@ -142,6 +142,8 @@ namespace LostCompound.Tools.Players
                     Console.WriteLine("129, 获取道具");
                     // 130 同理：战斗中当场挂 buff（ID → 效果量 → 剩余回合），逻辑见 DebugMenu.AddBuffTo。
                     Console.WriteLine("130, 添加buff");
+                    // 131（TP）**不在这里列**：它只有地图循环里那个分支，战斗中按了没反应。
+                    // 列出来等于骗玩家「这里能用」（地图上的提示见 RunMainLoop 里的那段）。
                 }
                 int option = ReadInt("请选择操作");
             if (option == -1 && _inputClosed)
@@ -151,6 +153,11 @@ namespace LostCompound.Tools.Players
                 // EOF 不是玩家输错。战斗循环会在这一回合之后看到 InputClosed 并收场（见 Tools.RunBattle）。
                 return;
             }
+            // ⚠️ 清屏**不在这里**做（Hyberty 2026-11-22）。
+            //   放在 switch 之前会把「请选择怪物攻击: 0.沙葬者」这类选目标提示一起擦掉，
+            //   玩家正在看着那行选，屏幕先空了一下才反应 —— 那不是我们要的节奏。
+            //   清屏由每个动作在**真正生效的那一刻**自己做（见 Player.Attack 的
+            //   `ClearLog(); target.TakeDamage(dmg);`，防御与采沙同理）。
             switch (option)
             {
                 case 1:
@@ -162,6 +169,8 @@ namespace LostCompound.Tools.Players
                     // 数值理由：这是玩家唯一稳定可控的「攒盾」手段，而玩家面对的单次
                     // 最高伤害是龙的 10 点、双子技能的 5 点 —— 5 点盾大致等于「挡掉半刀」，
                     // 一回合换半刀比旧机制「一回合换一整刀」弱得多，符合「旧机制太超模」的裁定。
+                    // 清屏放在真正生效这一刻，理由同 Player.Attack。
+                    ClearLog();
                     AddShield(5);
                     Console.WriteLine("你进行了防御!");
                     turnConsumed = true;
@@ -178,8 +187,18 @@ namespace LostCompound.Tools.Players
                     break;
                 case 6 when CurrentEnvironment?.CanDigSand == true:
                     // 采沙：一次行动换一堆沙子（DESIGN §5.3「花费 1 回合获得 5 沙子」）。
-                    // 用 when 守卫而不是在 case 里 if：不满足时这条 case 不匹配，
-                    // 与「乱输一个数字」走完全相同的 default 分支（不新增任何提示）。
+                    //
+                    // 为什么**留在 switch 里**、不做成「环境自己提供一串动作」的通用槽位
+                    // （Hyberty 2026-11-22 的裁定）：
+                    //   菜单是靠**玩家输入固定数字**来选的，「6」这个编号就是协议的一部分。
+                    //   一旦改成环境返回动作列表、编号由列表动态分配，同一局里换个房间
+                    //   第 6 项就可能变成别的东西（甚至不存在）—— 玩家按的 6 到底指什么，
+                    //   取决于他站在哪，那才是真正的歧义。编号写死、环境只决定「这一项显不显示」，
+                    //   按 6 的含义在任何环境里都是同一个。
+                    //   用 when 守卫而不是在 case 里 if：不满足时这条 case 不匹配，
+                    //   与「乱输一个数字」走完全相同的 default 分支（不新增任何提示）。
+                    // 清屏放在真正生效这一刻，理由同 Player.Attack。
+                    ClearLog();
                     foreach (Item dug in CurrentEnvironment.DigSand())
                     {
                         AddItem(dug);
@@ -338,8 +357,14 @@ namespace LostCompound.Tools.Players
             return new string('█', filled) + new string('░', cells - filled);
         }
 
-        /// <summary>刷新状态栏。战斗时会追加血量/防御/护盾/力量。</summary>
-        private void RefreshStatus()
+        /// <summary>
+        /// 刷新状态栏。战斗时会追加血量/防御/护盾/力量。
+        ///
+        /// internal 而不是 private：`Tools.AdvanceEnvironment` 在环境推进之后要立刻刷一次 ——
+        /// 否则状态栏里的「水淹洞穴水位 N/15」会显示**推进前**的旧值（实测涨潮者的潮涌
+        /// 已经把水位涨上去了，面板还写着 0/15，玩家会以为技能没生效）。
+        /// </summary>
+        internal void RefreshStatus()
         {
             if (_screen == null) return;
 
@@ -468,11 +493,13 @@ namespace LostCompound.Tools.Players
         /// </summary>
         private void DrawScreen(ConsoleScreen screen, Room[][] map, IsaacMazeGenerator tmg)
         {
-            screen.DrawMap(tmg.ToDisplayString());
+            // 把玩家坐标一起交过去：131 传送可以把人送到**没有房间**的格子上，
+            // 那种格子不画星号的话地图上就找不到自己了（见 IsaacMazeGenerator.ToDisplayString(int,int)）。
+            screen.DrawMap(tmg.ToDisplayString(PlayerRow, PlayerCol));
 
             // 只记「在哪个房间」；状态栏首行由 RefreshStatus 现拼（房间 + 玩家名）。
             // 「当前位置」已按要求去掉：地图上玩家所在格子本来就有 * 标记，再报坐标是冗余。
-            _lastRoomType = map[PlayerRow][PlayerCol].Type;
+            _lastRoomType = map[PlayerRow][PlayerCol]?.Type ?? RoomType.Blank;
 
             RefreshStatus();
         }
@@ -609,7 +636,7 @@ namespace LostCompound.Tools.Players
                     ClearLog();
                     // 标题说明当前界面；**高温这类整屏不变的机制也拼在这里**（Hyberty 2026-11-21）——
                     // 它不会随清屏消失，玩家随时能看见"这房间不一样"。
-                    SetLogTitle(map[PlayerRow][PlayerCol].IsHot ? "探索【高温】" : "探索");
+                    SetLogTitle(map[PlayerRow][PlayerCol]?.IsHot == true ? "探索【高温】" : "探索");
 
                     if (justMoved)
                     {
@@ -624,7 +651,8 @@ namespace LostCompound.Tools.Players
                         // （原先这里有一条「【高温房间】空气滚烫…」的日志播报，已删：
                         //   高温整屏都不变，写进日志会被清屏冲掉 —— 现在常驻在日志框标题里，
                         //   见本循环开头的 SetLogTitle。）
-                        map[PlayerRow][PlayerCol].OnEnter(this);
+                        // 经 131 传送到空地时这里没有房间，没有事件可触发（星号仍在地图上）。
+                        map[PlayerRow][PlayerCol]?.OnEnter(this);
 
                         // 换层后的那一次存档：等起点房的 OnEnter（开局三选一）走完再存，
                         // 否则会存下「本层开局道具还没发」的状态（见 _saveAfterEnter 的注释）。
@@ -645,6 +673,44 @@ namespace LostCompound.Tools.Players
                     if (NextLayerRequested)
                     {
                         ClearNextLayerRequest();
+
+                        // ★ 不再自动换层，改成「输入 -1 才离开」（Hyberty 2026-11-22）。
+                        //
+                        // 为什么要停下来等：原先这里一发现举牌就 AdvanceLayer，
+                        // 玩家打完 Boss 后**连一秒都没有**，下一层的图已经铺好了 ——
+                        // 既看不到「我打赢了」，也没机会整理背包 / 合成 / 换饰品再走。
+                        // 换层是本局唯一一个不可逆的大事（新图、新环境、回血 70%），
+                        // 值得一次明确的「确认离开」。
+                        //
+                        // 为什么问在这里而不是在 BossRoom 里问（Hyberty 选的 B 方案）：
+                        //   · BossRoom 只举牌不做 UI，地图/生成器/分栏界面都在主循环手里；
+                        //   · 停在这里时玩家**还站在 Boss 房的地图上**，背包/合成/饰品栏
+                        //     都能照常用（那是地图循环的功能，不在这个分支里）；
+                        //   · 不会撞上 ReadInt 的 -1 = EOF 哨兵（这里直接读原始行，不碰 _inputClosed）。
+                        //
+                        // ⚠️ 提示语只写「-1 离开」，**不加「其他输入不会换层」这类限定语**
+                        //   （Hyberty 2026-11-22）：玩家只需要知道怎么走，别的操作本来就能做
+                        //   —— 把机制解释一遍反而像在设防，还每屏重复。
+                        Console.WriteLine("通往下一层的阶梯出现了……");
+                        Console.WriteLine("输 -1 离开这一层。");
+                        while (true)
+                        {
+                            string? answer = Console.ReadLine();
+                            if (answer == null)
+                            {
+                                // EOF：没有玩家了，直接换（存档钩子那边也不会有交互了）。
+                                // 无输入时死等会 CPU 空转，与 ContinueGame 里「没有输入按随机处理」同一口径。
+                                break;
+                            }
+                            if (answer.Trim() == "-1")
+                            {
+                                break;
+                            }
+                            // 输错不是错误，玩家可能只是想做别的（看背包、合成）——
+                            // 悄悄把提示再放一次即可，别摆出「你错了」的姿态。
+                            Console.WriteLine("输 -1 离开这一层。");
+                        }
+
                         AdvanceLayer(ref map, ref tmg, ref screen);
                         pendingEnter = true;    // 新层的起点房也要走一次 OnEnter（每层都有一次开局选道具）
                         continue;               // 立刻回到循环顶部重画新图
@@ -668,7 +734,17 @@ namespace LostCompound.Tools.Players
                     // 与方向输入共用同一个 ReadLine，行为统一（输入 5/6/7 不移动，直接 continue）。
                     // 每屏都打一次：日志每屏清空，所以「怎么操作」必须跟着这一屏走。
                     // 「4.退出」原先只在开场白里说一次，现在并到这一行 —— 它是常驻指令，不是一次性说明。
+                    // 调试模式下把指令也列出来：这些指令地图上本来就能用
+                    // （见下面 `direction is 127 or 128 or 129 or 130` 与 131 两个分支），
+                    // 但原先只有战斗菜单会打出来，玩家在地图上看不到 → 以为"只有战斗里能用"。
+                    // 注意是**逐条说明**而不是只丢一串编号：光给编号等于没解释
+                    // （Hyberty 2026-11-22：「你连功能都不解释了」）。
                     Console.WriteLine("4.退出  5.使用道具  6.合成  7.饰品栏");
+                    if (DebugState.Enabled)
+                    {
+                        Console.WriteLine("地图上也能用的 debug 指令:");
+                        Console.WriteLine("  127 超雄模式   128 全配方   129 拿道具   130 挂buff   131 传送");
+                    }
 
                     // 方向提示**不再塞进输入框**（输入框只画 ">"，避免提示与回显叠加导致错位）。
                     // 可走方向已经由 ShowAvailableDirections 写进日志了，这里再写一遍只会每回合刷屏；
@@ -755,6 +831,24 @@ namespace LostCompound.Tools.Players
                             RunMapDebugCommand(direction);
                             DrawScreen(screen, map, tmg);   // 状态可能变了（STR / 配方 / 道具 / buff），立刻刷新
                             continue;
+                        }
+                        // 131 = TP（Hyberty 2026-11-22）：把玩家瞬移到地图上任意一间房。
+                        // 为什么单独一个分支而不是并进上面那行：它要**读一次输入**（选编号）、
+                        // 还会改玩家位置，与「改状态后原地重画」的 127~130 不是一类事。
+                        // 逻辑本体在 DebugMenu.TeleportPlayer（与 129/130 同一个位置），这里只转发。
+                        // 命中后返回 true，调用方照常 pendingEnter=true —— 目标房的事件会真的触发。
+                        if (direction == 131 && DebugState.Enabled)
+                        {
+                            if (DebugMenu.TeleportPlayer(this, map))
+                            {
+                                // B（Hyberty 2026-11-22）：落到哪就真的踩上哪。
+                                // 交给循环顶部：pendingEnter 会补一次 OnEnter（战斗房就是真开打），
+                                // 并且重画 —— 这里不必自己 DrawScreen（画了也会立刻被下一屏覆盖，
+                                // 而且此刻 _lastRoomType 还是旧房间，状态框会闪一下错的）。
+                                pendingEnter = true;
+                                justMoved = true;
+                            }
+                            continue;       // 取消 / 编号非法：什么都不做，重画回菜单
                         }
 
                         if (Move((Direction)direction))
@@ -947,6 +1041,9 @@ namespace LostCompound.Tools.Players
         /// 为什么抽出来：两个入口（地图方向菜单 / 战斗菜单）都调它，避免两处各写一份。
         /// 守卫在外层（`case ... when DebugState.Enabled` / `if (DebugState.Enabled)`），
         /// 这里只负责执行 —— 所以不重复判开关，否则「为什么按了没反应」会多一个来源。
+        ///
+        /// 129 / 130 把 <c>this</c> 交给 DebugMenu：逻辑收在那边，本类只做转发
+        /// （它自己的注释里写着这条规矩）。131 TP 同理，见 <see cref="DebugMenu.TeleportPlayer"/>。
         /// </summary>
         private void RunMapDebugCommand(int code)
         {

@@ -233,7 +233,12 @@ namespace LostCompound.Tools.Players
                 return false;
             }
 
+            Console.WriteLine("-2. 丢弃");
+
             // 选错道具不再结束回合：重问直到选到合法编号为止
+            // -2 是丢弃入口（Hyberty 2026-11-22 要求）。丢弃**不消耗回合**：
+            // 它不改变战局，只是把没用的东西扔掉，为此罚一个回合不合理
+            // （与「查背包不消耗回合」同一个理由，见本文件 OpenItems 的注释）。
             int choice;
             while (true)
             {
@@ -246,8 +251,13 @@ namespace LostCompound.Tools.Players
                     // 输入流结束（EOF）也走这条：同样返回、不消耗回合，不会空转。
                     return false;
                 }
+                if (choice == -2)
+                {
+                    DiscardItemInBattle(monsters);
+                    return false;   // 丢弃不算行动
+                }
                 if (choice >= 0 && choice < Inventory.Count) break;
-                Console.WriteLine("您的使用无效！请重新选择(0-" + (Inventory.Count - 1) + "):");
+                Console.WriteLine("您的使用无效！请重新选择(0-" + (Inventory.Count - 1) + ", -2 丢弃):");
             }
 
             // ★ 面板"关闭"的这一刻再清一次：接下来要打的是**使用结果**（谁掉血、谁中了什么）。
@@ -293,6 +303,111 @@ namespace LostCompound.Tools.Players
 
             Console.WriteLine("您的使用无效！");
             return false;
+        }
+
+        /// <summary>
+        /// 战斗中的丢弃入口（背包面板里选 -2 进来）。
+        ///
+        /// 流程：列背包 → 选编号 → 问数量 → 确认 → 扣数量 → 刷新界面。
+        /// 数量询问是 **C 方案**（Hyberty 2026-11-22 选的）：堆叠道具（硫磺 x5）
+        /// 要丢几个由玩家当场决定，而不是固定丢 1 个或整格。
+        ///
+        /// 丢弃**不消耗回合**：它不改变战局，只是把没用的东西扔掉。
+        /// 所以本方法返回 void，调用方 <see cref="OpenItems"/> 固定 return false。
+        ///
+        /// 装备中的道具不能丢（<see cref="Accessories"/> 里挂着的那件）：
+        /// 饰品栏和背包是两个列表，删掉背包里的实例会让被动加成突然少一条，
+        /// 而玩家在背包界面里看不到这件事 —— 所以直接拦住，让他先去饰品栏卸下。
+        /// 判定按 <see cref="Item.Id"/> 而不是实例引用：某个类型只要有一件挂在饰品栏上，
+        /// 背包里同 ID 的那堆也不许丢（现在同一 ID 的实例只有一份，将来不保证）。
+        /// </summary>
+        private void DiscardItemInBattle(List<Monster> monsters)
+        {
+            if (Inventory.Count == 0)
+            {
+                Console.WriteLine("你的背包空空如也！");
+                return;
+            }
+
+            Console.WriteLine("=====丢弃=====");
+            for (int i = 0; i < Inventory.Count; i++)
+            {
+                Console.WriteLine(i + "." + Inventory[i]);
+            }
+            Console.WriteLine("-1. 返回");
+
+            int choice;
+            while (true)
+            {
+                choice = ReadInt("选择要丢弃的道具编号(-1返回)");
+                if (choice == -1) return;
+                if (choice >= 0 && choice < Inventory.Count) break;
+                Console.WriteLine("编号无效，请重新选择(0-" + (Inventory.Count - 1) + ", -1 返回):");
+            }
+
+            Item item = Inventory[choice];
+
+            if (IsEquipped(item))
+            {
+                Console.WriteLine(item.Name + " 正装备在饰品栏上，先卸下才能丢弃。");
+                return;
+            }
+
+            // 问数量：非堆叠道具恒为 1，不用问。
+            int amount = item.Count;
+            if (item.IsStackable && item.Count > 1)
+            {
+                while (true)
+                {
+                    int input = ReadInt("丢弃几个(1-" + item.Count + ", -1取消)");
+                    if (input == -1) return;
+                    if (input >= 1 && input <= item.Count)
+                    {
+                        amount = input;
+                        break;
+                    }
+                    Console.WriteLine("数量无效，请重新输入(1-" + item.Count + "):");
+                }
+            }
+
+            if (!ConfirmDiscard(item.Name, amount)) return;
+
+            item.Count -= amount;
+            if (item.Count <= 0)
+            {
+                Inventory.RemoveAt(choice);
+            }
+
+            Console.WriteLine("丢弃了 " + item.Name + " x" + amount + "。");
+
+            // 丢掉的可能是加成来源（虽然装备中的已经拦住了，但配方材料之类会影响
+            // 合成表显示），重算一次派生值并与其它道具路径走同一套收尾。
+            RefreshAfterItemUse();
+        }
+
+        /// <summary>
+        /// 这件道具当前是否挂在饰品栏上。
+        /// 按 <see cref="Item.Id"/> 比，不按实例引用 —— 理由见 <see cref="DiscardItemInBattle"/>。
+        /// </summary>
+        private bool IsEquipped(Item item)
+        {
+            foreach (Item equipped in Accessories)
+            {
+                if (equipped.Id == item.Id) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 丢弃前的二次确认。<c>y</c> / <c>Y</c> 才算确认，其余（含直接回车）都算取消。
+        /// 输入流结束时（EOF）也当取消 —— 不能让「读不到输入」变成「默默丢掉」。
+        /// </summary>
+        private static bool ConfirmDiscard(string name, int amount)
+        {
+            Console.Write("确定丢弃 " + name + " x" + amount + "？(y/n) ");
+            string answer = Console.ReadLine();
+            if (answer == null) return false;
+            return answer.Trim().Equals("y", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

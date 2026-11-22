@@ -165,6 +165,10 @@ namespace LostCompound.Tools
             foreach (Monster m in monsters)
             {
                 m.ApplyDamageImmunity(env.GetDamageImmunity(m));
+
+                // 怪物的环境相关技能（涨潮者的潮涌要涨水位）读的是**这一场真正在推进的环境**，
+                // 而不是 p.CurrentEnvironment —— 调试战斗里玩家脚下没有房间，后者是 null。
+                m.BattleEnvironment = env;
             }
         }
 
@@ -202,6 +206,11 @@ namespace LostCompound.Tools
             // 高温房间（设计文档 §5.1）在这里告诉环境：热量挂在**房间**上，
             // 而环境对象是整层共享的，它自己查不到玩家站在哪一间。
             env?.OnBattleTurn(p.CurrentRoom?.IsHot == true);
+
+            // 环境推进改完水位/水量之后立刻重拼一次状态栏。
+            // 不做的话，状态框里的「水淹洞穴水位 N/15」会停在上一步的值 ——
+            // 实测：潮涌已经打出「水位 +4」，面板仍写着 0/15，看起来像技能没生效。
+            p.RefreshStatus();
 
             // 环境自己声明的「玩家必败」条件（如水淹洞穴水位满）→ 全部对象死亡，玩家直接算输。
             if (env?.IsFatalToPlayer == true)
@@ -258,6 +267,9 @@ namespace LostCompound.Tools
         /// <summary>怪物逐个出手（跳过检查也在这里，每只怪一次）。</summary>
         private static bool RunMonsterTurns(Player p, List<Monster> monsters)
         {
+            // 这里**不清屏**：清屏发生在玩家回合里，每个 case 动手之前（见 Player.OnPlayerTurn）。
+            // 顺序是「玩家输入选择 → 清屏 → 该 case 的输出 → 怪物操作 → 玩家回合」，
+            // 所以到这一步时日志里只有玩家自己刚才那一下，怪物写的会一路留到下一个菜单。
             foreach (Monster m in monsters)
             {
                 if (!p.IsAlive) break;
@@ -281,22 +293,16 @@ namespace LostCompound.Tools
                 }
 
                 TimelineWindow.Write("     · " + m.Name + " 出手（意图：" + m.IntentText(p) + "）");
+                m.ResetShieldForTurn();   // 设计书要求「护盾每回合重置」的怪在这里清盾（默认恒等）
                 m.OnMonsterTurn(p);
                 BattleDelay.Tick();      // 每只怪出手之后停一下
             }
 
             RemoveDeadMonsters(p, monsters);
 
-            // ★ 怪物回合结束 → 清屏（Hyberty 2026-11-21，A 方案）。
-            //   这样新一轮开始时，屏幕上留着的是**上一轮双方的动作**：
-            //      你打了岩浆怪 6.7        ← 玩家自己做的
-            //      岩浆怪咬了你 2.5        ← 怪物做的
-            //   而不是只剩怪物那一击、玩家得靠回忆。
-            //
-            //   为什么清在这里而不是玩家行动之后：那样会把玩家刚做的动作一起擦掉，
-            //   「我上回合打了多少」就再也看不到了 —— 而那恰恰是决策依据。
-            //   不清标题：玩家还在战斗里。
-            if (p.IsAlive && monsters.Count > 0) p.ClearLog();
+            // 这里**不清屏**：怪物刚打完的输出要一路留到下一个玩家回合的菜单上，
+            // 玩家才能看着「刚才谁打了我多少」做决定。
+            // 回合分隔本身由下一轮开头的「=====第N回合=====」提供，不需要擦掉重来。
 
             return p.IsAlive && monsters.Count > 0;
         }
