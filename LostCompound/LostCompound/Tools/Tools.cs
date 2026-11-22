@@ -258,14 +258,6 @@ namespace LostCompound.Tools
         /// <summary>怪物逐个出手（跳过检查也在这里，每只怪一次）。</summary>
         private static bool RunMonsterTurns(Player p, List<Monster> monsters)
         {
-            // ★ 玩家回合结束 → 清屏（Hyberty 2026-11-21）。
-            //   清在这里的效果是：
-            //     · 玩家做决定时，屏幕上还留着**上一轮怪物阶段的明细**（最有用的上下文）；
-            //     · 一旦自己动完，那些明细让位给这一轮的怪物行动，不会越积越多；
-            //     · 不再需要"上一轮损失 X"的摘要 —— 明细本身就看得见。
-            //   注意不清标题：玩家还在战斗里。
-            p.ClearLog();
-
             foreach (Monster m in monsters)
             {
                 if (!p.IsAlive) break;
@@ -294,6 +286,18 @@ namespace LostCompound.Tools
             }
 
             RemoveDeadMonsters(p, monsters);
+
+            // ★ 怪物回合结束 → 清屏（Hyberty 2026-11-21，A 方案）。
+            //   这样新一轮开始时，屏幕上留着的是**上一轮双方的动作**：
+            //      你打了岩浆怪 6.7        ← 玩家自己做的
+            //      岩浆怪咬了你 2.5        ← 怪物做的
+            //   而不是只剩怪物那一击、玩家得靠回忆。
+            //
+            //   为什么清在这里而不是玩家行动之后：那样会把玩家刚做的动作一起擦掉，
+            //   「我上回合打了多少」就再也看不到了 —— 而那恰恰是决策依据。
+            //   不清标题：玩家还在战斗里。
+            if (p.IsAlive && monsters.Count > 0) p.ClearLog();
+
             return p.IsAlive && monsters.Count > 0;
         }
 
