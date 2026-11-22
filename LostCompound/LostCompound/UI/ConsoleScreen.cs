@@ -64,6 +64,26 @@ namespace LostCompound.UI
         private string _lastInfo = "";             // 上次画过的信息框文本
         private readonly List<string> _info = [];  // 信息框内容（获得物品 / 装备变化 / 中了 debuff）
 
+        // ---- 实时刷新（后台重绘线程）----
+        //
+        // 为什么需要它：TUI 卡在 Console.ReadLine 上时**主线程画不了屏**，
+        // 于是「放射性区域后台掉血」这类不依赖玩家操作的变化要等到下一次按键才看得到
+        // （Hyberty 反馈：「必须进行操作才能打印扣血」）。
+        //
+        // 做法跟 NetHack 一个路子：另开一条后台线程，每 LiveIntervalMs 比对一次，
+        // 「有区别才改区别的地方」—— 具体比对由 DrawStatus / DrawBuffs / DrawEnemies 自己做
+        // （它们本来就「内容没变就 return」），这里只负责「按时把它们叫起来」。
+        //
+        // 三条纪律：
+        //   ① 只在**没被重定向**的控制台上跑（重定向时后台画屏没有意义，还会污染日志）；
+        //   ② 所有写屏幕的动作都过 _writeGate，避免和主线程的日志/输入框写入交错成花屏；
+        //   ③ 画之前存光标、画完还原 —— 玩家可能正在输入，光标不能跳走。
+        private Action _liveRepaint;
+        private Thread _liveThread;
+        private volatile bool _liveRunning;
+        private const int LiveIntervalMs = 120;
+        private readonly object _writeGate = new();
+
         /// <summary>输入框里提示文字前面的前缀。</summary>
         private const string PromptPrefix = "> ";
 
@@ -347,6 +367,90 @@ namespace LostCompound.UI
             // 把光标移到整个布局下方，否则退出地图后主菜单的输出会盖在框上面
             _raw.Write($"\u001b[{TotalRows + 1};1H");
             Console.SetOut(_raw);
+
+            // 离开这个界面就停掉后台重绘 —— 否则它会继续往已经被主菜单占用的屏幕上画
+            StopLiveRefresh();
+        }
+
+        /// <summary>
+        /// 启动后台重绘线程：每 <see cref="LiveIntervalMs"/> 毫秒调一次 <paramref name="repaint"/>。
+        ///
+        /// `repaint` 干的事就是「把可能变化的那几块重新算一遍、画一遍」，
+        /// 交给 <see cref="DrawStatus"/> / <see cref="DrawBuffs"/> / <see cref="DrawEnemies"/>
+        /// 自己判断有没有变化（内容相同直接 return），所以重复调用是廉价的。
+        ///
+        /// 幂等：已经跑着就只换回调，不会开第二条线程。
+        /// </summary>
+        public void StartLiveRefresh(Action repaint)
+        {
+            _liveRepaint = repaint;
+
+            // 输出被重定向（> file / 管道）时不要跑：那种场合没有「屏幕」，画了也没人看，
+            // 反而会让日志文件里混进一堆光标转义序列。
+            if (Console.IsOutputRedirected) return;
+            if (_liveRunning) return;
+
+            _liveRunning = true;
+            _liveThread = new Thread(LiveLoop)
+            {
+                IsBackground = true,          // 主线程退出时不要拖着进程不放
+                Name = "screen-live",
+            };
+            _liveThread.Start();
+        }
+
+        /// <summary>停掉后台重绘线程（离开界面时调用；重复调用安全）。</summary>
+        public void StopLiveRefresh()
+        {
+            _liveRunning = false;
+            _liveRepaint = null;
+        }
+
+        /// <summary>
+        /// 后台循环。**只管「按时叫醒重绘」**，不碰任何游戏状态 ——
+        /// 状态由回调自己读（调用方在 Player 那边拿），这里只保证「同一时刻只有一个线程在写屏幕」。
+        /// </summary>
+        private void LiveLoop()
+        {
+            while (_liveRunning)
+            {
+                Thread.Sleep(LiveIntervalMs);
+
+                Action repaint = _liveRepaint;
+                if (!_liveRunning || repaint == null) continue;
+
+                lock (_writeGate)
+                {
+                    // 玩家可能正停在输入框里打字，光标必须在画完之后原样还回去，
+                    // 否则每 120ms 就把光标拽走一次，根本没法输入。
+                    int left = 0, top = 0;
+                    bool haveCursor = false;
+                    try
+                    {
+                        left = Console.CursorLeft;
+                        top = Console.CursorTop;
+                        haveCursor = true;
+                    }
+                    catch
+                    {
+                        // 拿不到光标（无控制台 / 被宿主接管）就退回「不还原」，仍然重绘
+                    }
+
+                    try
+                    {
+                        repaint();
+                    }
+                    catch
+                    {
+                        // 重绘失败不能影响正在进行的游戏（最坏情况就是这一帧没刷）
+                    }
+
+                    if (haveCursor)
+                    {
+                        try { Console.SetCursorPosition(left, top); } catch { }
+                    }
+                }
+            }
         }
 
         /// <summary>重画地图区（右列上半）。内容与上次相同时直接跳过，避免无谓重绘导致闪烁。</summary>
@@ -637,25 +741,30 @@ namespace LostCompound.UI
         /// <summary>画一个带标题的完整框。</summary>
         private void DrawBox(int topRow, int leftCol, int width, string title, int contentRows, string[] content)
         {
-            // ⚠️ 防静默丢行：内容比框高时，多出来的行会被下面的循环直接忽略 ——
-            // 不报错、不换行，从界面上看就是「我明明写了却没显示」。
-            // 这个坑踩过两次（「力量」挤掉水量、测试行又挤掉一次），所以这里主动喊一声。
-            // 只丢 Debug 断点式提示，不影响正常输出（正常情况各框的行数都是配平的）。
-            if (content.Length > contentRows)
+            // 整框原子绘制：后台重绘线程随时可能插进来，
+            // 若只锁单次写，就可能出现「上半框是新内容、下半框是旧内容」的半张脸。
+            lock (_writeGate)
             {
-                System.Diagnostics.Debug.WriteLine(
-                    $"[ConsoleScreen] 「{title}」框只有 {contentRows} 行，但收到 {content.Length} 行 —— " +
-                    $"后 {content.Length - contentRows} 行会被丢弃。请调大对应的 *Rows 常量。");
+                // ⚠️ 防静默丢行：内容比框高时，多出来的行会被下面的循环直接忽略 ——
+                // 不报错、不换行，从界面上看就是「我明明写了却没显示」。
+                // 这个坑踩过两次（「力量」挤掉水量、测试行又挤掉一次），所以这里主动喊一声。
+                // 只丢 Debug 断点式提示，不影响正常输出（正常情况各框的行数都是配平的）。
+                if (content.Length > contentRows)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[ConsoleScreen] 「{title}」框只有 {contentRows} 行，但收到 {content.Length} 行 —— " +
+                        $"后 {content.Length - contentRows} 行会被丢弃。请调大对应的 *Rows 常量。");
+                }
+
+                DrawBoxTop(topRow, leftCol, width, title);
+
+                for (int i = 0; i < contentRows; i++)
+                {
+                    DrawBoxContent(topRow + 1 + i, leftCol, width, i < content.Length ? content[i] : "");
+                }
+
+                DrawBoxBottom(topRow + contentRows + 1, leftCol, width);
             }
-
-            DrawBoxTop(topRow, leftCol, width, title);
-
-            for (int i = 0; i < contentRows; i++)
-            {
-                DrawBoxContent(topRow + 1 + i, leftCol, width, i < content.Length ? content[i] : "");
-            }
-
-            DrawBoxBottom(topRow + contentRows + 1, leftCol, width);
         }
 
         private void DrawBoxTop(int row, int col, int width, string title)
@@ -742,8 +851,14 @@ namespace LostCompound.UI
             // 注意：这里绝不能用 "\u001b[K"（清到行尾）。
             // 左右分栏时，同一行右边还有另一个框，擦到行尾会把邻居的边框一起擦掉。
             // 各框自己都按「外框宽度」精确补足了空格，所以不需要清行尾。
-            _raw.Write($"\u001b[{row};{col}H");
-            _raw.Write(text);
+            //
+            // 锁：光标定位 + 文本是**两次**写，后台重绘线程若插在中间，
+            // 文本就会写到别的行上去。必须让这两句待在一起。
+            lock (_writeGate)
+            {
+                _raw.Write($"\u001b[{row};{col}H");
+                _raw.Write(text);
+            }
         }
 
         // ==================== 显示宽度（CJK 双宽） ====================

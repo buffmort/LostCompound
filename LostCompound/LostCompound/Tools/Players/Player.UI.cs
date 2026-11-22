@@ -384,6 +384,17 @@ namespace LostCompound.Tools.Players
         /// 否则状态栏里的「水淹洞穴水位 N/15」会显示**推进前**的旧值（实测涨潮者的潮涌
         /// 已经把水位涨上去了，面板还写着 0/15，玩家会以为技能没生效）。
         /// </summary>
+        /// <summary>
+        /// 后台重绘线程的回调（每 120ms 一次，见 <see cref="ConsoleScreen.StartLiveRefresh"/>）。
+        ///
+        /// 只重算「会自己随时间变」的东西 —— 目前就是状态栏（放射性区域在后台改血量）
+        /// 和信息框（播报排在队列里，RefreshStatus → OnScreenRefresh 时顺带排空）。
+        /// 敌人 / Buff / 地图在「玩家卡在输入框」时不会变，重画它们只会白闪。
+        ///
+        /// ⚠️ 这个方法会在**后台线程**上跑：只许读字段、调 Draw*，不要改游戏状态。
+        /// </summary>
+        private void RepaintLiveRegions() => RefreshStatus();
+
         internal void RefreshStatus()
         {
             if (_screen == null) return;
@@ -571,6 +582,9 @@ namespace LostCompound.Tools.Players
             screen.Install();
             _screen = screen;
 
+            // 开后台重绘：调试战斗里也卡在 ReadLine 上，放射性区域照样要能实时掉血
+            screen.StartLiveRefresh(RepaintLiveRegions);
+
             try
             {
                 // 先把地图与状态画出来，玩家一进场就能看到框（而不是先看到一片空白）
@@ -632,6 +646,10 @@ namespace LostCompound.Tools.Players
             ConsoleScreen screen = CreateScreenFor(tmg);
             screen.Install();
             _screen = screen;              // 供 RefreshStatus / ReadInt 使用
+
+            // 开后台重绘（理由见 ConsoleScreen.StartLiveRefresh）：
+            // 主线程会一直卡在 ReadLine 上，放射性区域的后台掉血必须自己刷出来。
+            screen.StartLiveRefresh(RepaintLiveRegions);
 
             // 登记「当前对局」，让退出钩子（关窗口 / Ctrl+C）能拿到玩家、地图和生成器
             SaveSession.Begin(this, map, tmg);
@@ -1030,6 +1048,10 @@ namespace LostCompound.Tools.Players
             screen = CreateScreenFor(tmg);
             screen.Install();
             _screen = screen;
+
+            // 换层重建了 screen，后台重绘要重新挂到新实例上
+            // （旧的已经在 Uninstall 里停掉了，不会两条线程同时画）
+            screen.StartLiveRefresh(RepaintLiveRegions);
 
             // 坐标回到新图起点（JoinMap 会把 StartRoom 标记为已到达；
             // 起始房间的 OnEnter 由调用方紧接着的 pendingEnter 触发）。
