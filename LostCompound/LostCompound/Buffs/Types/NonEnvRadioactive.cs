@@ -14,7 +14,7 @@ namespace LostCompound.Buffs
     /// 每个辐射源（放射性矿物 11 / 放射金属罐 18）各带一条账，**各自计时**，
     /// 到点扣它自己那一笔；放射金属罐戴在饰品栏时**屏蔽全部**非环境辐射。
     ///
-    /// ## Hyberty 2026-11-22 裁定：C 方案「各来源各记一本账（不合并）」
+    /// ## Hyberty 2026-11-22 裁定：C 方案「各来源各记一本账」+ 同类按数量叠伤害
     ///
     /// ⚠️ 这一条**偏离了设计文档 §7.4**，是 Hyberty 在实现阶段明确改的口径：
     ///   文档原文要求「同类只留一个 buff 对象，新来源把**每次扣血的量**加进去」，
@@ -22,20 +22,26 @@ namespace LostCompound.Buffs
     ///   「合并成一个 Stacks」在数值上没有唯一解 —— 文档自己也把它标成了
     ///   「⚠️ 待裁定（实现前必须先问）」。
     ///
-    ///   问过之后 Hyberty 选了 **C：不合并，各来源各记一本账**。
+    ///   问过之后 Hyberty 选了 **C：各来源各记一本账**（11 与 18 互不合并）。
     ///   于是本类内部维护一张 <see cref="Sources"/> 表，
     ///   每个来源自己有「已经倒了几个回合」，到自己的间隔就扣自己那次的血。
     ///
     ///   代价（**写清楚免得后来者以为是 bug**）：
     ///     · 11 和 18 同时在身上时，一个回合里**可能扣两次**（两条账同时到点）；
-    ///     · 这就是「不合并」的字面含义 —— 两个真实存在的辐射源各算各的。
+    ///     · 这就是「各记一本账」的字面含义 —— 两个不同的辐射源各算各的。
     ///   好处：
     ///     · 不用回答「合并后取谁的间隔」那个没有唯一解的问题；
     ///     · 加上放射金属罐的屏蔽，三条规则（各自计时 / 屏蔽 / 移除法）互不干扰。
     ///
+    ///   **同类道具按数量叠伤害**（Hyberty 同一轮追加的裁定）：
+    ///     2 个放射金属罐 → 每 10 回合扣 2×2 = 4 点；
+    ///     3 块放射性矿物 → 每 5 回合扣 1×3 = 3 点。
+    ///     叠的是「**每次扣多少**」，间隔不变（不会扣得更勤）。
+    ///     这正是文档 §7.4 原本的「叠伤害」语义 —— 只是作用域从「所有来源」缩小到了「同一来源」。
+    ///
     /// ## 为什么 `Stacks` 在这里语义不同
     /// 文档 §7.4 反复强调：本 buff 里 `Stacks` 是**回合间隔**、不是强度、也不是层数。
-    /// 但 C 方案下每个来源的间隔不同，一个 `Stacks` 已经装不下 ——
+    /// 但各来源的间隔不同，一个 `Stacks` 已经装不下 ——
     /// 所以本类把 `Stacks` **只当显示用**（取自「最短的那个间隔」），
     /// 真正的间隔存在 <see cref="Sources"/> 的每一条里。
     ///
@@ -49,7 +55,8 @@ namespace LostCompound.Buffs
     {
         /// <summary>
         /// 一个辐射源。**每个来源一条**，各自计时 —— 这就是 C 方案「各记一本账」。
-        ///
+        /// 同一来源的多个道具不再各占一条，而是合并进同一条并把 <see cref="Damage"/> 累加。
+        /// </summary>
         /// 为什么用 record 而不是可变对象：
         ///   <see cref="TurnsLeft"/> 每个回合都要改，只读类会让「重建表」变成每次 new 一堆；
         ///   这里用普通 class + 可变字段更省，而且表本身很小（最多两种来源）。
@@ -184,9 +191,12 @@ namespace LostCompound.Buffs
         {
             if (item == null) return;
 
-            // 同一来源只记一条账：堆叠 10 个矿物和 1 个矿物，间隔相同、每次扣的也是同一笔。
-            // 文档 §7.4 的「叠伤害」在 C 方案下不再适用（各来源本来就分开记账），
-            // 多个同类道具**不**让伤害翻倍 —— 否则「带一堆矿」就变成自杀式的负收益。
+            // Hyberty 2026-11-22：**同类道具按数量叠伤害**。
+            // 例：2 个放射金属罐 → 每 10 回合扣 2×2 = 4 点（间隔不变，只有伤害翻倍）。
+            // 所以同一 ItemId 只留**一条账**，但 Damage 按 Count 累加。
+            //
+            // 间隔仍取该来源自己的固定值（矿 5 / 罐 10）——
+            // 「叠数量」叠的是**每次扣多少**，不是「扣得更勤」。
             if (found.ContainsKey(item.Id)) return;
 
             switch (item.Id)
@@ -196,7 +206,7 @@ namespace LostCompound.Buffs
                     {
                         ItemId = item.Id,
                         Interval = Items.Materials.RadioactiveOre.DamageInterval,
-                        Damage = 1,
+                        Damage = Items.Materials.RadioactiveOre.DamagePerTick * item.Count,
                         TurnsLeft = Items.Materials.RadioactiveOre.DamageInterval,
                     };
                     break;
@@ -206,7 +216,7 @@ namespace LostCompound.Buffs
                     {
                         ItemId = item.Id,
                         Interval = Items.Equipment.RadioactiveMetalCan.DamageInterval,
-                        Damage = Items.Equipment.RadioactiveMetalCan.DamagePerTick,
+                        Damage = Items.Equipment.RadioactiveMetalCan.DamagePerTick * item.Count,
                         TurnsLeft = Items.Equipment.RadioactiveMetalCan.DamageInterval,
                     };
                     break;
