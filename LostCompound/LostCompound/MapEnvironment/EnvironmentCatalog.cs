@@ -22,7 +22,7 @@ namespace LostCompound.MapEnvironment
             ("熔岩瀑布", EnvType.LavaWaterfall),
             ("水淹洞穴", EnvType.FloodedCavern),
             ("沙漠", EnvType.Desert),
-            ("放射性区域", EnvType.RadioactiveArea),
+            ("放射地", EnvType.RadioactiveArea),
         ];
 
         /// <summary>

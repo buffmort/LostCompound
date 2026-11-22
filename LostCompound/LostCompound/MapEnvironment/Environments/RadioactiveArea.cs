@@ -354,7 +354,7 @@ namespace LostCompound.MapEnvironment.Environments
             //   因为「有仪器 = 读得出读数」。
             if (!hasGeiger)
             {
-                return "辐射：这里有辐射，但没有盖革计数器测不出间隔";
+                return "辐射：这里有辐射";
             }
 
             return "辐射：" + interval.ToString("F1") + " 秒/次（已受 " + ticks + " 次）";
