@@ -127,6 +127,8 @@ function Show-Header($m) {
     }
 }
 
+$EmptyMark = [string][char]0x00B7   # 空房间标记 · （与游戏侧 RadiationMapExport.EmptyCellLabel 一致）
+
 function Show-Grid($m) {
     if ($m.State -ne "ready") { return }
 
@@ -151,6 +153,11 @@ function Show-Grid($m) {
 
             if ($isPlayer) {
                 Write-Host " * " -ForegroundColor Black -BackgroundColor White -NoNewline
+            }
+            elseif ($label -eq $EmptyMark) {
+                # 没有房间的格子（Hyberty：空房间用 · 表示）—— 仍然上色，
+                # 否则只剩房间时玩家以为格子是随机跳着排的，看不出这是一张连续的数组。
+                Write-Host (" " + $EmptyMark + " ") -ForegroundColor DarkGray -BackgroundColor $bucket.Fg -NoNewline
             }
             elseif ($label.Length -gt 0) {
                 Write-Host (" " + $label + " ") -ForegroundColor Black -BackgroundColor $bucket.Fg -NoNewline
