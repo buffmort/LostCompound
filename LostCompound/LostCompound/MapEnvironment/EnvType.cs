@@ -9,5 +9,7 @@ namespace LostCompound.MapEnvironment
         // 插在中间会改变已有成员的值。
         FloodedCavern,
         Desert,
+        // 放射性区域（设计文档 §5.6）：秒级辐射计时，离开房间不清零（Hyberty 2026-11-22）。
+        RadioactiveArea,
     }
 }

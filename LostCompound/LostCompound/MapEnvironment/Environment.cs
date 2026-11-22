@@ -274,6 +274,22 @@ namespace LostCompound.MapEnvironment
         /// </summary>
         public virtual bool IsWaterSourceBlocked => false;
 
+        /// <summary>
+        /// **每刷新一屏调用一次**（地图主循环与战斗内都会走到）。
+        ///
+        /// 为什么需要这个钩子：环境里唯一需要「秒」这个概念的是放射性区域，
+        /// 而秒不能靠回合推进（回合是玩家按出来的，卡着不动就永远不走）。
+        /// 但它也不能自己乱开线程 —— 谁来启动、谁来把后台攒下的播报画到屏幕上，
+        /// 都得有一个**主线程的落点**。这个钩子就是那个落点：
+        ///   · 第一次调用时启动计时线程（幂等）；
+        ///   · 之后每次调用把后台排队的播报排空到信息框。
+        ///
+        /// ⚠️ 一定只在**主线程**调用（绘制控制台不是线程安全的），
+        ///    所以后台线程只能往队列里塞字符串，不能自己画。
+        /// 默认什么也不做 —— 不需要秒的环境完全不受影响。
+        /// </summary>
+        public virtual void OnScreenRefresh(Player p) { }
+
         /// <summary>拼进玩家状态栏的一行环境状态。</summary>
         public abstract string DescribeStatus();
 

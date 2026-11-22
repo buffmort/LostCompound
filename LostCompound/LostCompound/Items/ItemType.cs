@@ -53,5 +53,8 @@ namespace LostCompound.Items
 
         // 配方 0 补全：镜子（ID 45）
         Mirror,
+
+        // 放射性区域配套：盖革计数器（ID 25）
+        GeigerCounter,
     }
 }

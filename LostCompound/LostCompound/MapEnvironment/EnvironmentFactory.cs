@@ -15,6 +15,7 @@ namespace LostCompound.MapEnvironment
             EnvType.LavaWaterfall => new LavaWaterfall(),
             EnvType.FloodedCavern => new FloodedCavern(),
             EnvType.Desert => new Desert(),
+            EnvType.RadioactiveArea => new RadioactiveArea(),
             // 其余环境（矿洞 / 墓地 / 放射性区域 / 雾都城市）尚未实现，先返回 null
             _ => null,
         };

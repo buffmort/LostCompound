@@ -90,6 +90,12 @@ namespace LostCompound.Items
         /// <summary>盔甲</summary>
         public const int Armor = 24;
 
+        /// <summary>
+        /// 盖革计数器（饰品）：把所在房间的辐射间隔 ×1.25（原设计为 +5 秒，Hyberty 2026-11-22 改）。
+        /// 编号取空出来的 25 —— 前后邻居 24 盔甲 / 26 毒气弹都已占用，按「只补空号不挤号」的约定。
+        /// </summary>
+        public const int GeigerCounter = 25;
+
         /// <summary>毒气弹</summary>
         public const int GasBomb = 26;
 

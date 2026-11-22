@@ -56,6 +56,7 @@ namespace LostCompound.Items
             (ItemIds.Cloth, "布料", count => new Cloth(count)),
             (ItemIds.SulfuricSword, "硫酸剑", count => new SulfuricSword(count)),
             (ItemIds.Mirror, "镜子", count => new Mirror(count)),
+            (ItemIds.GeigerCounter, "盖革计数器", count => new GeigerCounter(count)),
         ];
 
         /// <summary>

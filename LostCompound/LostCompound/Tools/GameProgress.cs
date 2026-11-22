@@ -67,11 +67,20 @@ namespace LostCompound.Tools
             // 地图会继续变大、把右列撑爆。层数本身在 Restore/EnterNextLayer 里也夹过，
             // 这里是第二道闸：谁绕过那两个方法直接调本方法都不会拿到离谱的尺寸。
             int l = Math.Clamp(layer, FirstLayer, FinalLayer);
+
+            // 最后一层（放射性区域）固定 10×10，不吃下面的成长公式（Hyberty 2026-11-22 确认）。
+            // 为什么单独一个尺寸：这一层的玩法是「在毒气带之间找路」，房间一多就变成马拉松，
+            // 而且辐射是按秒扣血的 —— 地图越大，绕路的时间成本越高，难度会失控。
+            if (l >= FinalLayer) return (RadioactiveMapSize, RadioactiveMapSize);
+
             int size = l <= TwoLayerStepUntil
                 ? BaseMapSize + (l - 1) / 2                                       // 每两层 +1
                 : BaseMapSize + (TwoLayerStepUntil - 1) / 2 + (l - TwoLayerStepUntil); // 每层 +1
             return (size, size);
         }
+
+        /// <summary>最后一层（放射性区域）的固定地图边长。</summary>
+        public const int RadioactiveMapSize = 10;
 
         /// <summary>当前所在层数。改动请走本类的三个方法，不要直接赋值。</summary>
         public static int Layer { get; private set; } = FirstLayer;

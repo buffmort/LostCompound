@@ -103,6 +103,37 @@ namespace LostCompound.Tools.Players
         }
 
         /// <summary>
+        /// 放射性区域的后台计时线程专用：**只扣血，别的什么都不做**。
+        ///
+        /// 为什么不能直接调 <see cref="TakeDamageIgnoringDefenseAndShield"/>：
+        /// 那条路会走完整的受伤结算 —— 打印伤害明细、通知斗篷（<c>IOnDamaged</c>）、
+        /// 刷新状态栏、可能触发死亡文案。这些全都会**往控制台写**，而这里是从
+        /// 后台线程调用的：两处同时写光标位置会让画面串行、把你正在输入的那一行糊掉。
+        ///
+        /// 所以这里只做一件事：在锁里把 Hp 减掉，返回扣完之后的血量。
+        /// 播报由调用方塞进线程安全的队列，等主线程下次刷屏时再画进信息框。
+        ///
+        /// 放射线**无视 DEF 与护盾**（它不是"攻击"，躲不掉也挡不住），
+        /// 这也顺带避开了「盾被后台线程改掉」的竞态。
+        ///
+        /// ⚠️ 已知取舍：主线程在 `ApplyIncomingDamage` 里改 Hp 时**不拿这把锁**。
+        ///    实际风险极小（那边一次只减一个数，最坏是两边各扣一次、血少扣一次），
+        ///    真要彻底解决得把整个受伤结算也搬进锁里，而那会把打印语句一起圈进去 —— 得不偿失。
+        /// </summary>
+        internal double ApplyRadiationDamage(double amount)
+        {
+            lock (_radiationGate)
+            {
+                if (Hp <= 0) return Hp;
+                Hp = Math.Max(0, Hp - amount);
+                return Hp;
+            }
+        }
+
+        /// <summary>辐射扣血的锁。见 <see cref="ApplyRadiationDamage"/>。</summary>
+        private readonly object _radiationGate = new();
+
+        /// <summary>
         /// 受伤的统一结算入口。<see cref="TakeDamage"/> 与
         /// <see cref="TakeDamageIgnoringDefenseAndShield"/> 只差一个开关，
         /// 所以两者必须共用这段代码 —— 各写一份的话，「盾挡下时不通知受伤」「减伤排在盾前」

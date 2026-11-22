@@ -58,6 +58,25 @@ namespace LostCompound.Maps
         /// </summary>
         private readonly Random _rng;
 
+        // ── 辐射场参数（设计文档 §5.6，Hyberty 2026-11-22 定下了区间与"保留小数"）──
+
+        /// <summary>辐射间隔下限（秒）：噪声值 0 → 每 5 秒扣 1 血。</summary>
+        private const double RadiationMinSeconds = 5.0;
+
+        /// <summary>辐射间隔上限（秒）：噪声值 1 → 每 30 秒扣 1 血。</summary>
+        private const double RadiationMaxSeconds = 30.0;
+
+        /// <summary>
+        /// 噪声频率：**决定"多长的距离内变化一次"**，也就是毒气带有多大。
+        ///
+        /// 0.18 = 大约 5~6 格走完一个噪声周期 —— 这张图（10×10）上会出现 2~3 片起伏，
+        /// 相邻房间的秒数接近（差 1~3 秒），玩家能感到"往这边走越来越毒"。
+        /// 调到 1.0 就变成每格一个周期，看起来和随机数没区别；
+        /// 调到 0.05 则整张图几乎是同一个数，等于没有分布。
+        /// 想改"成片程度"只动这一个数。
+        /// </summary>
+        private const double RadiationNoiseFrequency = 0.18;
+
         /// <summary>
         /// 本局的随机种子。存档只存它 + 进度坐标，地形由它重新算出来。
         ///
@@ -357,6 +376,55 @@ namespace LostCompound.Maps
                 for (int i = 0; i < hotCount; i++)
                 {
                     _grid[candidates[i].Row][candidates[i].Col].IsHot = true;
+                }
+            }
+
+            // ── ⑤ 辐射强度（设计文档 §5.6 + Hyberty 2026-11-22）──
+            // 每间房一个「每多少秒被辐射扣 1 血」，范围 5~30，保留小数。
+            //
+            // 为什么用**柏林噪声**而不是每间房 `_rng.NextDouble()`：
+            //   噪声是连续函数，相邻房间的采样值相近，于是整张图上会出现一片一片的
+            //   「毒气带」和「安全区」，玩家能靠走位判断该往哪边绕；换成一房一摇
+            //   就是满图噪点，读不出任何形状，5~30 这个区间也就失去意义了
+            //   （反正每间房都得挨一下，那不如直接写死 10 秒）。
+            //
+            // 种子由 `seed` 和层号派生：地图不存档、读档按种子重建，
+            // 所以这张「辐射场」必须能由种子完全复现 —— 不能用 Random.Shared。
+            // ⚠️ 必须写 `_env?.`：EnvType.None 的层没有环境对象。
+            if (_env?.Type == EnvType.RadioactiveArea)
+            {
+                PerlinNoise radiationField = new(RadiationNoiseSeed(Seed, Layer));
+
+                // **两遍**：先把整张图的原始噪声值采下来、找出实际的最值，
+                // 再把 [最毒, 最安全] 拉伸到 [5, 30]。
+                //
+                // 为什么必须拉伸：柏林噪声理论值域是 -1~1，但那要求在噪声空间里跨过
+                // 足够多的周期。10×10 的图在频率 0.18 下只覆盖不到两个周期，
+                // 实测原始值只落在 0.17~0.78 之间 —— 直接线性映射得到的是 9~25 秒，
+                // 设计文档承诺的 5 秒毒区和 30 秒安全区永远不出现。
+                // 拉伸之后**每张图必然同时有最毒的一角和最安全的一角**，
+                // 这正是这条路线的玩法前提：玩家要能找到那条"安全走廊"。
+                double[,] raw = new double[_rows, _cols];
+                double lowest = double.MaxValue;
+                double highest = double.MinValue;
+                for (int r = 0; r < _rows; r++)
+                {
+                    for (int c = 0; c < _cols; c++)
+                    {
+                        double value = radiationField.Sample01(c, r, RadiationNoiseFrequency);
+                        raw[r, c] = value;
+                        if (value < lowest) lowest = value;
+                        if (value > highest) highest = value;
+                    }
+                }
+
+                for (int r = 0; r < _rows; r++)
+                {
+                    for (int c = 0; c < _cols; c++)
+                    {
+                        if (_grid[r][c] == null) continue;
+                        _grid[r][c].RadiationSeconds = StretchRadiation(raw[r, c], lowest, highest);
+                    }
                 }
             }
 
@@ -831,6 +899,44 @@ namespace LostCompound.Maps
                 int j = _rng.Next(i + 1);
                 (list[i], list[j]) = (list[j], list[i]);
             }
+        }
+
+        /// <summary>
+        /// 由「本局种子 + 层号」派生出辐射噪声的种子。
+        ///
+        /// 为什么要掺层号：同一局里每层都要换一张辐射场，否则第 2 层和第 10 层
+        /// 会长成一模一样的毒气带（同一个种子 → 同一张噪声图），玩家一眼看穿。
+        /// 为什么不用 `Random.Shared`：地图不存档、读档按种子重建，
+        /// 辐射场必须能**完全复现**，否则读一次档毒气带就挪位。
+        /// </summary>
+        private static long RadiationNoiseSeed(long seed, int layer)
+        {
+            unchecked
+            {
+                // 两个大质数分别搅动种子和层号，再异或；具体常数不影响正确性，
+                // 只影响"不同层看起来是否足够不一样"。
+                return (seed * 1000003L) ^ (layer * 7919L);
+            }
+        }
+
+        /// <summary>
+        /// 把整张图上的原始噪声值 <paramref name="raw"/>（0~1 之间的相对高低）
+        /// 按本图实际的最值 <paramref name="lowest"/>~<paramref name="highest"/>
+        /// 拉伸到 5~30 秒，保留 1 位小数。
+        ///
+        /// 用本图的最值而不是噪声的理论值域 ±1，理由见调用处那段注释
+        /// （10×10 的小图上理论极值取不到，不拉伸就永远出不了 5 秒和 30 秒）。
+        /// </summary>
+        private static double StretchRadiation(double raw, double lowest, double highest)
+        {
+            double span = highest - lowest;
+
+            // 整张图一个噪声值（理论上会发生在极小图 / 极低频率上）：
+            // 没有"相对高低"可依，取区间中点，别除以 0。
+            double t = span > 1e-9 ? (raw - lowest) / span : 0.5;
+
+            double seconds = RadiationMinSeconds + t * (RadiationMaxSeconds - RadiationMinSeconds);
+            return Math.Round(seconds, 1);
         }
     }
 }

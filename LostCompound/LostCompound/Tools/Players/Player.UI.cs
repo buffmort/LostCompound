@@ -388,6 +388,14 @@ namespace LostCompound.Tools.Players
         {
             if (_screen == null) return;
 
+            // 环境的主线程落点也挂在这里，而不是只挂在 DrawScreen 上。
+            // 原因（实测踩到）：战斗循环**不是每回合都重画整个界面**，它只刷状态栏 ——
+            // 于是放射性区域的后台线程攒下的播报要等到「下一次完整重绘」才出现，
+            // 而那个时机可能是十几秒以后。RefreshStatus 是所有「界面要更新」路径的必经点，
+            // 挂在这儿才能保证到点就画出来。
+            // 幂等：重复调用只会启动一次线程、排空一个空队列。
+            CurrentEnvironment?.OnScreenRefresh(this);
+
             // 第一行现拼：房间类型 + 玩家名（名字会被镜子改成「左旋-张三」，不能缓存整行）
             string s = "当前房间:" + _lastRoomType + "  " + RunDisplayName;
             if (_inBattle)
@@ -520,6 +528,10 @@ namespace LostCompound.Tools.Players
             // 只记「在哪个房间」；状态栏首行由 RefreshStatus 现拼（房间 + 玩家名）。
             // 「当前位置」已按要求去掉：地图上玩家所在格子本来就有 * 标记，再报坐标是冗余。
             _lastRoomType = map[PlayerRow][PlayerCol]?.Type ?? RoomType.Blank;
+
+            // 环境的主线程落点：放射性区域在这里启计时线程、并把后台攒的播报画进信息框。
+            // 必须放在 RefreshStatus 之前 —— 那一行状态要读环境的「已受几次」。
+            CurrentEnvironment?.OnScreenRefresh(this);
 
             RefreshStatus();
         }
