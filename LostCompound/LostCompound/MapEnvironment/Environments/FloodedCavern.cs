@@ -1,5 +1,6 @@
 using LostCompound.Items;
 using LostCompound.Tools;   // Player：环境直接改玩家（见 Environment 类注释的「方案 A」）
+using LostCompound.Tools.Players;   // Player 类型本身（CanMine(Player) 的签名要它）
 using LostCompound.Items.Materials;
 using Environment = LostCompound.MapEnvironment.Environment;
 using LostCompound.MapEnvironment;
@@ -84,7 +85,7 @@ namespace LostCompound.MapEnvironment.Environments
         /// 覆盖基类的 false —— 这是本属性存在的意义：环境自己声明「我能开采」，
         /// 将来矿洞(5.4) / 放射性区域(5.6) 照抄这一行即可。
         /// </summary>
-        public override bool CanMine => true;
+        public override bool CanMine(Player p) => true;
 
         /// <summary>
         /// 水位满 = 玩家必败（设计文档 5.2 的「15 计数」）。

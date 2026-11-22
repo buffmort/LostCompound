@@ -64,7 +64,7 @@ namespace LostCompound.Maps
         private const double RadiationMinSeconds = 5.0;
 
         /// <summary>辐射间隔上限（秒）：噪声值 1 → 每 30 秒扣 1 血。</summary>
-        private const double RadiationMaxSeconds = 30.0;
+        private const double RadiationMaxSeconds = 15;
 
         /// <summary>
         /// 噪声频率：**决定"多长的距离内变化一次"**，也就是毒气带有多大。
@@ -76,6 +76,21 @@ namespace LostCompound.Maps
         /// 想改"成片程度"只动这一个数。
         /// </summary>
         private const double RadiationNoiseFrequency = 0.18;
+
+        // ── 矿脉参数（设计文档 §5.6：「最少 3 个房间可采」）──
+
+        /// <summary>
+        /// 放射性区域至少有这么多间房带矿脉。
+        ///
+        /// 文档原文是「最少 3 个房间可采」，用「至少」而不是「恰好」：
+        /// 图是随机生成的，如果固定成 3，碰上小图或矿脉全挤在死角，
+        /// 玩家可能根本走不到 —— 而 §5.6 的本意是「这层得有矿可挖」。
+        /// 所以按比例算、下限 3，图上房间多的时候矿脉也会跟着多一点。
+        /// </summary>
+        private const int MinOreVeins = 3;
+
+        /// <summary>矿脉房占全部房间的比例（与 <see cref="MinOreVeins"/> 取较大者）。</summary>
+        private const double OreVeinRatio = 0.15;
 
         /// <summary>
         /// 本局的随机种子。存档只存它 + 进度坐标，地形由它重新算出来。
@@ -425,6 +440,39 @@ namespace LostCompound.Maps
                         if (_grid[r][c] == null) continue;
                         _grid[r][c].RadiationSeconds = StretchRadiation(raw[r, c], lowest, highest);
                     }
+                }
+            }
+
+            // ── ⑥ 矿脉（设计文档 §5.6：「最少 3 个房间可采 3-5 个矿物」）──
+            //
+            // 只在放射性区域这一层铺。挑房间的规矩：
+            //   · 起点房不参与（一睁眼就能挖，等于白送）；
+            //   · 已经有别的用途的房间不参与 —— Boss 房挖了也不会再来第二趟，
+            //     而且宝箱房/合成房各自有明确玩法，塞矿脉会让人以为「这房就为挖矿来的」。
+            //
+            // 用注入的 `_rng` 洗牌：矿脉位置和高温房一样必须由种子决定，
+            // 否则同一存档读两次矿会换房间。
+            // ⚠️ 必须写 `_env?.`：EnvType.None 的层没有环境对象。
+            if (_env?.Type == EnvType.RadioactiveArea)
+            {
+                List<(int Row, int Col)> candidates = [];
+                foreach ((int Row, int Col) cell in rooms)
+                {
+                    if (cell == origin) continue;
+                    RoomType type = _grid[cell.Row][cell.Col].Type;
+                    if (type != RoomType.Empty && type != RoomType.Fight) continue;
+                    candidates.Add(cell);
+                }
+
+                Shuffle(candidates);
+
+                int veinCount = (int)Math.Round(rooms.Count * OreVeinRatio);
+                veinCount = Math.Max(veinCount, MinOreVeins);
+                veinCount = Math.Clamp(veinCount, 0, candidates.Count);
+
+                for (int i = 0; i < veinCount; i++)
+                {
+                    _grid[candidates[i].Row][candidates[i].Col].HasOreVein = true;
                 }
             }
 

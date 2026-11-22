@@ -119,15 +119,61 @@ namespace LostCompound.Tools.Players
         /// ⚠️ 已知取舍：主线程在 `ApplyIncomingDamage` 里改 Hp 时**不拿这把锁**。
         ///    实际风险极小（那边一次只减一个数，最坏是两边各扣一次、血少扣一次），
         ///    真要彻底解决得把整个受伤结算也搬进锁里，而那会把打印语句一起圈进去 —— 得不偿失。
+        ///   ⚠️ **扣血前先问碘片**（<see cref="TryBlockRadiation"/>）：连挡下也算在
+        ///      这把锁里，否则「后台线程已经决定扣血、主线程同时把碘片吃了」会两件事都发生。
         /// </summary>
         internal double ApplyRadiationDamage(double amount)
         {
             lock (_radiationGate)
             {
                 if (Hp <= 0) return Hp;
+
+                // 碘片免疫：吃掉一次耐久，这次就不扣了。
+                // _radiationBlocked 是给调用方（RadioactiveArea 的后台线程）看的，
+                // 它据此决定播报「挡下了」而不是「受到 N 点伤害」。
+                if (TryBlockRadiation())
+                {
+                    _radiationBlocked = true;
+                    return Hp;
+                }
+
+                _radiationBlocked = false;
                 Hp = Math.Max(0, Hp - amount);
                 return Hp;
             }
+        }
+
+        /// <summary>
+        /// 上一次 <see cref="ApplyRadiationDamage"/> 是不是被碘片挡下了。
+        /// 后台线程在同一个调用里紧接着读它，所以没有跨调用的竞态。
+        /// </summary>
+        internal bool RadiationBlocked => _radiationBlocked;
+
+        private bool _radiationBlocked;
+
+        /// <summary>
+        /// 背包里有没有还没用完的碘片；有就吃掉一次耐久并返回 true。
+        ///
+        /// 为什么在**扣血那一刻**才消耗次数，而不是玩家吃碘片时：
+        ///   文档写的是「免疫 3 次辐射扣血」，次数对应的是**扣血事件**。
+        ///   吃下去就扣的话，玩家在安全区（30 秒房）白吃 3 次，等于浪费。
+        ///   现在的语义是：吃碘片 = 挂一个「下次辐射免疫」的标记，标记用一次少一次。
+        ///
+        /// 为什么扫背包而不是挂一个 buff：
+        ///   碘片是消耗品、耐久是**道具自己的**状态（`ItemState` 已经负责存档），
+        ///   再做一个 buff 就要把耐久同步两份，读档/丢弃时容易对不上。
+        /// </summary>
+        private bool TryBlockRadiation()
+        {
+            foreach (Item item in Inventory)
+            {
+                if (item is IodineTablet tablet && tablet.ConsumeForRadiation())
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>辐射扣血的锁。见 <see cref="ApplyRadiationDamage"/>。</summary>

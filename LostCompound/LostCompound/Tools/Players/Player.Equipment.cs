@@ -86,7 +86,14 @@ namespace LostCompound.Tools.Players
 
                 Console.WriteLine("1.装备   2.卸下   0.返回");
                 int action = ReadInt("饰品栏：1装备 2卸下 0返回");
-                if (action == 0) return changed;
+                if (action == 0)
+                {
+                    // 返回：先清屏再走，别把这一整屏菜单留在战斗日志里盖住战斗记录。
+                    // 注意顺序 —— 这里清的是「菜单」；菜单里已经打出来的装备/卸下播报
+                    // 发生在清屏**之后**，所以不会跟着消失。
+                    ClearLog();
+                    return changed;
+                }
                 // 输入流结束：菜单再问也读不到输入（ReadInt 会一直立刻返回 -1），
                 // 直接退出饰品栏菜单，等价于玩家选了「0.返回」。手输 -1 时 _inputClosed 为 false，
                 // 仍按原来的「什么都不做、重画菜单」处理，交互不变。
@@ -120,10 +127,18 @@ namespace LostCompound.Tools.Players
                     int pick = ReadInt("选择要装备的道具编号(-1取消)");
                     if (pick == -1)
                     {
-                        // 输入流结束：不再重画菜单空转，直接退出饰品栏
+                        // 取消选装备 ⇒ 回到饰品栏菜单那一步（菜单还在，不用重画）。
                         if (_inputClosed) return changed;
                         continue;
                     }
+                    // ★ 输入完先清屏、再执行（Hyberty 2026-11-22 定的口径）：
+                    //   清掉的是「刚才那一屏菜单 + 编号的选择过程」，
+                    //   装备结果是在这之后由 EquipAccessory 打出来的 ——
+                    //   于是玩家看到的是「菜单没了、装备消息还在」，
+                    //   而不是把结果和菜单一起擦掉（那正是背包原先的毛病）。
+                    //   为什么清在“选编号之后”而不在“读 action 之前”：后者会把
+                    //   「请选择要装备的道具编号」这个提示一起清掉，玩家不知道自己在选什么。
+                    ClearLog();
                     if (EquipAccessory(pick)) changed = true;
                 }
                 else if (action == 2)
@@ -137,10 +152,12 @@ namespace LostCompound.Tools.Players
                     int pick = ReadInt("选择要卸下的道具编号(-1取消)");
                     if (pick == -1)
                     {
-                        // 输入流结束：不再重画菜单空转，直接退出饰品栏
+                        // 取消选卸下 ⇒ 回到饰品栏菜单那一步。
                         if (_inputClosed) return changed;
                         continue;
                     }
+                    // 同「装备」：先清屏再执行，留下的只有卸下的结果播报。
+                    ClearLog();
                     if (UnequipAccessory(pick)) changed = true;
                 }
             }

@@ -139,8 +139,36 @@ namespace LostCompound.MapEnvironment
         /// 为什么放在基类、而不是在 Tool.Pickaxe 里判断具体类型：
         ///   将来矿洞（5.4）的矿道、放射性区域（5.6）的指定房间做出来时，
         ///   只要各自覆写这个属性，开采入口就自动接上 —— 不用回头改 Mining / Pickaxe。
+        ///
+        /// 为什么带 <c>Player p</c> 参数（2026-11-22 改）：
+        ///   放射性区域的可采性取决于「**玩家脚下这间房**有没有矿脉」，环境自己不知道玩家在哪。
+        ///   入口（Pickaxe）手上本来就有 `p`，顺着传进来比让环境反查玩家安全得多。
+        ///   不带参数的环境（水淹洞穴）直接忽略它。
         /// </summary>
-        public virtual bool CanMine => false;
+        public virtual bool CanMine(Player p) => false;
+
+        /// <summary>
+        /// 开采**成功之后**调一次，让环境消耗掉「这一次的矿源」。
+        ///
+        /// 为什么需要这个钩子（而不是「能挖就一直能挖」）：
+        ///   放射性区域（§5.6）的矿源是**房间**上的矿脉，一间房只能挖一次 ——
+        ///   没有这个回调，镐子就能在同一间房反复刷，3-5 个矿物的上限形同虚设。
+        ///   水淹洞穴的矿是「有硫酸就能采」，不设上限，所以它不覆写（默认什么都不做）。
+        ///
+        /// 默认空实现：不支持矿源管理的环境写不写都不影响。
+        /// </summary>
+        public virtual void ConsumeOreVein(Player p) { }
+
+        /// <summary>
+        /// 本层 Boss 被打死之后调一次（由 <see cref="Rooms.Types.BossRoom"/> 在赢了的分支里调）。
+        ///
+        /// 设计文档 §7.4：「<c>EnvRadioactive</c> —— 击杀 Boss 后删除」。
+        /// 也就是说 Boss 一死，这一层压在你身上的辐射状态就该撤掉 ——
+        /// 玩家不会再被逼着往下一层跑，原地清干净是合理的奖励。
+        ///
+        /// 默认空实现：绝大多数环境没有「Boss 死了要撤掉的状态」。
+        /// </summary>
+        public virtual void OnBossDefeated(Player p) { }
 
         /// <summary>
         /// 能不能在**战斗菜单里采沙**（目前只有沙漠，DESIGN §5.3「采沙：花费 1 回合获得 5 沙子」）。

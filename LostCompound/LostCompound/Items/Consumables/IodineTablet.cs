@@ -21,6 +21,23 @@ namespace LostCompound.Items.Consumables
         /// <summary>剩余耐久（文档：3 耐久，每次 -1）。</summary>
         public int Durability { get; private set; } = 3;
 
+        /// <summary>
+        /// 吃掉一次耐久，用来挡下一次辐射扣血。返回 true = 真的挡下了。
+        ///
+        /// 由 <see cref="Player.TryBlockRadiation"/> 在**环境辐射要扣血的那一刻**调用
+        /// （见 RadioactiveArea 的后台线程）—— 玩家吃碘片时只是「准备挡」，
+        /// 真正扣次数发生在这里。耐久为 0 时返回 false，让辐射照常扣血。
+        ///
+        /// 为什么「吃下去时不扣」：文档写的是「免疫 3 次辐射扣血」，
+        /// 次数是对应**扣血事件**的；如果吃的时候扣，玩家会在安全区白吃 3 次。
+        /// </summary>
+        internal bool ConsumeForRadiation()
+        {
+            if (Durability <= 0) return false;
+            Durability -= 1;
+            return true;
+        }
+
         public void Use(Player p, List<Monster> m)
         {
             if (Durability <= 0)

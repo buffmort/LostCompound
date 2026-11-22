@@ -45,6 +45,19 @@ namespace LostCompound.Rooms.Types
                 // 输掉就算了：整局结束，RunMainLoop 的 finally 会走死亡那条路（删档 + 记死亡）。
                 if (p.IsAlive && !p.InputClosed)
                 {
+                    // Boss 死了 = 这一层的威胁解除。设计文档 §7.4 要求「击杀 Boss 后
+                    // 删除 EnvRadioactive」—— 这里就是那个回调点。
+                    //
+                    // 为什么放在「赢了」分支里而不是 RunBattle 里：
+                    //   RunBattle 不认识「谁算 Boss」，它手上只有 List<Monster>；
+                    //   而 Boss 之所以是 Boss，正是**这个房间**决定的（CreateBoss）。
+                    //   判定权跟着决策权走，别让 Tools 反过来猜。
+                    //
+                    // 为什么环境要自己重写 OnBossDefeated 而不是这里直接清 buff：
+                    //   只有放射性区域这一层有环境辐射 buff，别的环境什么都不做；
+                    //   把「清哪个 buff」的知识留在环境里，BossRoom 不用认识未来的每一个环境状态。
+                    Environment?.OnBossDefeated(p);
+
                     if (GameProgress.Layer >= GameProgress.FinalLayer)
                     {
                         // 第 10 层 Boss = 通关。

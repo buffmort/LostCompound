@@ -97,6 +97,36 @@ namespace LostCompound.MapEnvironment.Environments
         /// </summary>
         public override void OnBattleTurn(bool hotRoom) { }
 
+        // ─────────────────────────── 开采（§5.6）───────────────────────────
+
+        /// <summary>
+        /// 这层能不能用镐子挖。镐子（<see cref="Items.Equipment.Pickaxe"/>）问的就是这个。
+        ///
+        /// 返回 true 的条件是「**脚下这间房有矿脉**」—— 见 <see cref="Rooms.Room.HasOreVein"/>。
+        /// 设计文档 §5.6 写的是「最少 3 个房间可采」，所以可采性挂在房间上，
+        /// 而不是「这一层整体可采」。
+        ///
+        /// ⚠️ 参数 `p` 是必需的，**不能**改用 `_player` 字段：
+        ///   那个字段只在 OnScreenRefresh 里同步，环境对象刚建好、还没刷过一屏时是 null，
+        ///   用它会让镐子在这一层「静默失效」（玩家只看到「这里没有可以开采的东西」）。
+        /// </summary>
+        public override bool CanMine(Player p) => p?.CurrentRoom?.HasOreVein == true;
+
+        /// <summary>
+        /// 挖完之后消耗掉脚下的矿脉。一间房只能挖一次。
+        ///
+        /// 为什么挖一次就没了：设计文档写的是「3 个房间可采 3-5 个矿物」，
+        /// 是**房间数**限定总产出，挖完就换下一间 —— 不消耗的话一间房能刷到天荒地老。
+        ///
+        /// 同样从参数拿 Player（理由见 <see cref="CanMine"/>）：`Player.CurrentRoom` 只读，
+        /// 但 `Room.HasOreVein` 可写，所以拿到房间之后直接改它。
+        /// </summary>
+        public override void ConsumeOreVein(Player p)
+        {
+            Rooms.Room room = p?.CurrentRoom;
+            if (room != null) room.HasOreVein = false;
+        }
+
         // ─────────────────────────── 主线程入口 ───────────────────────────
 
         /// <summary>
@@ -215,6 +245,14 @@ namespace LostCompound.MapEnvironment.Environments
 
                 double remainingHp = p.ApplyRadiationDamage(DamagePerTick);
 
+                // 碘片挡下时不累计次数、不报「受到伤害」，只报「挡下了」——
+                // 否则玩家会看到「受到 1 点伤害（剩余 100.0）」这种自相矛盾的播报。
+                if (p.RadiationBlocked)
+                {
+                    _pendingInfo.Enqueue("辐射：碘片挡下了一次（" + IodineLeftText(p) + "）");
+                    continue;
+                }
+
                 lock (_gate) _ticksTaken++;
 
                 _pendingInfo.Enqueue(
@@ -223,6 +261,47 @@ namespace LostCompound.MapEnvironment.Environments
             }
         }
 
+        /// <summary>播报里那句「还剩几片碘片」。</summary>
+        private static string IodineLeftText(Player p)
+        {
+            int left = 0;
+            foreach (Items.Item item in p.Inventory)
+            {
+                if (item is Items.Consumables.IodineTablet tablet) left += tablet.Durability;
+            }
+
+            return left > 0 ? "碘片还能挡 " + left + " 次" : "碘片用完了";
+        }
+
+        // ─────────────────────────── Boss 死亡（§7.4）───────────────────────────
+
+        /// <summary>
+        /// 本层 Boss 被打死 → 撤掉这一层的辐射状态（设计文档 §7.4：
+        /// 「EnvRadioactive —— 击杀 Boss 后删除」）。
+        ///
+        /// 为什么直接把间隔置 0，而不是只删 buff：
+        ///   这个环境的「辐射状态」就是 `_intervalSeconds`（后台线程每 100ms 读它决定扣不扣）。
+        ///   buff 体系是另一条线（§7.4 的 NonEnvRadioactive 才用 buff），
+        ///   这里删的是环境自己的秒表 —— 置 0 之后 ClockLoop 下一拍就会走「不辐射」分支。
+        ///
+        /// 为什么还要清 `_elapsedSeconds`：不清的话，玩家要是以后被放回这个环境
+        /// （理论上不会，但留个干净的初始状态更省心），会带着上一段的进度复活。
+        /// </summary>
+        public override void OnBossDefeated(Player p)
+        {
+            lock (_gate)
+            {
+                _intervalSeconds = 0.0;
+                _elapsedSeconds = 0.0;
+                _bossDefeated = true;
+            }
+
+            _pendingInfo.Enqueue("辐射源已经沉寂——这一层不再有辐射。");
+        }
+
+        /// <summary>Boss 已经打过了（状态栏据此显示「已解除」而不是「这里没有辐射源」）。</summary>
+        private bool _bossDefeated;
+
         // ─────────────────────────── 状态栏 / 存档 ───────────────────────────
 
         /// <summary>状态栏那一行：本房间的辐射间隔 + 已经挨了几次。</summary>
@@ -230,13 +309,20 @@ namespace LostCompound.MapEnvironment.Environments
         {
             double interval;
             int ticks;
+            bool defeated;
             lock (_gate)
             {
                 interval = _intervalSeconds;
                 ticks = _ticksTaken;
+                defeated = _bossDefeated;
             }
 
-            if (interval <= 0) return "辐射：这里没有辐射源";
+            if (interval <= 0)
+            {
+                // Boss 打完之后间隔也会归 0，但含义不同 —— 别让玩家以为「跑到了安全房」。
+                return defeated ? "辐射：Boss 已死，这一层不再有辐射" : "辐射：这里没有辐射源";
+            }
+
             return "辐射：" + interval.ToString("F1") + " 秒/次（已受 " + ticks + " 次）";
         }
 
@@ -247,12 +333,19 @@ namespace LostCompound.MapEnvironment.Environments
         public override Dictionary<string, int> SaveState() => new()
         {
             ["radiationTicks"] = _ticksTaken,
+            // Boss 打没打过要存：读档回到第 10 层时，地图是按种子重建的，
+            // 但「这一层的 Boss 已经死了」这种进度不在种子里的。
+            ["radiationBossDefeated"] = _bossDefeated ? 1 : 0,
         };
 
         public override void LoadState(IReadOnlyDictionary<string, int> state)
         {
             if (state == null) return;
             if (state.TryGetValue("radiationTicks", out int ticks)) _ticksTaken = ticks;
+            if (state.TryGetValue("radiationBossDefeated", out int defeated) && defeated != 0)
+            {
+                _bossDefeated = true;
+            }
         }
     }
 }

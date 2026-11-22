@@ -36,7 +36,7 @@ namespace LostCompound.Items.Equipment
 
             // 可开采的环境才动手：这里问的是环境自己的能力（CanMine），不是写死的类型判断 ——
             // 将来矿洞(5.4) 的矿道、放射性区域(5.6) 覆写 CanMine 之后，本方法不用改
-            if (p.CurrentEnvironment?.CanMine != true)
+            if (p.CurrentEnvironment?.CanMine(p) != true)
             {
                 Console.WriteLine("这里没有可以开采的东西。");
                 // 没东西可挖：不扣耐久，玩家可以留着到矿洞/水淹洞穴再用
@@ -52,6 +52,10 @@ namespace LostCompound.Items.Equipment
             {
                 p.AddItem(ore);
             }
+
+            // 挖完让环境消耗掉这一次的矿源（放射性区域：一间房一条矿脉，挖完就没了）。
+            // 放在产出之后：万一 AddItem 抛异常，矿脉不会被白白吃掉。
+            p.CurrentEnvironment?.ConsumeOreVein(p);
         }
 
         public void ExplainBattleOnly(Player p)

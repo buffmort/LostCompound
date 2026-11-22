@@ -50,6 +50,19 @@ namespace LostCompound.Rooms
         /// </summary>
         public double RadiationSeconds { get; set; }
 
+        /// <summary>
+        /// 这间房有没有**矿脉**（设计文档 §5.6：放射性区域「最少 3 个房间可采」）。
+        /// 有矿脉的房间才能用镐子开采，挖一次就消耗掉（见 RadioactiveArea.ConsumeOreVein）。
+        ///
+        /// 为什么是房级标记而不是「全层共用一个可采次数」：
+        ///   文档说的是**房间**可采，玩家得在地图上找出那几间房 —— 这是这条路线的探索目标。
+        ///   做成「全层能挖 N 次」的话，玩家随便找个房间连挖 N 下就完事，找矿的过程没了。
+        ///
+        /// 与 <see cref="RadiationSeconds"/> 同一条纪律：必须由生成器**确定性地**掷出来
+        /// （用注入的 `_rng`，不能用 `Random.Shared`），地图不存档、读档靠种子重建。
+        /// </summary>
+        public bool HasOreVein { get; set; }
+
         // 便捷属性：原来需要枚举的地方（掉落表、怪物生成、环境相关结算等）用它取环境类型
         public EnvType EnvKind => Environment?.Type ?? EnvType.None;
 
