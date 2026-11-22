@@ -58,6 +58,14 @@ namespace LostCompound.Tools
 
                 string line = "[" + i + "] " + m.ToString().TrimEnd();
 
+                // 护盾：> 0 才显示。
+                // 为什么必须显示（Hyberty 2026-11-22）：盾是「这一刀会不会被吃掉」的唯一线索，
+                // 而 Monster.ToString() 只给「名字(血)」。龙每回合 +5 盾（上限 15）、
+                // 沙葬者用沙压沙甲 —— 看不见盾等于让玩家盲猜该打谁、该不该补刀。
+                // 放在名字后面而不是意图后面：护盾是**怪自己现在的状态**，
+                // 与「这回合要干什么」是两回事，混进意图尾巴会被误读成「打 10 并加 5 盾」。
+                if (m.Shield > 0) line += " 盾 " + m.Shield.ToString("F1");
+
                 // 空串 = 这只怪还没接意图，就不加尾巴（不留一个孤零零的破折号）
                 string intent = m.IntentText(p);
                 if (!string.IsNullOrEmpty(intent)) line += " - " + intent;
