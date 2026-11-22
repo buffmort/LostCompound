@@ -103,6 +103,32 @@ namespace LostCompound.Tools.Players
         }
 
         /// <summary>
+        /// **机制伤**：无视 DEF、无视护盾、**也不触发「受伤」通知**（斗篷不计数），只扣血 + 播报。
+        ///
+        /// 为什么不能拿 <see cref="TakeDamageIgnoringDefenseAndShield"/> 顶替：
+        /// 那条路的尾巴上有 <c>NotifyDamaged()</c>，会把这一跳算进斗篷的「受伤 50 次」里。
+        /// 活棱镜的反弹伤害按设计（Hyberty 2026-11-22 设计书）明确要求「不触发受伤判定」——
+        /// 玩家是被自己的刀弹了一下，不是被怪物打到，斗篷不该因此磨损。
+        ///
+        /// 与 <see cref="ApplyRadiationDamage"/> 的区别：那条是给后台线程用的、连播报都不打；
+        /// 这条在主线程的战斗流程里跑，**要播报**（玩家得知道自己为什么掉血）。
+        ///
+        /// 状态栏与 Buff 框照常刷新：血变了就得看得见，这一点和别的受伤通路一致。
+        /// </summary>
+        /// <returns>实际扣掉的血量。</returns>
+        public double TakeMechanicDamage(double dmg)
+        {
+            if (dmg <= 0) return 0;
+
+            Hp = Math.Max(0, Hp - dmg);
+            Console.WriteLine("你受到{0:F1}点伤害!", dmg);
+
+            RefreshStatus();
+            RefreshBuffBox();
+            return dmg;
+        }
+
+        /// <summary>
         /// 放射性区域的后台计时线程专用：**只扣血，别的什么都不做**。
         ///
         /// 为什么不能直接调 <see cref="TakeDamageIgnoringDefenseAndShield"/>：
@@ -430,7 +456,15 @@ namespace LostCompound.Tools.Players
 
             Monster target = targets[choice];
             ClearLog();
+
+            // 记下挨打前的血量：这一刀**实际扣掉多少**要拿去喂 OnPlayerMeleeHit
+            // （活棱镜按实际伤害反弹、装甲按「有没有打中」决定拆不拆甲）。
+            // 用 Hp 的差而不是 CalculateAttack 的结果：DEF 减免和护盾都会吃掉一部分，
+            // 设计书里这两只怪的机制都是按「真正打到身上的」算的。
+            double hpBefore = target.Hp;
             target.TakeDamage(dmg);
+            double hpLoss = Math.Max(0, hpBefore - target.Hp);
+
             Console.WriteLine("你攻击了" + target + "!");
 
             // 武器命中特效：遍历身上（背包 + 饰品栏）所有 IOnHit 各触发一次。
@@ -452,6 +486,15 @@ namespace LostCompound.Tools.Players
                     TriggerOnHit(item, target, triggered);
                 }
             }
+
+            // 「玩家单点砍了它一刀」的通用事件（活棱镜反弹 / 装甲拆甲反击）。
+            // 为什么在 IOnHit 之后：先让武器特效把 buff 挂上、把播报打完，
+            // 玩家的注意力顺序是「我打出了什么」→「它怎么反击我」，反过来的话
+            // 中间夹着一条「你给敌人挂上了流血」会很突兀。
+            // 目标已死也照样通知：装甲死前那一刀它还能反刺（设计书没排除这种情况，
+            // 但从「甲碎的瞬间骨刺弹出」这个画面看，死了就不该再弹 —— 所以传 0 让
+            // 那些怪自己判断；目前三只里只有装甲用 hpLoss，它内部会跳过已死的自己）。
+            target.OnPlayerMeleeHit(this, target.IsAlive ? hpLoss : 0);
         }
 
         /// <summary>

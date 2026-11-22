@@ -228,6 +228,40 @@ namespace LostCompound.Monsters
                     }
                     break;
 
+                // ── 第 6-12 层通用怪（Hyberty 2026-11-22 设计书）──
+                // 三只的掉落都是「若干候选里掷一个」，所以统一用 NextDouble 分档，
+                // 而不是把每种候选都塞进 loots —— 设计书写的是三选一。
+                case MonsterType.ArmoredHulk:
+                    // 装甲：1 金属（权重 3）、2 金属（权重 2）、1 布料（权重 1）。
+                    // 权重加起来是 6：3/6 一件金属、2/6 两件金属、1/6 布料。
+                    {
+                        double roll = Random.Shared.NextDouble() * 6.0;
+                        if (roll < 3.0) loots.Add(new Metal(1));
+                        else if (roll < 5.0) loots.Add(new Metal(2));
+                        else loots.Add(new Cloth(1));
+                    }
+                    break;
+
+                case MonsterType.Parasite:
+                    // 寄生虫：1 白磷（权重 3）、1 布料（权重 2）、1 碘（权重 1）。
+                    {
+                        double roll = Random.Shared.NextDouble() * 6.0;
+                        if (roll < 3.0) loots.Add(new WhitePhosphorus(1));
+                        else if (roll < 5.0) loots.Add(new Cloth(1));
+                        else loots.Add(new Iodine(1));
+                    }
+                    break;
+
+                case MonsterType.LivingPrism:
+                    // 活棱镜：1 放射矿（权重 2）、1 金属（权重 2）、1 白磷（权重 1）。
+                    {
+                        double roll = Random.Shared.NextDouble() * 5.0;
+                        if (roll < 2.0) loots.Add(new RadioactiveOre(1));
+                        else if (roll < 4.0) loots.Add(new Metal(1));
+                        else loots.Add(new WhitePhosphorus(1));
+                    }
+                    break;
+
                 case MonsterType.Tidecaller:
                     // 涨潮者（Hyberty 2026-11-22 定）：Boss 掉落，数量按 Hyberty「掉落数量 X2」翻倍。
                     //

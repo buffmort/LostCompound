@@ -217,7 +217,14 @@ namespace LostCompound.Tools.Players
             int count = 0;
             foreach (Item i in Inventory)
             {
-                if (i is IUseable)
+                // 被污染的条目仍然占编号（它还在背包里、还能拿去合成），
+                // 但标签说清楚「这个本场用不了」，否则玩家会以为是 bug。
+                if (i.Contaminated)
+                {
+                    Console.WriteLine(count + "." + i + "[被污染]");
+                    count++;
+                }
+                else if (i is IUseable)
                 {
                     Console.WriteLine(count + "." + i + "[可使用]");
                     count++;
@@ -258,6 +265,13 @@ namespace LostCompound.Tools.Players
                 {
                     DiscardItemInBattle(monsters);
                     return false;   // 丢弃不算行动
+                }
+                if (choice >= 0 && choice < Inventory.Count && Inventory[choice].Contaminated)
+                {
+                    // 被污染的道具「本场战斗不可使用」——但可以拿去合成。
+                    // 这里**不**退出背包：玩家可以改选别的、也可以干脆退出去合成。
+                    Console.WriteLine("「" + Inventory[choice].Name + "」被寄生虫污染了，这一场用不了（可以先拿去合成）。");
+                    continue;
                 }
                 if (choice >= 0 && choice < Inventory.Count) break;
                 Console.WriteLine("您的使用无效！请重新选择(0-" + (Inventory.Count - 1) + ", -2 丢弃):");

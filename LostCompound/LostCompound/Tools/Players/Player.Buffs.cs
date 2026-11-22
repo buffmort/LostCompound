@@ -100,6 +100,27 @@ namespace LostCompound.Tools.Players
         public void ClearBattleBuffs() => Buffs.RemoveAll(b => !b.SurvivesBattleEnd);
 
         /// <summary>
+        /// 解开寄生虫留下的「背包污染」标记（<see cref="Item.Contaminated"/>）。
+        ///
+        /// 为什么和 <see cref="ClearBattleBuffs"/> 放在一起、由战斗结束统一调用：
+        /// 污染的语义就是「本场战斗不可使用」，和其它战斗内状态是同一条生命线 ——
+        /// 战斗一结束就该无差别解除。散在各处的调用点（离开房间 / 换层 / 读档）
+        /// 一定会漏一个，漏掉的后果是玩家带着一件永久废掉的道具走到最后。
+        ///
+        /// 之所以还要单独一个方法而不是塞进 RemoveConsumedItems：
+        /// RemoveConsumedItems 走的是 IChangeable.ShouldRemove（删道具），
+        /// 而这里是**保住道具、只摘标记**，混在一起会让「删」和「改状态」绞成一团。
+        /// </summary>
+        public void ClearItemContamination()
+        {
+            foreach (Item item in Inventory)
+            {
+                item.Contaminated = false;
+            }
+        }
+
+
+        /// <summary>
         /// 给玩家挂一个状态效果。
         /// 同类 buff **叠加到已有对象上**，而不是挂两个同名对象：理由
         ///   1. 「流血 10 点」是一个状态，不是两个状态；分开放会让上限 10 的判断散成多处；

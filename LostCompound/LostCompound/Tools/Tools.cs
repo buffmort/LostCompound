@@ -410,6 +410,7 @@ namespace LostCompound.Tools
         private static void ClearBuffs(Player p, List<Monster> monsters)
         {
             p.ClearBattleBuffs();  // 清掉普通 buff，保留"跨战斗"的那些
+            p.ClearItemContamination();  // 寄生虫的「背包污染」也只活一场
             p.RecomputeStats();    // buff 变了，派生值要跟着回到「基础 + 环境 + 剩余 buff」
             foreach (Monster m in monsters)
             {

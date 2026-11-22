@@ -233,6 +233,25 @@ namespace LostCompound.Monsters
         /// </summary>
         public virtual void OnElementalHit(DamageElement element) { }
 
+        /// <summary>
+        /// 「玩家刚刚单点砍了我一刀」。默认什么也不做。
+        ///
+        /// 与 <see cref="TakeDamage"/> 的分工：TakeDamage 回答「我掉了多少血」，
+        /// 本方法回答「这一刀之后我要对**玩家**做点什么」。需要后者的怪，
+        /// 在 TakeDamage 里保存不了玩家对象（签名里没有 Player），只能靠这条通道。
+        ///
+        /// 谁需要它：
+        ///   · 装甲（<see cref="Normal.ArmoredHulk"/>）—— 掉甲到底时反刺一刀；
+        ///   · 活棱镜（<see cref="Normal.LivingPrism"/>）—— 按实际伤害反弹给玩家。
+        ///
+        /// ⚠️ 只在**玩家单点攻击**之后调用（<c>Player.Attack</c>），AOE 不调用 ——
+        ///    AOE 一顿打几十下，反弹/拆甲按那种频率会失控，设计书也只写了「被攻击命中」。
+        ///
+        /// ⚠️ 传入的是**这一刀实际扣掉的 HP**（不是打过来的原始伤害）：护盾吃掉的部分
+        ///    没打到身上，不该反弹、也不该算进「拆甲命中」以外的东西。
+        /// </summary>
+        public virtual void OnPlayerMeleeHit(Player player, double hpLoss) { }
+
         // 原 6 个子类各自重写的 isAlive() 实现完全相同（都是 hp > 0），
         // 故合并为基类上的一个计算属性，子类不再重写。
         public bool IsAlive => Hp > 0;
@@ -284,6 +303,19 @@ namespace LostCompound.Monsters
         /// <param name="incomingDamage">玩家打过来的原始伤害（还没过任何减免）</param>
         protected void TakeDamageWithDefaultLog(double incomingDamage)
         {
+            TakeDamageWithDefaultLog(incomingDamage, out _);
+        }
+
+        /// <summary>
+        /// 带「这次实际扣了多少 HP」输出的版本 —— 给需要拿实际伤害做后续结算的怪用
+        /// （活棱镜按 30% 反弹、装甲按「命中」拆甲都要这个数）。
+        ///
+        /// 为什么用 out 而不是改成返回值：返回值那条已经有一堆子类写好了
+        /// <c>TakeDamage</c> 是 void、调用点也都当 void 用，改签名要动一大片；
+        /// out 只加一个重载，旧调用点一个字不用改。
+        /// </summary>
+        protected void TakeDamageWithDefaultLog(double incomingDamage, out double hpLoss)
+        {
             // 1. 预处理（岩浆怪在此削掉高温免疫的那 30%；其余怪物用默认的恒等）
             double preprocessed = ProcessIncomingDamage(incomingDamage);
 
@@ -291,7 +323,7 @@ namespace LostCompound.Monsters
             double realDmg = Calculator.ApplyDefense(Def, preprocessed);
 
             // 3. 先扣盾、盾不够再扣血；hpLoss = 实际扣掉的血量
-            double hpLoss = AbsorbWithShield(realDmg);
+            hpLoss = AbsorbWithShield(realDmg);
 
             // 4. 播报：伤害全被盾吃下时血量没掉，口径也必须跟着换，
             //    否则玩家会看到「受到 X 点伤害」但血条纹丝不动。

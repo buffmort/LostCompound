@@ -34,6 +34,19 @@ namespace LostCompound.Items
         //   （布料/热硫罐/药/毒气弹/斗篷/压缩沙瓶）时又加了 6 个，故为 27。）
         public abstract ItemType? Type { get; }           // 可空：见上方说明
 
+        /// <summary>
+        /// 被「背包污染」标记（寄生虫的机制）：本场战斗**不可使用**，但可以正常合成。
+        ///
+        /// 为什么是道具自己身上的一个标记、而不是 Player 侧的一张名单：
+        /// 名单要按实例/ID 记，道具被丢掉、合成掉、合并堆叠之后名单就悬空了
+        /// （同一个 ID 可能是新捡的那件）。标记跟着实例走，谁被污染一目了然，
+        /// 而且天然满足「战斗结束自动恢复」——<see cref="Player"/> 清掉它就行，不用反查。
+        ///
+        /// 落地位置：<c>Player.OpenItems</c> 列清单时标 <c>[被污染]</c> 并拒绝选中；
+        /// 合成走的是 <c>RecipeBook</c>，那里**不看**这个标记，所以「可正常合成」是免费的。
+        /// </summary>
+        public bool Contaminated { get; set; }
+
         public override string ToString() => $"{Name} x{Count}";
     }
 }

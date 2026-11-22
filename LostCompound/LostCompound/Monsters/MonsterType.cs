@@ -44,5 +44,14 @@ namespace LostCompound.Monsters
 
         /// <summary>放射僵尸（放射性区域专属精英，Hyberty 2026-11-22 定）。</summary>
         RadioactiveZombie,
+
+        /// <summary>装甲（第 6-12 层通用普通怪，Hyberty 2026-11-22 定）。</summary>
+        ArmoredHulk,
+
+        /// <summary>寄生虫（第 6-12 层通用普通怪，Hyberty 2026-11-22 定）。</summary>
+        Parasite,
+
+        /// <summary>活棱镜（第 6-12 层通用普通怪，Hyberty 2026-11-22 定）。</summary>
+        LivingPrism,
     }
 }
