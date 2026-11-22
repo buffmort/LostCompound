@@ -85,6 +85,14 @@ namespace LostCompound.MapEnvironment.Environments
         /// <summary>本层累计挨了几次辐射（存档要用的那一个数）。</summary>
         private int _ticksTaken;
 
+        /// <summary>
+        /// 玩家身上现在有没有盖革计数器（背包或饰品栏）。
+        /// 由 <see cref="UpdateTracking"/> 在主线程算好、后台线程只读，
+        /// 用途是决定状态栏**要不要把「几秒一次」写出来**（见 <see cref="DescribeStatus"/>）。
+        /// 换层时环境对象整个重建，所以这个值不必存档。
+        /// </summary>
+        private bool _hasGeigerCounter;
+
         public RadioactiveArea() : base(EnvType.RadioactiveArea) { }
 
         /// <summary>
@@ -158,6 +166,7 @@ namespace LostCompound.MapEnvironment.Environments
             lock (_gate)
             {
                 _player = p;
+                _hasGeigerCounter = HasGeigerCounter(p);
 
                 // 换房清零（Hyberty 第 1 条）：计时量各房不同，不能把上一间的进度带过来。
                 // 只在**真的换了格子**时清 —— OnScreenRefresh 一屏会调好几次，
@@ -175,13 +184,26 @@ namespace LostCompound.MapEnvironment.Environments
             }
         }
 
-        /// <summary>玩家饰品栏里有没有盖革计数器。</summary>
+        /// <summary>
+        /// 玩家身上有没有盖革计数器（背包或饰品栏都算）。
+        ///
+        /// 为什么背包也算：它的作用是「**测**辐射」，不一定要戴在身上才能读表 ——
+        /// 文档只对「饰品栏」追加了额外的 ×1.25 效果（见 <see cref="UpdateTracking"/>），
+        /// 但从没说过「放背包里就完全没用」。
+        /// 状态栏的显示规则见 <see cref="DescribeStatus"/>。
+        /// </summary>
         private static bool HasGeigerCounter(Player p)
         {
+            foreach (Items.Item item in p.Inventory)
+            {
+                if (item != null && item.Id == Items.ItemIds.GeigerCounter) return true;
+            }
+
             foreach (Items.Item item in p.Accessories)
             {
                 if (item != null && item.Id == Items.ItemIds.GeigerCounter) return true;
             }
+
             return false;
         }
 
@@ -310,17 +332,29 @@ namespace LostCompound.MapEnvironment.Environments
             double interval;
             int ticks;
             bool defeated;
+            bool hasGeiger;
             lock (_gate)
             {
                 interval = _intervalSeconds;
                 ticks = _ticksTaken;
                 defeated = _bossDefeated;
+                hasGeiger = _hasGeigerCounter;
             }
 
             if (interval <= 0)
             {
                 // Boss 打完之后间隔也会归 0，但含义不同 —— 别让玩家以为「跑到了安全房」。
                 return defeated ? "辐射：Boss 已死，这一层不再有辐射" : "辐射：这里没有辐射源";
+            }
+
+            // Hyberty 2026-11-22：**没有盖革计数器就不显示扣血间隔**。
+            //   理由：盖革计数器就是「测量辐射」的那件仪器 —— 手上没有仪器，
+            //   玩家就不该凭空知道这里是 10 秒还是 25 秒一次（应该自己去摸索或靠挨打感受）。
+            //   只要**身上有**计数器（背包或饰品栏；饰品栏会额外 ×1.25）就显示，
+            //   因为「有仪器 = 读得出读数」。
+            if (!hasGeiger)
+            {
+                return "辐射：这里有辐射，但没有盖革计数器测不出间隔";
             }
 
             return "辐射：" + interval.ToString("F1") + " 秒/次（已受 " + ticks + " 次）";
